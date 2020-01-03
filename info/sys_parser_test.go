@@ -8,7 +8,7 @@ import (
 	"strings"
 	"sync"
 
-	lib "github.com/citrusleaf/aerospike-management-lib/common"
+	"github.com/citrusleaf/aerospike-management-lib/common"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -17,7 +17,7 @@ import (
 //
 
 // // API variant having nodeIP inputs
-// func GetSysInfo(nodeIPs ...string) lib.Stats {
+// func GetSysInfo(nodeIPs ...string) common.Stats {
 // 	cmdList := make([]string, len(RunCmd))
 // 	i := 0
 // 	for cmd := range RunCmd {
@@ -27,8 +27,8 @@ import (
 // 	return GetSysCmdInfoForNodes(cmdList, nodeIPs)
 // }
 
-// func GetSysCmdInfoForNodes(cmdList []string, nodeIPs []string) lib.Stats {
-// 	nodesSysMap := make(lib.Stats)
+// func GetSysCmdInfoForNodes(cmdList []string, nodeIPs []string) common.Stats {
+// 	nodesSysMap := make(common.Stats)
 // 	for _, n := range nodeIPs {
 // 		sysMap := s.GetSysCmdInfo(cmdList)
 // 		nodesSysMap[n] = sysMap
@@ -50,7 +50,7 @@ func GetSysCmdInfo(ip string, cmdList ...string) NodeSysStats {
 			defer wg.Done()
 			cmdOutput := runSysCmd(RunCmd[cmd][0], ip)
 
-			var m lib.Stats
+			var m common.Stats
 			if cmd == "uname" {
 				m = parseUnameInfo(cmdOutput)
 			} else if cmd == "meminfo" {

@@ -13,7 +13,7 @@ import (
 	"sort"
 	"strings"
 
-	lib "github.com/citrusleaf/aerospike-management-lib/common"
+	"github.com/citrusleaf/aerospike-management-lib/common"
 	log "github.com/inconshreveable/log15"
 )
 
@@ -160,7 +160,7 @@ func writeKeys(buf *bytes.Buffer, keys *[]string, conf Conf, isSimple bool, inde
 		switch v := v.(type) {
 		case string, bool, int, int64, uint64, float64:
 			if isSimple {
-				sv, _ := lib.ToString(v)
+				sv, _ := common.ToString(v)
 				writeField(buf, k, sv, indent)
 			}
 

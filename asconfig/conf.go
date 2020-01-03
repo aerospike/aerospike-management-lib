@@ -5,13 +5,13 @@ import (
 	"encoding/json"
 	"fmt"
 
-	lib "github.com/citrusleaf/aerospike-management-lib/common"
+	"github.com/citrusleaf/aerospike-management-lib/common"
 	"github.com/xeipuuv/gojsonschema"
 )
 
 // Conf is format for configs
 // It has list for named sections like namespace, set, dc, tls, logging file
-type Conf = lib.Stats
+type Conf = common.Stats
 
 // DotConf is string of aerospike.conf content
 type DotConf = string

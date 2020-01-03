@@ -11,9 +11,9 @@ import (
 
 	aero "github.com/aerospike/aerospike-client-go"
 
-	"github.com/citrusleaf/aerospike-kubernetes-operator/pkg/controller/lib"
-	"github.com/citrusleaf/aerospike-kubernetes-operator/pkg/controller/lib/info"
-	"github.com/citrusleaf/aerospike-kubernetes-operator/pkg/controller/lib/system"
+	"github.com/citrusleaf/aerospike-management-lib/common"
+	"github.com/citrusleaf/aerospike-management-lib/info"
+	"github.com/citrusleaf/aerospike-management-lib/system"
 )
 
 var runCmd = info.RunCmd
@@ -43,7 +43,7 @@ var runCmdKeys = []string{"hostname", "top", "lsb", "meminfo", "interrupts", "io
 // -uname 466 24
 //
 
-var ParsedData lib.Stats
+var ParsedData common.Stats
 
 var err error
 
