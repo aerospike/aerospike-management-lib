@@ -10,11 +10,11 @@ import (
 
 	log "github.com/inconshreveable/log15"
 
-	"github.com/citrusleaf/aerospike-management-lib/common"
+	lib "github.com/citrusleaf/aerospike-management-lib"
 	"github.com/citrusleaf/aerospike-management-lib/system"
 )
 
-type NodeSysStats = common.Stats
+type NodeSysStats = lib.Stats
 
 var RunCmd = map[string][]string{
 	"hostname":   []string{"hostname -I", "hostname"},
@@ -94,7 +94,7 @@ func (s *SysInfo) GetSysInfo(cmdList ...string) NodeSysStats {
 				return
 			}
 
-			var m common.Stats
+			var m lib.Stats
 
 			switch cmd {
 			case "uname":
@@ -163,9 +163,9 @@ func (s *SysInfo) RunSysCmd(cmds ...string) (stdout, stderr string, err error) {
 
 // parseInterruptsInfo parse interrupts info
 // cmdOutput: (output of command - "cat /proc/interrupts")
-func parseInterruptsInfo(cmdOutput string) common.Stats {
+func parseInterruptsInfo(cmdOutput string) lib.Stats {
 
-	m := make(common.Stats)
+	m := make(lib.Stats)
 	intList := make([]interface{}, 0)
 	lines := strings.Split(cmdOutput, "\n")
 
@@ -182,12 +182,12 @@ func parseInterruptsInfo(cmdOutput string) common.Stats {
 			toks := strings.Fields(line)
 			cpuList := toks[1 : len(toks)-2]
 
-			devObj := make(common.Stats)
+			devObj := make(lib.Stats)
 			devObj["device_name"] = toks[len(toks)-1]
 			devObj["interrupt_id"] = strings.Replace(toks[0], ":", "", -1)
 			devObj["interrupt_type"] = toks[len(toks)-2]
 
-			m := make(common.Stats)
+			m := make(lib.Stats)
 			for idx, cpu := range cpuToks {
 				m[cpu] = cpuList[idx]
 			}
@@ -206,9 +206,9 @@ func parseInterruptsInfo(cmdOutput string) common.Stats {
 // Max file size             unlimited            unlimited            bytes
 var regexLimitInfo = regexp.MustCompile("  +")
 
-func parseLimitsInfo(cmdOutput string) common.Stats {
+func parseLimitsInfo(cmdOutput string) lib.Stats {
 
-	m := make(common.Stats)
+	m := make(lib.Stats)
 	lines := strings.Split(cmdOutput, "\n")
 
 	for _, line := range lines {
@@ -228,9 +228,9 @@ func parseLimitsInfo(cmdOutput string) common.Stats {
 
 // parseSysctlallInfo parse sysctl info
 // cmdOutput: (output of command - "sudo sysctl vm fs")
-func parseSysctlallInfo(cmdOutput string) common.Stats {
+func parseSysctlallInfo(cmdOutput string) lib.Stats {
 
-	m := make(common.Stats)
+	m := make(lib.Stats)
 	lines := strings.Split(cmdOutput, "\n")
 
 	for _, line := range lines {
@@ -245,9 +245,9 @@ func parseSysctlallInfo(cmdOutput string) common.Stats {
 
 // parseHdparmInfo parse hdparm info
 // cmdOutput: (output of command - "sudo fdisk -l |grep Disk |grep dev | cut -d ” ” -f 2 | cut -d “:” -f 1 | xargs sudo hdparm -I 2>/dev/null")
-func parseHdparmInfo(cmdOutput string) common.Stats {
+func parseHdparmInfo(cmdOutput string) lib.Stats {
 
-	m := make(common.Stats)
+	m := make(lib.Stats)
 	lines := strings.Split(cmdOutput, "\n")
 
 	var device string
@@ -279,9 +279,9 @@ func parseHdparmInfo(cmdOutput string) common.Stats {
 
 // parseIptablesInfo parse iptables info
 // cmdOutput: (output of command - "sudo iptables -S")
-func parseIptablesInfo(cmdOutput string) common.Stats {
+func parseIptablesInfo(cmdOutput string) lib.Stats {
 
-	m := make(common.Stats)
+	m := make(lib.Stats)
 	m["has_firewall"] = false
 
 	lines := strings.Split(cmdOutput, "\n")
@@ -300,9 +300,9 @@ func parseIptablesInfo(cmdOutput string) common.Stats {
 
 // parseLscpuInfo parse lscpu info
 // cmdOutput: (output of command - "lscpu")
-func parseLscpuInfo(cmdOutput string) common.Stats {
+func parseLscpuInfo(cmdOutput string) lib.Stats {
 
-	m := make(common.Stats)
+	m := make(lib.Stats)
 	lines := strings.Split(cmdOutput, "\n")
 
 	for _, line := range lines {
@@ -317,9 +317,9 @@ func parseLscpuInfo(cmdOutput string) common.Stats {
 
 // parseDmesgInfo parse dmesg info
 // cmdOutput: (output of command - "dmesg -T", "dmesg")
-func parseDmesgInfo(cmdOutput string) common.Stats {
+func parseDmesgInfo(cmdOutput string) lib.Stats {
 
-	m := make(common.Stats)
+	m := make(lib.Stats)
 	m["OOM"] = false
 	m["Blocked"] = false
 
@@ -343,11 +343,11 @@ func parseDmesgInfo(cmdOutput string) common.Stats {
 
 // parseUnameInfo parse uname info
 // cmdOutput: (output of command - "uname -a")
-func parseUnameInfo(cmdOutput string) common.Stats {
+func parseUnameInfo(cmdOutput string) lib.Stats {
 	// Linux ubuntu 4.8.0-39-generic #42-Ubuntu SMP Mon Feb 20 11:47:27 UTC 2017
 	//fmt.Println(cmdOutput)
 
-	m := make(common.Stats)
+	m := make(lib.Stats)
 	cmdOutput = strings.Trim(strings.Split(cmdOutput, "#")[0], " ")
 	dataList := strings.Split(cmdOutput, " ")
 
@@ -360,9 +360,9 @@ func parseUnameInfo(cmdOutput string) common.Stats {
 
 // parseMemInfo parse mem info
 // cmdOutput: (output of command - "cat /proc/meminfo", "vmstat -s")
-func parseMemInfo(cmdOutput string) common.Stats {
+func parseMemInfo(cmdOutput string) lib.Stats {
 	// MemTotal:        8415676 kB
-	m := make(common.Stats)
+	m := make(lib.Stats)
 	lines := strings.Split(cmdOutput, "\n")
 
 	for _, line := range lines {
@@ -412,9 +412,9 @@ func parseMemInfo(cmdOutput string) common.Stats {
 // tmpfs                   961076         0    961076   0% /dev/shm
 //
 // output: [{name: A, size: A, used: A, avail: A, %use: A, mount_point: A},{}]
-func parseDfInfo(cmdOutput string) common.Stats {
-	m := make(common.Stats)
-	var fsList []common.Stats
+func parseDfInfo(cmdOutput string) lib.Stats {
+	m := make(lib.Stats)
+	var fsList []lib.Stats
 	tokCount := 6
 	secStart := false
 	sizeInKb := false
@@ -430,7 +430,7 @@ func parseDfInfo(cmdOutput string) common.Stats {
 			continue
 		}
 
-		fs := make(common.Stats)
+		fs := make(lib.Stats)
 		if line == "" {
 			continue
 		}
@@ -548,7 +548,7 @@ var topUptime1 = regexp.MustCompile(`.*up (?P<uptime>.*) days.*`)
 var topUptime2 = regexp.MustCompile(`.*up.* (?P<hr>.*):(?P<min>.*),.* load .*`)
 var topUptime3 = regexp.MustCompile(`.* (?P<min>.*) min`)
 
-func parseTopLine(line string) common.Stats {
+func parseTopLine(line string) lib.Stats {
 	obj1 := topUptime1.FindStringSubmatch(line)
 	obj2 := topUptime2.FindStringSubmatch(line)
 	obj3 := topUptime3.FindStringSubmatch(line)
@@ -564,15 +564,15 @@ func parseTopLine(line string) common.Stats {
 	if len(obj3) != 0 {
 		mn = toInt(obj3[1])
 	}
-	out := common.Stats{}
+	out := lib.Stats{}
 	out["seconds"] = (days * 24 * 60 * 60) + (hr * 60 * 60) + (mn * 60)
 	return out
 }
 
-func parseTopKeyValLine(str string, del1 string, del2List []string) common.Stats {
+func parseTopKeyValLine(str string, del1 string, del2List []string) lib.Stats {
 	str = strings.Split(str, ":")[1]
 	kvPairs := strings.Split(str, del1)
-	out := common.Stats{}
+	out := lib.Stats{}
 	for _, kv := range kvPairs {
 		kv = strings.Trim(kv, " ")
 		for _, del2 := range del2List {
@@ -590,11 +590,11 @@ func parseTopKeyValLine(str string, del1 string, del2List []string) common.Stats
 var topSwap1 = regexp.MustCompile(`.*Swap:.* (?P<total>.*).total.* (?P<used>.*).used.* (?P<free>.*).free.* (?P<ca>.*).ca.*`)
 var topSwap2 = regexp.MustCompile(`.*Swap:.* (?P<total>.*).total.* (?P<free>.*).free.* (?P<used>.*).used.* (?P<av>.*).av.*`)
 
-func parseSwapLine(line string) common.Stats {
+func parseSwapLine(line string) lib.Stats {
 	obj1 := topSwap1.FindStringSubmatch(line)
 	obj2 := topSwap2.FindStringSubmatch(line)
 
-	out := common.Stats{}
+	out := lib.Stats{}
 	if len(obj1) != 0 {
 		out["total"] = obj1[1]
 		out["used"] = obj1[2]
@@ -611,9 +611,9 @@ func parseSwapLine(line string) common.Stats {
 	return out
 }
 
-func parseASDLine(line string) common.Stats {
+func parseASDLine(line string) lib.Stats {
 	fields := strings.Fields(line)
-	out := common.Stats{}
+	out := lib.Stats{}
 	out["%cpu"] = fields[8]
 	out["%mem"] = fields[9]
 	return out
@@ -627,9 +627,9 @@ func toInt(str string) int {
 	return i
 }
 
-func parseTopInfo(cmdOutput string) common.Stats {
+func parseTopInfo(cmdOutput string) lib.Stats {
 	lines := strings.Split(cmdOutput, "\n")
-	top := common.Stats{}
+	top := lib.Stats{}
 	asdFlag := false
 	for _, line := range lines {
 		if strings.Contains(line, "up") && strings.Contains(line, "load average") {
@@ -661,9 +661,9 @@ func parseTopInfo(cmdOutput string) common.Stats {
 // "Swap:         1023        120        903\n",
 //
 // output: {mem: {}, buffers/cache: {}, swap: {}}
-func parseFreeMInfo(cmdOutput string) common.Stats {
+func parseFreeMInfo(cmdOutput string) lib.Stats {
 
-	m := make(common.Stats)
+	m := make(lib.Stats)
 	secStart := false
 	var headerTokens []string
 	lines := strings.Split(cmdOutput, "\n")
@@ -683,7 +683,7 @@ func parseFreeMInfo(cmdOutput string) common.Stats {
 		tokens := strings.Fields(line)
 		// TODO this secStart check can be removed
 		if secStart && strings.Contains(line, "Mem:") {
-			memObj := make(common.Stats)
+			memObj := make(lib.Stats)
 			for idx, tok := range headerTokens {
 				memObj[tok] = tokens[idx+1]
 			}
@@ -691,14 +691,14 @@ func parseFreeMInfo(cmdOutput string) common.Stats {
 			continue
 		}
 		if secStart && strings.Contains(line, "-/+ buffers/cache:") {
-			buffObj := make(common.Stats)
+			buffObj := make(lib.Stats)
 			buffObj[headerTokens[1]] = tokens[2]
 			buffObj[headerTokens[2]] = tokens[3]
 			m["buffers/cache"] = buffObj
 			continue
 		}
 		if secStart && strings.Contains(line, "Swap:") {
-			swapObj := make(common.Stats)
+			swapObj := make(lib.Stats)
 			swapObj[headerTokens[0]] = tokens[1]
 			swapObj[headerTokens[1]] = tokens[2]
 			swapObj[headerTokens[2]] = tokens[3]
@@ -709,8 +709,8 @@ func parseFreeMInfo(cmdOutput string) common.Stats {
 	return m
 }
 
-func parseLsbInfo(cmdOutput string) common.Stats {
-	m := make(common.Stats)
+func parseLsbInfo(cmdOutput string) lib.Stats {
+	m := make(lib.Stats)
 	lines := strings.Split(cmdOutput, "\n")
 	amazon := false
 	for _, line := range lines {
@@ -752,10 +752,10 @@ func parseLsbInfo(cmdOutput string) common.Stats {
 // "sdb               0.00     4.00    0.00    4.00     0.00    64.00    16.00     0.02    5.75   4.00   1.60\n",
 //
 // output: [{avg-cpu: {}, device_stat: {}}, .........]
-func parseIostatInfo(cmdOutput string) common.Stats {
-	m := make(common.Stats)
+func parseIostatInfo(cmdOutput string) lib.Stats {
+	m := make(lib.Stats)
 	lines := strings.Split(cmdOutput, "\n")
-	var iostatL []common.Stats
+	var iostatL []lib.Stats
 	var sectionList [][]string
 	var section []string
 	start := false
@@ -778,12 +778,12 @@ func parseIostatInfo(cmdOutput string) common.Stats {
 	return m
 }
 
-func parseIostatSection(section []string) common.Stats {
+func parseIostatSection(section []string) lib.Stats {
 	var avgCPUToks, deviceToks []string
-	var deviceList []common.Stats
+	var deviceList []lib.Stats
 	avgCPU := false
 	device := false
-	devMap := common.Stats{}
+	devMap := lib.Stats{}
 
 	for _, line := range section {
 		if line == "" {
@@ -804,7 +804,7 @@ func parseIostatSection(section []string) common.Stats {
 		}
 
 		if avgCPU {
-			m := common.Stats{}
+			m := lib.Stats{}
 			toks := strings.Fields(line)
 			for i, tok := range avgCPUToks {
 				m[tok] = toks[i]
@@ -812,7 +812,7 @@ func parseIostatSection(section []string) common.Stats {
 			devMap["avg-cpu"] = m
 
 		} else if device {
-			m := common.Stats{}
+			m := lib.Stats{}
 			toks := strings.Fields(line)
 			for i, tok := range deviceToks {
 				m[tok] = toks[i]
@@ -829,9 +829,9 @@ func parseIostatSection(section []string) common.Stats {
 // "hostname\n",
 // "rs-as01\n",
 // output: {hostname: {'hosts': [...................]}}
-func parseHostnameInfo(cmdOutput string) common.Stats {
+func parseHostnameInfo(cmdOutput string) lib.Stats {
 
-	m := make(common.Stats)
+	m := make(lib.Stats)
 	m["hosts"] = strings.Fields(cmdOutput)
 	return m
 }

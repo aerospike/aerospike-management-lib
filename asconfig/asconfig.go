@@ -45,3 +45,13 @@ func (cfg *AsConfig) ToConfFile() DotConf {
 	conf := cfg.baseConf
 	return confToDotConf(conf)
 }
+
+// IsSupportedVersion returns true if version supported else false
+func IsSupportedVersion(ver string) (bool, error) {
+	return isSupportedVersion(ver)
+}
+
+// BaseVersion returns baseversion for ver
+func BaseVersion(ver string) (string, error) {
+	return baseVersion(ver)
+}

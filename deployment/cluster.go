@@ -2,15 +2,15 @@ package deployment
 
 import (
 	"fmt"
-
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
-	aero "github.com/aerospike/aerospike-client-go"
 	"github.com/citrusleaf/aerospike-management-lib/asconfig"
 	log "github.com/inconshreveable/log15"
+
+	aero "github.com/aerospike/aerospike-client-go"
 )
 
 // cluster represents an aerospike cluster
@@ -156,6 +156,7 @@ func (c *cluster) InfoQuiesce(hostID string, hostIDs []string) error {
 		lg.Debug(fmt.Sprintf("skipping quiesce: cluster size %d", len(hostIDs)))
 		return nil
 	}
+	lg.Debug("running InfoQuiesce")
 
 	n, err := c.findHost(hostID)
 	if err != nil {
@@ -348,7 +349,7 @@ func (c *cluster) InfoQuiesce(hostID string, hostIDs []string) error {
 			return fmt.Errorf("node %s still in use", hostID)
 		}
 	}
-
+	lg.Debug("finished running InfoQuiesce")
 	return nil
 }
 

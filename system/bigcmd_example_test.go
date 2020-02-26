@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"golang.org/x/crypto/ssh"
+
+	"github.com/citrusleaf/aerospike-management-lib/system"
 )
 
 type yes struct {
@@ -72,8 +74,8 @@ var config *ssh.ClientConfig = &ssh.ClientConfig{
 }
 
 func ExampleSystem_RunBigCmd() {
-	sudo := NewSudoDisallowed()
-	s, err := New(ip, port, sudo, config)
+	sudo := system.NewSudoDisallowed()
+	s, err := system.New(ip, port, sudo, config)
 	if err != nil {
 		fmt.Println(err)
 		return

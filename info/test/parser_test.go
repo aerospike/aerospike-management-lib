@@ -11,7 +11,7 @@ import (
 
 	aero "github.com/aerospike/aerospike-client-go"
 
-	"github.com/citrusleaf/aerospike-management-lib/common"
+	lib "github.com/citrusleaf/aerospike-management-lib"
 	"github.com/citrusleaf/aerospike-management-lib/info"
 	"github.com/citrusleaf/aerospike-management-lib/system"
 )
@@ -43,7 +43,7 @@ var runCmdKeys = []string{"hostname", "top", "lsb", "meminfo", "interrupts", "io
 // -uname 466 24
 //
 
-var ParsedData common.Stats
+var ParsedData lib.Stats
 
 var err error
 

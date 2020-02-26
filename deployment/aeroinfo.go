@@ -49,12 +49,12 @@ func AlumniReset(aerospikePolicy *aero.ClientPolicy, asConn *ASConn) error {
 }
 
 // RunInfo runs info command on given host
-func RunInfo(aerospikePolicy *aero.ClientPolicy, asConn *ASConn, command string) (map[string]string, error) {
+func RunInfo(aerospikePolicy *aero.ClientPolicy, asConn *ASConn, command ...string) (map[string]string, error) {
 	h := aero.Host{
 		Name:    asConn.AerospikeHostName,
 		Port:    asConn.AerospikePort,
 		TLSName: asConn.AerospikeTLSName,
 	}
 	asinfo := info.NewAsInfo(&h, aerospikePolicy)
-	return asinfo.RequestInfo(command)
+	return asinfo.RequestInfo(command...)
 }

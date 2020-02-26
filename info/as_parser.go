@@ -14,16 +14,16 @@ import (
 	aero "github.com/aerospike/aerospike-client-go"
 	ast "github.com/aerospike/aerospike-client-go/types"
 
+	lib "github.com/citrusleaf/aerospike-management-lib"
 	"github.com/citrusleaf/aerospike-management-lib/bcrypt"
-	"github.com/citrusleaf/aerospike-management-lib/common"
 	log "github.com/inconshreveable/log15"
 )
 
-type ClusterAsStat = common.Stats
+type ClusterAsStat = lib.Stats
 
-type NodeAsStats = common.Stats
+type NodeAsStats = lib.Stats
 
-var pkglog = log.New(log.Ctx{"module": "common.info"})
+var pkglog = log.New(log.Ctx{"module": "lib.info"})
 
 // InvalidNamespaceErr specifies that the namespace is invalid on the cluster.
 var InvalidNamespaceErr = fmt.Errorf("invalid namespace")
@@ -148,10 +148,10 @@ func (info *AsInfo) AllConfigs() (map[string]interface{}, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to get config info from node: %v", err)
 	}
-	configs, ok := values[key].(common.Stats)
+	configs, ok := values[key].(lib.Stats)
 	if !ok {
 		typ := reflect.TypeOf(values[key])
-		return nil, fmt.Errorf("failed to convert to common.Stats, is of type %v", typ)
+		return nil, fmt.Errorf("failed to convert to lib.Stats, is of type %v", typ)
 	}
 	return configs, nil
 }
@@ -242,7 +242,7 @@ func (info *AsInfo) GetAsInfo(cmdList ...string) (NodeAsStats, error) {
 
 // GetAsConfig function fetch and parse config data for given context from given host
 // Input: cmdList - Options [service, network, namespace, xdr, dc, security, logging]
-func (info *AsInfo) GetAsConfig(contextList ...string) (common.Stats, error) {
+func (info *AsInfo) GetAsConfig(contextList ...string) (lib.Stats, error) {
 
 	// These info will be used for creating other info commands
 	//  _STAT_NS_NAMES, _STAT_DC_NAMES, _STAT_SINDEX, _STAT_LOG_IDS
@@ -264,10 +264,10 @@ func (info *AsInfo) GetAsConfig(contextList ...string) (common.Stats, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to get config info from aerospike server: %v", err)
 	}
-	c, ok := configs[key].(common.Stats)
+	c, ok := configs[key].(lib.Stats)
 	if !ok {
 		typ := reflect.TypeOf(configs[key])
-		return nil, fmt.Errorf("failed to convert to common.Stats, is of type %v", typ)
+		return nil, fmt.Errorf("failed to convert to lib.Stats, is of type %v", typ)
 	}
 	return c, nil
 }
@@ -574,8 +574,8 @@ func (info *AsInfo) execute(rawCmdList []string, m map[string]string, cmdList ..
 // parse raw cmd results
 //*******************************************************************************************
 
-func parseCmdResults(rawMap map[string]string, cmdList ...string) common.Stats {
-	asMap := make(common.Stats)
+func parseCmdResults(rawMap map[string]string, cmdList ...string) lib.Stats {
+	asMap := make(lib.Stats)
 
 	for _, cmd := range cmdList {
 		switch cmd {
@@ -601,7 +601,7 @@ func parseCmdResults(rawMap map[string]string, cmdList ...string) common.Stats {
 	return asMap
 }
 
-func updateExtraMetadata(m common.Stats) {
+func updateExtraMetadata(m lib.Stats) {
 	serviceMap := m.GetInnerVal("statistics", "service")
 	nsStatMap := m.GetInnerVal("statistics", "namespace")
 	configMap := m.GetInnerVal("configs", "service")
@@ -639,9 +639,9 @@ func updateExtraMetadata(m common.Stats) {
 //***************************************************************************
 // parse statistics
 
-func parseStatInfo(rawMap map[string]string) common.Stats {
+func parseStatInfo(rawMap map[string]string) lib.Stats {
 
-	statMap := make(common.Stats)
+	statMap := make(lib.Stats)
 
 	statMap["service"] = parseBasicInfo(rawMap[_STAT])
 	statMap["xdr"] = parseBasicInfo(rawMap[_STAT_XDR])
@@ -652,8 +652,8 @@ func parseStatInfo(rawMap map[string]string) common.Stats {
 }
 
 // AllDCStats returns statistics of all dc's on the host.
-func parseAllDcStats(rawMap map[string]string) common.Stats {
-	dcStats := make(common.Stats)
+func parseAllDcStats(rawMap map[string]string) lib.Stats {
+	dcStats := make(lib.Stats)
 	dcNames := getNames(rawMap[_STAT_DC_NAMES])
 
 	for _, dc := range dcNames {
@@ -664,11 +664,11 @@ func parseAllDcStats(rawMap map[string]string) common.Stats {
 	return dcStats
 }
 
-func parseAllNsStats(rawMap map[string]string) common.Stats {
-	nsStatMap := make(common.Stats)
+func parseAllNsStats(rawMap map[string]string) lib.Stats {
+	nsStatMap := make(lib.Stats)
 	nsNames := getNames(rawMap[_STAT_NS_NAMES])
 	for _, ns := range nsNames {
-		m := make(common.Stats)
+		m := make(lib.Stats)
 		m["service"] = parseStatNsInfo(rawMap[_STAT_NS+ns])
 		m["set"] = parseStatSetsInfo(rawMap[_STAT_SET+ns])
 		m["bin"] = parseStatBinsInfo(rawMap[_STAT_BIN+ns])
@@ -679,19 +679,19 @@ func parseAllNsStats(rawMap map[string]string) common.Stats {
 	return nsStatMap
 }
 
-func parseBasicInfo(res string) common.Stats {
+func parseBasicInfo(res string) lib.Stats {
 	return parseIntoMap(res, ";", "=")
 }
 
-func parseStatNsInfo(res string) common.Stats {
+func parseStatNsInfo(res string) lib.Stats {
 	m := parseBasicInfo(res)
 	// some stats are of form {nsname}-statname
 	newMap := parseNsKeys(m)
 	return newMap
 }
 
-func parseStatSindexsInfo(rawMap map[string]string, ns string) common.Stats {
-	indxMap := make(common.Stats)
+func parseStatSindexsInfo(rawMap map[string]string, ns string) lib.Stats {
+	indxMap := make(lib.Stats)
 	indxNames := sindexNames(rawMap[_STAT_SINDEX], ns)
 	for _, indx := range indxNames {
 		indxMap[indx] = parseBasicInfo(rawMap[_STAT_SINDEX+ns+"/"+indx])
@@ -699,19 +699,19 @@ func parseStatSindexsInfo(rawMap map[string]string, ns string) common.Stats {
 	return indxMap
 }
 
-func parseStatSetsInfo(res string) common.Stats {
+func parseStatSetsInfo(res string) lib.Stats {
 	// Parse
 	ml := parseIntoListOfMap(res, ";", ":", "=")
 
 	// Change this list in map
-	stats := make(common.Stats)
+	stats := make(lib.Stats)
 	for _, setStat := range ml {
 		stats[setStat.TryString("set", "")] = setStat
 	}
 	return stats
 }
 
-func parseStatBinsInfo(res string) common.Stats {
+func parseStatBinsInfo(res string) lib.Stats {
 	// This can be optimize, bin has only 2 stats, so just parse those 2.
 	var binStatStr string
 	binStr := strings.Split(res, ",")
@@ -728,9 +728,9 @@ func parseStatBinsInfo(res string) common.Stats {
 // parse configs
 //
 
-func parseConfigInfo(rawMap map[string]string) common.Stats {
+func parseConfigInfo(rawMap map[string]string) lib.Stats {
 
-	configMap := make(common.Stats)
+	configMap := make(lib.Stats)
 
 	sc := parseBasicConfigInfo(rawMap[_CONFIG_SERVICE], "=")
 	if len(sc) > 0 {
@@ -775,8 +775,8 @@ func parseConfigInfo(rawMap map[string]string) common.Stats {
 	return configMap
 }
 
-func parseAllLoggingConfig(rawMap map[string]string, cmd string) common.Stats {
-	logConfigMap := make(common.Stats)
+func parseAllLoggingConfig(rawMap map[string]string, cmd string) lib.Stats {
+	logConfigMap := make(lib.Stats)
 	logs := parseIntoMap(rawMap[_STAT_LOG_IDS], ";", ":")
 
 	for id := range logs {
@@ -789,8 +789,8 @@ func parseAllLoggingConfig(rawMap map[string]string, cmd string) common.Stats {
 }
 
 // {test}-configname -> configname
-func parseAllNsConfig(rawMap map[string]string, cmd string) common.Stats {
-	nsConfigMap := make(common.Stats)
+func parseAllNsConfig(rawMap map[string]string, cmd string) lib.Stats {
+	nsConfigMap := make(lib.Stats)
 	nsNames := getNames(rawMap[_STAT_NS_NAMES])
 
 	for _, ns := range nsNames {
@@ -798,7 +798,7 @@ func parseAllNsConfig(rawMap map[string]string, cmd string) common.Stats {
 		setM := parseConfigSetsInfo(rawMap[_STAT_SET+ns])
 		if len(setM) > 0 {
 			if len(m) == 0 {
-				m = make(common.Stats)
+				m = make(lib.Stats)
 			}
 			m["set"] = setM
 		}
@@ -812,12 +812,12 @@ func parseAllNsConfig(rawMap map[string]string, cmd string) common.Stats {
 	return nsConfigMap
 }
 
-func parseConfigSetsInfo(res string) common.Stats {
+func parseConfigSetsInfo(res string) lib.Stats {
 	// Parse
 	ml := parseIntoListOfMap(res, ";", ":", "=")
 
 	// Change this list in map
-	stats := make(common.Stats)
+	stats := make(lib.Stats)
 	for _, setStat := range ml {
 		set := setStat.TryString("set", "")
 		if len(set) > 0 {
@@ -833,8 +833,8 @@ func parseConfigSetsInfo(res string) common.Stats {
 	return stats
 }
 
-func parseAllDcConfig(rawMap map[string]string, cmd string) common.Stats {
-	dcConfigMap := make(common.Stats)
+func parseAllDcConfig(rawMap map[string]string, cmd string) lib.Stats {
+	dcConfigMap := make(lib.Stats)
 	dcNames := getNames(rawMap[_STAT_DC_NAMES])
 
 	for _, dc := range dcNames {
@@ -846,13 +846,13 @@ func parseAllDcConfig(rawMap map[string]string, cmd string) common.Stats {
 	return dcConfigMap
 }
 
-func parseBasicConfigInfo(res string, sep string) common.Stats {
+func parseBasicConfigInfo(res string, sep string) lib.Stats {
 	// Parse
 	conf := parseIntoMap(res, ";", sep)
 	return conf
 }
 
-func parseConfigRacksInfo(res string) []common.Stats {
+func parseConfigRacksInfo(res string) []lib.Stats {
 	ml := parseIntoListOfMap(res, ";", ":", "=")
 	return ml
 }
@@ -861,8 +861,8 @@ func parseConfigRacksInfo(res string) []common.Stats {
 // parse metadata
 //
 
-func parseMetadataInfo(rawMap map[string]string) common.Stats {
-	metaMap := make(common.Stats)
+func parseMetadataInfo(rawMap map[string]string) lib.Stats {
+	metaMap := make(lib.Stats)
 
 	metaMap["node_id"] = rawMap[_META_NODE_ID]
 	metaMap["asd_build"] = rawMap[_META_BUILD]
@@ -891,15 +891,15 @@ func parseListTypeMetaInfo(rawMap map[string]string, cmd string) []string {
 //***************************************************************************
 // parse latency and throughput
 //
-func parseThroughputInfo(rawStr string) common.Stats {
+func parseThroughputInfo(rawStr string) lib.Stats {
 
-	ip := common.NewInfoParser(rawStr)
+	ip := lib.NewInfoParser(rawStr)
 
 	//typical format is {test}-read:15:43:18-GMT,ops/sec;15:43:28,0.0;
 	//nodeStats := map[string]float64{}
 	//res := map[string]map[string]float64{}
-	nodeStats := common.Stats{}
-	res := map[string]common.Stats{}
+	nodeStats := lib.Stats{}
+	res := map[string]lib.Stats{}
 	for {
 		if err := ip.Expect("{"); err != nil {
 			// it's an error string, read to next section
@@ -936,7 +936,7 @@ func parseThroughputInfo(rawStr string) common.Stats {
 			break
 		}
 		if res[ns] == nil {
-			res[ns] = common.Stats{
+			res[ns] = lib.Stats{
 				op: opsCount,
 			}
 		} else {
@@ -955,9 +955,9 @@ func parseThroughputInfo(rawStr string) common.Stats {
 		}
 	}
 
-	throughputMap := make(common.Stats)
-	newNodeStats := make(common.Stats)
-	newRes := make(common.Stats)
+	throughputMap := make(lib.Stats)
+	newNodeStats := make(lib.Stats)
+	newRes := make(lib.Stats)
 
 	for k, v := range nodeStats {
 		newNodeStats[k] = v
@@ -973,11 +973,11 @@ func parseThroughputInfo(rawStr string) common.Stats {
 
 // TODO: check diff lat bucket in agg
 //typical format is {test}-read:10:17:37-GMT,ops/sec,>1ms,>8ms,>64ms;10:17:47,29648.2,3.44,0.08,0.00;
-func parseLatencyInfo(rawStr string) common.Stats {
+func parseLatencyInfo(rawStr string) lib.Stats {
 
-	ip := common.NewInfoParser(rawStr)
-	nodeStats := make(map[string]common.Stats)
-	res := make(map[string]common.Stats)
+	ip := lib.NewInfoParser(rawStr)
+	nodeStats := make(map[string]lib.Stats)
+	res := make(map[string]lib.Stats)
 
 	for {
 		if err := ip.Expect("{"); err != nil {
@@ -1042,7 +1042,7 @@ func parseLatencyInfo(rawStr string) common.Stats {
 		for i := range valBucketsFloat {
 			valBucketsFloat[i] *= opsCount
 		}
-		stats := common.Stats{
+		stats := lib.Stats{
 			"tps":        opsCount,
 			"buckets":    buckets,
 			"valBuckets": valBucketsFloat,
@@ -1052,7 +1052,7 @@ func parseLatencyInfo(rawStr string) common.Stats {
 		topct(stats)
 
 		if res[ns] == nil {
-			res[ns] = common.Stats{
+			res[ns] = lib.Stats{
 				op: stats,
 			}
 		} else {
@@ -1087,9 +1087,9 @@ func parseLatencyInfo(rawStr string) common.Stats {
 		}
 	}
 
-	latencyMap := make(common.Stats)
-	newNodeStats := make(common.Stats)
-	newRes := make(common.Stats)
+	latencyMap := make(lib.Stats)
+	newNodeStats := make(lib.Stats)
+	newRes := make(lib.Stats)
 
 	for k, v := range nodeStats {
 		newNodeStats[k] = v
@@ -1107,8 +1107,8 @@ func parseLatencyInfo(rawStr string) common.Stats {
 	return latencyMap
 }
 
-func transformNsLatency(lat common.Stats) common.Stats {
-	newNs := common.Stats{}
+func transformNsLatency(lat lib.Stats) lib.Stats {
+	newNs := lib.Stats{}
 	for ns := range lat {
 		m := lat.GetInnerVal(ns)
 		newM := transformLatencyHistAll(m)
@@ -1117,12 +1117,12 @@ func transformNsLatency(lat common.Stats) common.Stats {
 	return newNs
 }
 
-func transformNodeLatency(lat common.Stats) common.Stats {
+func transformNodeLatency(lat lib.Stats) lib.Stats {
 	return transformLatencyHistAll(lat)
 }
 
-func transformLatencyHistAll(nLatencyMap common.Stats) common.Stats {
-	newTotal := common.Stats{}
+func transformLatencyHistAll(nLatencyMap lib.Stats) lib.Stats {
+	newTotal := lib.Stats{}
 	for hist := range nLatencyMap {
 		m := nLatencyMap.GetInnerVal(hist)
 		newM := transformLatencyHist(m)
@@ -1131,8 +1131,8 @@ func transformLatencyHistAll(nLatencyMap common.Stats) common.Stats {
 	return newTotal
 }
 
-func transformLatencyHist(hist common.Stats) common.Stats {
-	newM := common.Stats{}
+func transformLatencyHist(hist lib.Stats) lib.Stats {
+	newM := lib.Stats{}
 	for i, buk := range hist["buckets"].([]string) {
 		newM[buk] = hist["valBuckets"].([]float64)[i]
 	}
@@ -1140,7 +1140,7 @@ func transformLatencyHist(hist common.Stats) common.Stats {
 	return newM
 }
 
-func topct(stat common.Stats) {
+func topct(stat lib.Stats) {
 	tps := stat.TryFloat("tps", 0)
 	if tps == 0 {
 		tps = 1
@@ -1152,14 +1152,14 @@ func topct(stat common.Stats) {
 	stat["valBuckets"] = nValBuckets
 }
 
-func _cloneLatency(m common.Stats) common.Stats {
+func _cloneLatency(m lib.Stats) lib.Stats {
 	vb, _ := m["valBuckets"].([]float64)
 	valBuckets := make([]float64, len(vb))
 	for i, v := range vb {
 		valBuckets[i] = v
 	}
 
-	c := common.Stats{
+	c := lib.Stats{
 		"tps":            m["tps"],
 		"timestamp":      m["timestamp"],
 		"timestamp_unix": m["timestamp_unix"],
@@ -1174,8 +1174,8 @@ func _cloneLatency(m common.Stats) common.Stats {
 //***************************************************************************
 // utils
 //
-func parseNsKeys(rawMap common.Stats) common.Stats {
-	newMap := make(common.Stats)
+func parseNsKeys(rawMap lib.Stats) lib.Stats {
+	newMap := make(lib.Stats)
 	for k, v := range rawMap {
 		if strings.Contains(k, "}-") {
 			k = strings.Split(k, "}-")[1]
@@ -1185,11 +1185,11 @@ func parseNsKeys(rawMap common.Stats) common.Stats {
 	return newMap
 }
 
-func parseIntoMap(str string, del string, sep string) common.Stats {
+func parseIntoMap(str string, del string, sep string) lib.Stats {
 	if str == "" {
 		return nil
 	}
-	m := make(common.Stats)
+	m := make(lib.Stats)
 	items := strings.Split(str, del)
 	for _, item := range items {
 		if item == "" {
@@ -1225,8 +1225,8 @@ func getParsedValue(val interface{}) interface{} {
 	}
 }
 
-func parseIntoListOfMap(str string, del1 string, del2 string, sep string) []common.Stats {
-	var strListMap []common.Stats
+func parseIntoListOfMap(str string, del1 string, del2 string, sep string) []lib.Stats {
+	var strListMap []lib.Stats
 	strList := strings.Split(str, del1)
 	for _, s := range strList {
 		if s == "" {
@@ -1239,11 +1239,11 @@ func parseIntoListOfMap(str string, del1 string, del2 string, sep string) []comm
 	return strListMap
 }
 
-func parseIntoDcMap(str string, del string, sep string) common.Stats {
+func parseIntoDcMap(str string, del string, sep string) lib.Stats {
 	if str == "" {
 		return nil
 	}
-	m := make(common.Stats)
+	m := make(lib.Stats)
 	items := strings.Split(str, del)
 	newItems := make([]string, len(items))
 	nIdx := 0

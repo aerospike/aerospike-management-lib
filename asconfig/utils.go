@@ -15,7 +15,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/citrusleaf/aerospike-management-lib/common"
+	lib "github.com/citrusleaf/aerospike-management-lib"
 	log "github.com/inconshreveable/log15"
 )
 
@@ -765,7 +765,7 @@ func addStorageEngineConfig(key string, v interface{}, conf Conf) {
 
 	case map[string]interface{}:
 		conf[storageKey] = toConf(v)
-	case common.Stats:
+	case lib.Stats:
 		conf[storageKey] = toConf(v)
 	default:
 		vStr, ok := v.(string)
@@ -810,7 +810,7 @@ func toConf(input map[string]interface{}) Conf {
 		}
 
 		switch v := v.(type) {
-		case common.Stats:
+		case lib.Stats:
 			result[k] = toConf(v)
 
 		case map[string]interface{}:
@@ -846,13 +846,13 @@ func toConf(input map[string]interface{}) Conf {
 						temp[i] = s.(string)
 					}
 					result[k] = temp
-				case map[string]interface{}, common.Stats:
+				case map[string]interface{}, lib.Stats:
 					temp := make([]Conf, len(v))
 					for i, m := range v {
 
 						m1, ok := m.(map[string]interface{})
 						if !ok {
-							m1, ok = m.(common.Stats)
+							m1, ok = m.(lib.Stats)
 						}
 						if ok {
 							temp[i] = toConf(m1)
