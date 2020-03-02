@@ -60,7 +60,9 @@ func Init(schemaDir string) error {
 // Map key format -> 4.1.0
 // Map value format -> string of json schema
 func InitFromMap(schemaMap map[string]string) {
+	schemas = make(map[string]string)
 	for name, schema := range schemaMap {
+		pkglog.Debug("Config schema added", log.Ctx{"version": name})
 		schemas[name] = schema
 	}
 }
