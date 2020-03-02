@@ -56,6 +56,15 @@ func Init(schemaDir string) error {
 	return nil
 }
 
+// InitFromMap init schema map from a map.
+// Map key format -> 4.1.0
+// Map value format -> string of json schema
+func InitFromMap(schemaMap map[string]string) {
+	for name, schema := range schemaMap {
+		schemas[name] = schema
+	}
+}
+
 func versionFormat(filename string) string {
 	if len(filename) == 0 {
 		return ""
