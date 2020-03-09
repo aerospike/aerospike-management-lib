@@ -229,23 +229,36 @@ func (c *cluster) InfoQuiesce(hostID string, hostIDs []string) error {
 		ns = strings.Split(info["namespaces"], ";")[0]
 	}
 
+	// Retry 3 times, but why...?
 	if len(ns) > 0 {
-		lg.Debug("verifying execution of quiesce by using namespace " + ns)
+		var passed bool
 
-		cmd = fmt.Sprintf("namespace/%s", ns)
-		info, err = c.infoCmd(hostID, cmd)
-		if err != nil {
-			return err
+		for i := 0; i < 3; i++ {
+			lg.Debug("verifying execution of quiesce by using namespace", log.Ctx{"ns": ns})
+
+			cmd = fmt.Sprintf("namespace/%s", ns)
+			info, err = c.infoCmd(hostID, cmd)
+			if err != nil {
+				return err
+			}
+
+			key := "pending_quiesce"
+			pendingQuiesce, ok := info[key]
+			if !ok {
+				return fmt.Errorf("field %s missing on node %s, namespace %s", key, hostID, ns)
+			}
+
+			if pendingQuiesce != "true" {
+				lg.Debug("pending_quiesce verification failed on node. Should be true", log.Ctx{"pending_quiesce": pendingQuiesce, "host": hostID, "ns": ns})
+				time.Sleep(1 * time.Second)
+				continue
+			} else {
+				passed = true
+				break
+			}
 		}
-
-		key := "pending_quiesce"
-		pendingQuiesce, ok := info[key]
-		if !ok {
-			return fmt.Errorf("field %s missing on node %s, namespace %s", key, hostID, ns)
-		}
-
-		if pendingQuiesce != "true" {
-			return fmt.Errorf("%s verification failed on node %s, namespace %s", key, hostID, ns)
+		if !passed {
+			return fmt.Errorf("pending_quiesce verification failed on node %s, namespace %s", hostID, ns)
 		}
 	}
 
@@ -271,37 +284,50 @@ func (c *cluster) InfoQuiesce(hostID string, hostIDs []string) error {
 	}
 
 	if len(ns) > 0 {
-		lg.Debug("verifying execution of recluster by using namespace " + ns)
+		var passed bool
+		for i := 0; i < 3; i++ {
+			lg.Debug("verifying execution of recluster by using namespace", log.Ctx{"ns": ns})
 
-		cmd = fmt.Sprintf("namespace/%s", ns)
-		info, err = c.infoCmd(hostID, cmd)
-		if err != nil {
-			return err
+			cmd = fmt.Sprintf("namespace/%s", ns)
+			info, err = c.infoCmd(hostID, cmd)
+			if err != nil {
+				return err
+			}
+
+			key := "effective_is_quiesced"
+			effectiveIsQuiesced, ok := info[key]
+			if !ok {
+				return fmt.Errorf("field %s missing on node %s, namespace %s", key, hostID, ns)
+			}
+
+			if effectiveIsQuiesced != "true" {
+				lg.Debug("effective_is_quiesced failed on node. Should be true", log.Ctx{"effective_is_quiesced": effectiveIsQuiesced, "host": hostID, "ns": ns})
+				time.Sleep(1 * time.Second)
+				continue
+			} else {
+				passed = true
+
+				key = "nodes_quiesced"
+				nodesQuiescedStr, ok := info[key]
+				if !ok {
+					return fmt.Errorf("field %s missing on node %s, namespace %s", key, hostID, ns)
+				}
+
+				nodesQuiesced, err := strconv.Atoi(nodesQuiescedStr)
+				if err != nil {
+					return fmt.Errorf("failed to convert key %q to int: %v", key, err)
+				}
+
+				if nodesQuiesced != 1 {
+					return fmt.Errorf("%s verification failed on node %s, namespace %s: %d nodes quiesced", key, hostID, ns, nodesQuiesced)
+				}
+
+				break
+			}
+
 		}
-
-		key := "effective_is_quiesced"
-		effectiveIsQuiesced, ok := info[key]
-		if !ok {
-			return fmt.Errorf("field %s missing on node %s, namespace %s", key, hostID, ns)
-		}
-
-		if effectiveIsQuiesced != "true" {
-			return fmt.Errorf("%s verification failed on node %s, namespace %s", key, hostID, ns)
-		}
-
-		key = "nodes_quiesced"
-		nodesQuiescedStr, ok := info[key]
-		if !ok {
-			return fmt.Errorf("field %s missing on node %s, namespace %s", key, hostID, ns)
-		}
-
-		nodesQuiesced, err := strconv.Atoi(nodesQuiescedStr)
-		if err != nil {
-			return fmt.Errorf("failed to convert key %q to int: %v", key, err)
-		}
-
-		if nodesQuiesced != 1 {
-			return fmt.Errorf("%s verification failed on node %s, namespace %s: %d nodes quiesced", key, hostID, ns, nodesQuiesced)
+		if !passed {
+			return fmt.Errorf("effective_is_quiesced verification failed on node %s, namespace %s", hostID, ns)
 		}
 
 		lg.Debug("verifying throughput on the node")
