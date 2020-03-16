@@ -250,7 +250,7 @@ func (c *cluster) InfoQuiesce(hostID string, hostIDs []string) error {
 
 			if pendingQuiesce != "true" {
 				lg.Debug("pending_quiesce verification failed on node, should be true", log.Ctx{"pending_quiesce": pendingQuiesce, "host": hostID, "ns": ns})
-				time.Sleep(1 * time.Second)
+				time.Sleep(2 * time.Second)
 				continue
 			}
 
@@ -302,7 +302,7 @@ func (c *cluster) InfoQuiesce(hostID string, hostIDs []string) error {
 
 			if effectiveIsQuiesced != "true" {
 				lg.Debug("effective_is_quiesced failed on node, should be true", log.Ctx{"effective_is_quiesced": effectiveIsQuiesced, "host": hostID, "ns": ns})
-				time.Sleep(1 * time.Second)
+				time.Sleep(2 * time.Second)
 				continue
 			}
 
@@ -319,7 +319,7 @@ func (c *cluster) InfoQuiesce(hostID string, hostIDs []string) error {
 
 			if nodesQuiesced != 1 {
 				lg.Debug("nodes_quiesced verification failed on node, should be 1", log.Ctx{"nodes_quiesced": nodesQuiesced, "host": hostID, "ns": ns})
-				time.Sleep(1 * time.Second)
+				time.Sleep(2 * time.Second)
 				continue
 			}
 
