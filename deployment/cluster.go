@@ -210,11 +210,14 @@ func (c *cluster) InfoQuiesce(hostID string, hostIDs []string) error {
 		}
 	}
 
-	lg.Debug("Issuing quiesce command")
+	lg.Debug("Issuing quiesce command `quiesce:`")
 
-	_, err = n.asConnInfo.asinfo.RequestInfo("quiesce:")
+	res, err := n.asConnInfo.asinfo.RequestInfo("quiesce:")
 	if err != nil {
 		return err
+	}
+	if strings.Contains(strings.ToLower(res["quiesce:"]), "error") {
+		return fmt.Errorf("Issuing quiesce command failed: %v", res["quiesce:"])
 	}
 
 	lg.Debug("Fetching namespace name")
