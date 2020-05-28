@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	lib "github.com/citrusleaf/aerospike-management-lib"
+	lib "github.com/aerospike/aerospike-management-lib"
 	"github.com/xeipuuv/gojsonschema"
 )
 

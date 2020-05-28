@@ -7,7 +7,7 @@ import (
 
 	"golang.org/x/crypto/ssh"
 
-	"github.com/citrusleaf/aerospike-management-lib/system"
+	"github.com/aerospike/aerospike-management-lib/system"
 )
 
 type yes struct {

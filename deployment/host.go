@@ -8,8 +8,8 @@ import (
 
 	aero "github.com/aerospike/aerospike-client-go"
 
-	"github.com/citrusleaf/aerospike-management-lib/info"
-	"github.com/citrusleaf/aerospike-management-lib/system"
+	"github.com/aerospike/aerospike-management-lib/info"
+	"github.com/aerospike/aerospike-management-lib/system"
 )
 
 // host is a system on which the aerospike server is running. It provides aerospike

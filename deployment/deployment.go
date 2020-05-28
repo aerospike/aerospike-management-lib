@@ -5,7 +5,7 @@ import (
 	"strconv"
 
 	aero "github.com/aerospike/aerospike-client-go"
-	"github.com/citrusleaf/aerospike-management-lib/system"
+	"github.com/aerospike/aerospike-management-lib/system"
 	log "github.com/inconshreveable/log15"
 	"golang.org/x/crypto/ssh"
 )
