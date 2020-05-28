@@ -32,7 +32,7 @@ func getHosts(policy *aero.ClientPolicy, conns []*HostConn) (map[string]*host, e
 	for _, conn := range conns {
 		nd, err = conn.toHost(policy)
 		if err != nil {
-			err = fmt.Errorf("failed to create info/conn object for running deployment script for host %s: %v", conn.ASConn.AerospikeHostName, err)
+			err = fmt.Errorf("Failed to create info/conn object for running deployment script for host %s: %v", conn.ASConn.AerospikeHostName, err)
 			break
 		}
 		hosts[nd.id] = nd
@@ -70,12 +70,12 @@ func newCluster(policy *aero.ClientPolicy, allConns []*HostConn, operableConns [
 func (c *cluster) close() {
 	for _, nd := range c.allHosts {
 		if err := nd.Close(); err != nil {
-			c.log.Debug("failed to close node connections", log.Ctx{"node": nd, "err": err})
+			c.log.Debug("Failed to close node connections", log.Ctx{"node": nd, "err": err})
 		}
 	}
 	for _, nd := range c.selectedHosts {
 		if err := nd.Close(); err != nil {
-			c.log.Debug("failed to close node connections", log.Ctx{"node": nd, "err": err})
+			c.log.Debug("Failed to close node connections", log.Ctx{"node": nd, "err": err})
 		}
 	}
 }
@@ -88,7 +88,7 @@ func (c *cluster) IsClusterAndStable(hostIDs []string) (bool, error) {
 		return true, nil
 	}
 
-	lg.Debug("running IsClusterAndStable")
+	lg.Debug("Running IsClusterAndStable")
 
 	stats, err := c.infoOnHosts(hostIDs, "statistics")
 	if err != nil {
@@ -98,44 +98,44 @@ func (c *cluster) IsClusterAndStable(hostIDs []string) (bool, error) {
 	for id, info := range stats {
 		key, err := info.toString("cluster_key")
 		if err != nil {
-			return false, fmt.Errorf("failed to fetch cluster_key on host %s: %v", id, err)
+			return false, fmt.Errorf("Failed to fetch cluster_key on host %s: %v", id, err)
 		}
 
 		clusterKeys[key] = true // add to set key
 
 		size, err := info.toInt("cluster_size")
 		if err != nil {
-			return false, fmt.Errorf("failed to fetch cluster_size on host %s: %v", id, err)
+			return false, fmt.Errorf("Failed to fetch cluster_size on host %s: %v", id, err)
 		}
 		if size != len(hostIDs) {
-			c.log.Debug("cluster size not equal", log.Ctx{"infoSize": size, "runninSize": len(hostIDs)})
+			c.log.Debug("Cluster size not equal", log.Ctx{"infoSize": size, "runninSize": len(hostIDs)})
 			return false, nil
 		}
 
 		allowed, err := info.toBool("migrate_allowed")
 		if err != nil {
-			return false, fmt.Errorf("failed to fetch migrate_allowed on host %s: %v", id, err)
+			return false, fmt.Errorf("Failed to fetch migrate_allowed on host %s: %v", id, err)
 		}
 		if !allowed {
-			c.log.Debug("cluster not stable, migration not allowed")
+			c.log.Debug("Cluster not stable, migration not allowed")
 			return false, nil
 		}
 
 		integrity, err := info.toBool("cluster_integrity")
 		if err != nil {
-			return false, fmt.Errorf("failed to fetch cluster_integrity on host %s: %v", id, err)
+			return false, fmt.Errorf("Failed to fetch cluster_integrity on host %s: %v", id, err)
 		}
 		if !integrity {
-			c.log.Debug("cluster not stable, cluster integrity false")
+			c.log.Debug("Cluster not stable, cluster integrity false")
 			return false, nil
 		}
 
 		remaining, err := info.toInt("migrate_partitions_remaining")
 		if err != nil {
-			return false, fmt.Errorf("failed to fetch migrate_partitions_remaining on host %s: %v", id, err)
+			return false, fmt.Errorf("Failed to fetch migrate_partitions_remaining on host %s: %v", id, err)
 		}
 		if remaining > 0 {
-			c.log.Debug("cluster not stable, migrate partitions remaining", log.Ctx{"remaining": remaining})
+			c.log.Debug("Cluster not stable, migrate partitions remaining", log.Ctx{"remaining": remaining})
 			return false, nil
 		}
 	}
@@ -144,7 +144,7 @@ func (c *cluster) IsClusterAndStable(hostIDs []string) (bool, error) {
 		return false, nil
 	}
 
-	lg.Debug("finished running IsClusterAndStable")
+	lg.Debug("Finished running IsClusterAndStable")
 	return true, nil
 }
 
@@ -153,17 +153,17 @@ func (c *cluster) InfoQuiesce(hostID string, hostIDs []string) error {
 	lg := c.log.New(log.Ctx{"node": hostID})
 
 	if len(hostIDs) < 2 {
-		lg.Debug(fmt.Sprintf("skipping quiesce: cluster size %d", len(hostIDs)))
+		lg.Debug(fmt.Sprintf("Skipping quiesce: cluster size %d", len(hostIDs)))
 		return nil
 	}
-	lg.Debug("running InfoQuiesce")
+	lg.Debug("Running InfoQuiesce")
 
 	n, err := c.findHost(hostID)
 	if err != nil {
 		return err
 	}
 
-	lg.Debug("finding aerospike version")
+	lg.Debug("Finding aerospike version")
 
 	build, err := n.asConnInfo.asinfo.RequestInfo("build")
 	if err != nil {
@@ -172,16 +172,16 @@ func (c *cluster) InfoQuiesce(hostID string, hostIDs []string) error {
 
 	r, err := asconfig.CompareVersions(build["build"], "4.3.1")
 	if err != nil {
-		return fmt.Errorf("failed to compare aerospike version on node %s: %v", hostID, err)
+		return fmt.Errorf("Failed to compare aerospike version on node %s: %v", hostID, err)
 	}
 
 	if r < 0 {
 		// aerospike server version < 4.3.1 does not support quiesce
-		lg.Debug(fmt.Sprintf("skipping quiesce: server version (%s) < 4.3.1", build["build"]))
+		lg.Debug(fmt.Sprintf("Skipping quiesce: server version (%s) < 4.3.1", build["build"]))
 		return nil
 	}
 
-	lg.Debug("executing cluster-stable command")
+	lg.Debug("Executing cluster-stable command")
 
 	cmd := fmt.Sprintf("cluster-stable:size=%d;ignore-migrations=no", len(hostIDs))
 	infoResults, err := c.infoOnHosts(hostIDs, cmd)
@@ -193,11 +193,11 @@ func (c *cluster) InfoQuiesce(hostID string, hostIDs []string) error {
 	for id, info := range infoResults {
 		ck, err := info.toString(cmd)
 		if err != nil {
-			return fmt.Errorf("failed to execute cluster-stable command on node %s: %v", id, err)
+			return fmt.Errorf("Failed to execute cluster-stable command on node %s: %v", id, err)
 		}
 
 		if strings.Contains(strings.ToLower(ck), "error") {
-			return fmt.Errorf("failed to execute cluster-stable command on node %s: %v", id, ck)
+			return fmt.Errorf("Failed to execute cluster-stable command on node %s: %v", id, ck)
 		}
 
 		if len(clusterKey) == 0 {
@@ -206,18 +206,21 @@ func (c *cluster) InfoQuiesce(hostID string, hostIDs []string) error {
 		}
 
 		if ck != clusterKey {
-			return fmt.Errorf("node %s not part of the cluster", id)
+			return fmt.Errorf("Node %s not part of the cluster", id)
 		}
 	}
 
-	lg.Debug("issuing quiesce command")
+	lg.Debug("Issuing quiesce command `quiesce:`")
 
-	_, err = n.asConnInfo.asinfo.RequestInfo("quiesce:")
+	res, err := n.asConnInfo.asinfo.RequestInfo("quiesce:")
 	if err != nil {
 		return err
 	}
+	if strings.Contains(strings.ToLower(res["quiesce:"]), "error") {
+		return fmt.Errorf("Issuing quiesce command failed: %v", res["quiesce:"])
+	}
 
-	lg.Debug("fetching namespace name")
+	lg.Debug("Fetching namespace name")
 
 	info, err := n.asConnInfo.asinfo.RequestInfo("namespaces")
 	if err != nil {
@@ -229,27 +232,40 @@ func (c *cluster) InfoQuiesce(hostID string, hostIDs []string) error {
 		ns = strings.Split(info["namespaces"], ";")[0]
 	}
 
+	// Retry 3 times, but why...?
 	if len(ns) > 0 {
-		lg.Debug("verifying execution of quiesce by using namespace " + ns)
+		var passed bool
 
-		cmd = fmt.Sprintf("namespace/%s", ns)
-		info, err = c.infoCmd(hostID, cmd)
-		if err != nil {
-			return err
+		for i := 0; i < 3; i++ {
+			lg.Debug("Verifying execution of quiesce by using namespace", log.Ctx{"ns": ns})
+
+			cmd = fmt.Sprintf("namespace/%s", ns)
+			info, err = c.infoCmd(hostID, cmd)
+			if err != nil {
+				return err
+			}
+
+			key := "pending_quiesce"
+			pendingQuiesce, ok := info[key]
+			if !ok {
+				return fmt.Errorf("Field %s missing on node %s, namespace %s", key, hostID, ns)
+			}
+
+			if pendingQuiesce != "true" {
+				lg.Debug("pending_quiesce verification failed on node, should be true", log.Ctx{"pending_quiesce": pendingQuiesce, "host": hostID, "ns": ns})
+				time.Sleep(2 * time.Second)
+				continue
+			}
+
+			passed = true
+			break
 		}
-
-		key := "pending_quiesce"
-		pendingQuiesce, ok := info[key]
-		if !ok {
-			return fmt.Errorf("field %s missing on node %s, namespace %s", key, hostID, ns)
-		}
-
-		if pendingQuiesce != "true" {
-			return fmt.Errorf("%s verification failed on node %s, namespace %s", key, hostID, ns)
+		if !passed {
+			return fmt.Errorf("pending_quiesce verification failed on node %s, namespace %s", hostID, ns)
 		}
 	}
 
-	lg.Debug("issuing recluster command")
+	lg.Debug("Issuing recluster command")
 
 	cmd = "recluster:"
 	infoResults, err = c.infoOnHosts(hostIDs, cmd)
@@ -265,91 +281,105 @@ func (c *cluster) InfoQuiesce(hostID string, hostIDs []string) error {
 			break
 		}
 	}
-
 	if !found {
-		return fmt.Errorf("failed to execute recluster command: no response from principle node")
+		return fmt.Errorf("Failed to execute recluster command: no response from principle node")
 	}
 
 	if len(ns) > 0 {
-		lg.Debug("verifying execution of recluster by using namespace " + ns)
+		var passed bool
+		// Retry 3 times
+		for i := 0; i < 3; i++ {
+			lg.Debug("Verifying execution of recluster by using namespace", log.Ctx{"ns": ns})
 
-		cmd = fmt.Sprintf("namespace/%s", ns)
-		info, err = c.infoCmd(hostID, cmd)
-		if err != nil {
-			return err
+			cmd = fmt.Sprintf("namespace/%s", ns)
+			info, err = c.infoCmd(hostID, cmd)
+			if err != nil {
+				return err
+			}
+
+			key := "effective_is_quiesced"
+			effectiveIsQuiesced, ok := info[key]
+			if !ok {
+				return fmt.Errorf("Field %s missing on node %s, namespace %s", key, hostID, ns)
+			}
+
+			if effectiveIsQuiesced != "true" {
+				lg.Debug("effective_is_quiesced failed on node, should be true", log.Ctx{"effective_is_quiesced": effectiveIsQuiesced, "host": hostID, "ns": ns})
+				time.Sleep(2 * time.Second)
+				continue
+			}
+
+			key = "nodes_quiesced"
+			nodesQuiescedStr, ok := info[key]
+			if !ok {
+				return fmt.Errorf("Field %s missing on node %s, namespace %s", key, hostID, ns)
+			}
+
+			nodesQuiesced, err := strconv.Atoi(nodesQuiescedStr)
+			if err != nil {
+				return fmt.Errorf("Failed to convert key %q to int: %v", key, err)
+			}
+
+			if nodesQuiesced != 1 {
+				lg.Debug("nodes_quiesced verification failed on node, should be 1", log.Ctx{"nodes_quiesced": nodesQuiesced, "host": hostID, "ns": ns})
+				time.Sleep(2 * time.Second)
+				continue
+			}
+
+			passed = true
+			break
 		}
-
-		key := "effective_is_quiesced"
-		effectiveIsQuiesced, ok := info[key]
-		if !ok {
-			return fmt.Errorf("field %s missing on node %s, namespace %s", key, hostID, ns)
+		if !passed {
+			return fmt.Errorf("effective_is_quiesced or nodes_quiesced verification failed on node %s, namespace %s", hostID, ns)
 		}
+	}
 
-		if effectiveIsQuiesced != "true" {
-			return fmt.Errorf("%s verification failed on node %s, namespace %s", key, hostID, ns)
-		}
+	lg.Debug("Verifying throughput on the node")
 
-		key = "nodes_quiesced"
-		nodesQuiescedStr, ok := info[key]
-		if !ok {
-			return fmt.Errorf("field %s missing on node %s, namespace %s", key, hostID, ns)
-		}
+	// client refresh interval is 1 second
+	// need to wait till client refreshes cluster and gets new partition table
+	sleepSeconds := 1
+	succeed := false
 
-		nodesQuiesced, err := strconv.Atoi(nodesQuiescedStr)
-		if err != nil {
-			return fmt.Errorf("failed to convert key %q to int: %v", key, err)
-		}
+	// testing for last 10 seconds transaction
+	// so retry loop for 10
+	for i := 0; i < 10; i++ {
+		lg.Debug("Will try after time", log.Ctx{"Seconds": sleepSeconds})
+		time.Sleep(time.Duration(sleepSeconds) * time.Second)
 
-		if nodesQuiesced != 1 {
-			return fmt.Errorf("%s verification failed on node %s, namespace %s: %d nodes quiesced", key, hostID, ns, nodesQuiesced)
-		}
+		cmd = "throughput:back=10;duration=10;slice=10"
+		throughputStr, err := c.infoCmd(hostID, cmd)
 
-		lg.Debug("verifying throughput on the node")
+		// {test}-read:06:50:24-GMT,ops/sec;06:50:34,4864.8;{test}-write:06:50:24-GMT,ops/sec;06:50:34,4863.9;error-no-data-yet-or-back-too-small;error-no-data-yet-or-back-too-small;error-no-data-yet-or-back-too-small;error-no-data-yet-or-back-too-small;error-no-data-yet-or-back-too-small;error-no-data-yet-or-back-too-small
+		if err == nil {
+			allList := strings.Split(throughputStr[cmd], ";")
+			if len(allList) > 0 {
+				nodeInUse := false
 
-		// client refresh interval is 1 second
-		// need to wait till client refreshes cluster and gets new partition table
-		sleepSeconds := 1
-		succeed := false
-
-		// testing for last 10 seconds transaction
-		// so retry loop for 10
-		for i := 0; i < 10; i++ {
-			lg.Debug("sleeping for %d seconds", sleepSeconds)
-			time.Sleep(time.Duration(sleepSeconds) * time.Second)
-
-			cmd = "throughput:back=10;duration=10;slice=10"
-			throughputStr, err := c.infoCmd(hostID, cmd)
-
-			// {test}-read:06:50:24-GMT,ops/sec;06:50:34,4864.8;{test}-write:06:50:24-GMT,ops/sec;06:50:34,4863.9;error-no-data-yet-or-back-too-small;error-no-data-yet-or-back-too-small;error-no-data-yet-or-back-too-small;error-no-data-yet-or-back-too-small;error-no-data-yet-or-back-too-small;error-no-data-yet-or-back-too-small
-			if err == nil {
-				allList := strings.Split(throughputStr[cmd], ";")
-				if len(allList) > 0 {
-					nodeInUse := false
-
-					for _, histInfo := range allList {
-						fields := strings.Split(histInfo, ",")
-						if len(fields) == 2 && fields[1] != "ops/sec" {
-							throughputVal, err := strconv.ParseFloat(fields[1], 64)
-							if err == nil && throughputVal > 0 {
-								nodeInUse = true
-								break
-							}
+				for _, histInfo := range allList {
+					fields := strings.Split(histInfo, ",")
+					if len(fields) == 2 && fields[1] != "ops/sec" {
+						throughputVal, err := strconv.ParseFloat(fields[1], 64)
+						if err == nil && throughputVal > 0 {
+							nodeInUse = true
+							break
 						}
 					}
+				}
 
-					if !nodeInUse {
-						succeed = true
-						break
-					}
+				if !nodeInUse {
+					succeed = true
+					break
 				}
 			}
 		}
-
-		if !succeed {
-			return fmt.Errorf("node %s still in use", hostID)
-		}
 	}
-	lg.Debug("finished running InfoQuiesce")
+
+	if !succeed {
+		return fmt.Errorf("Node %s still in use", hostID)
+	}
+
+	lg.Debug("Finished running InfoQuiesce")
 	return nil
 }
 
