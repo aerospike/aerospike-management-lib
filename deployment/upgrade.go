@@ -3,7 +3,7 @@ package deployment
 import (
 	"fmt"
 
-	"github.com/citrusleaf/aerospike-management-lib/asconfig"
+	"github.com/aerospike/aerospike-management-lib/asconfig"
 )
 
 // Metadata for restriction check

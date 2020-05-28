@@ -10,8 +10,8 @@ import (
 
 	log "github.com/inconshreveable/log15"
 
-	lib "github.com/citrusleaf/aerospike-management-lib"
-	"github.com/citrusleaf/aerospike-management-lib/system"
+	lib "github.com/aerospike/aerospike-management-lib"
+	"github.com/aerospike/aerospike-management-lib/system"
 )
 
 type NodeSysStats = lib.Stats

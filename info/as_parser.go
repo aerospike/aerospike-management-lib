@@ -14,8 +14,8 @@ import (
 	aero "github.com/aerospike/aerospike-client-go"
 	ast "github.com/aerospike/aerospike-client-go/types"
 
-	lib "github.com/citrusleaf/aerospike-management-lib"
-	"github.com/citrusleaf/aerospike-management-lib/bcrypt"
+	lib "github.com/aerospike/aerospike-management-lib"
+	"github.com/aerospike/aerospike-management-lib/bcrypt"
 	log "github.com/inconshreveable/log15"
 )
 

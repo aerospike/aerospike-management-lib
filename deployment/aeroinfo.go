@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	aero "github.com/aerospike/aerospike-client-go"
-	"github.com/citrusleaf/aerospike-management-lib/info"
+	"github.com/aerospike/aerospike-management-lib/info"
 	log "github.com/inconshreveable/log15"
 )
 

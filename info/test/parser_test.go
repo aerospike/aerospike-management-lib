@@ -11,9 +11,9 @@ import (
 
 	aero "github.com/aerospike/aerospike-client-go"
 
-	lib "github.com/citrusleaf/aerospike-management-lib"
-	"github.com/citrusleaf/aerospike-management-lib/info"
-	"github.com/citrusleaf/aerospike-management-lib/system"
+	lib "github.com/aerospike/aerospike-management-lib"
+	"github.com/aerospike/aerospike-management-lib/info"
+	"github.com/aerospike/aerospike-management-lib/system"
 )
 
 var runCmd = info.RunCmd
