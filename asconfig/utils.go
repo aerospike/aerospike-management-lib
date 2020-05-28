@@ -15,7 +15,7 @@ import (
 	"strconv"
 	"strings"
 
-	lib "github.com/citrusleaf/aerospike-management-lib"
+	lib "github.com/aerospike/aerospike-management-lib"
 	log "github.com/inconshreveable/log15"
 )
 

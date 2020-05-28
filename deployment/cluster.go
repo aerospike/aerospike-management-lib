@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/citrusleaf/aerospike-management-lib/asconfig"
+	"github.com/aerospike/aerospike-management-lib/asconfig"
 	log "github.com/inconshreveable/log15"
 
 	aero "github.com/aerospike/aerospike-client-go"
