@@ -174,7 +174,7 @@ func (info *AsInfo) doInfo(commands ...string) (map[string]string, error) {
 	// TODO Check for error
 	if info.conn == nil || !info.conn.IsConnected() {
 		var err error
-		info.conn, err = aero.NewSecureConnection(info.policy, info.host)
+		info.conn, err = aero.NewConnection(info.policy, info.host)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create secure connection for aerospike info: %v", err)
 		}
@@ -187,8 +187,13 @@ func (info *AsInfo) doInfo(commands ...string) (map[string]string, error) {
 			return nil, fmt.Errorf("failed to authenticate user `%s` in aerospike server: %v", info.policy.User, aerr)
 		}
 		info.log.Debug("secure connection created for aerospike info")
-		info.conn.SetTimeout(asTimeout)
 	}
+
+	var deadline time.Time
+	if asTimeout > 0 {
+		deadline = time.Now().Add(asTimeout)
+	}
+	info.conn.SetTimeout(deadline, asTimeout)
 
 	result, err := aero.RequestInfo(info.conn, commands...)
 	if err != nil {
