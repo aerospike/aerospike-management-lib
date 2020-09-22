@@ -11,8 +11,8 @@ import (
 	"sync"
 	"time"
 
-	aero "github.com/aerospike/aerospike-client-go"
-	ast "github.com/aerospike/aerospike-client-go/types"
+	aero "github.com/ashishshinde/aerospike-client-go"
+	ast "github.com/ashishshinde/aerospike-client-go/types"
 
 	lib "github.com/aerospike/aerospike-management-lib"
 	"github.com/aerospike/aerospike-management-lib/bcrypt"
