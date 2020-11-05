@@ -570,6 +570,7 @@ func getSystemProperty(c Conf, key string) (stype sysproptype, value []string) {
 func isListField(key string) (bool, string) {
 
 	key, _ = baseKey(key, sep)
+	key = SingularOf(key)
 	switch key {
 	case "dc-node-address-port", "tls-node", "dc-int-ext-ipmap":
 		return true, "+"
@@ -577,7 +578,7 @@ func isListField(key string) (bool, string) {
 	// TODO: Device with shadow device is not reported by server
 	// yet in runtime making it colon separated for now.
 	case "mesh-seed-address-port", "tls-mesh-seed-address-port",
-		"device", "report-data-op":
+		"device", "report-data-op", "node-address-port":
 		return true, ":"
 
 	case "file", "address", "tls-address", "access-address",
@@ -618,6 +619,7 @@ func isInternalField(key string) bool {
 func isListSection(section string) bool {
 
 	section, _ = baseKey(section, sep)
+	section = SingularOf(section)
 	switch section {
 	case "namespace", "datacenter", "dc", "set", "tls", "file":
 		return true
@@ -631,6 +633,7 @@ func isListSection(section string) bool {
 func isSpecialListSection(section string) bool {
 
 	section, _ = baseKey(section, sep)
+	section = SingularOf(section)
 	switch section {
 	case "logging":
 		return true
