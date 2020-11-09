@@ -73,6 +73,7 @@ func writeDeviceStorageSection(buf *bytes.Buffer, section string, conf Conf, ind
 }
 
 func writeSpecialListSection(buf *bytes.Buffer, section string, confList []Conf, indent int) {
+	section = SingularOf(section)
 	switch section {
 	case "logging":
 		writeLogSection(buf, section, confList, indent)
@@ -87,6 +88,7 @@ func writeListSection(buf *bytes.Buffer, section string, conf Conf, indent int) 
 	}
 
 	delete(conf, "name")
+	section = SingularOf(section)
 	beginSection(buf, indent, section+" "+name)
 	writeDotConf(buf, conf, indent+1, nil)
 	endSection(buf, indent)

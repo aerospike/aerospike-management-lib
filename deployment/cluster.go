@@ -10,7 +10,7 @@ import (
 	"github.com/aerospike/aerospike-management-lib/asconfig"
 	log "github.com/inconshreveable/log15"
 
-	aero "github.com/aerospike/aerospike-client-go"
+	aero "github.com/ashishshinde/aerospike-client-go"
 )
 
 // cluster represents an aerospike cluster
