@@ -34,7 +34,7 @@ var singularToPlural = map[string]string{
 	"xdr-remote-datacenter":        "xdr-remote-datacenters",
 }
 
-var pluralToSingular map[string]string
+var pluralToSingular map[string]string = map[string]string{}
 
 func init() {
 	// Create the reverse mapping.
