@@ -495,6 +495,7 @@ func changeKey(key string) string {
 func getSystemProperty(c Conf, key string) (stype sysproptype, value []string) {
 
 	baseKey, _ := baseKey(key, sep)
+	baseKey = SingularOf(baseKey)
 	value = make([]string, 0)
 
 	// Catch all exception for type cast.
@@ -571,6 +572,7 @@ func isListField(key string) (bool, string) {
 
 	key, _ = baseKey(key, sep)
 	key = SingularOf(key)
+
 	switch key {
 	case "dc-node-address-port", "tls-node", "dc-int-ext-ipmap":
 		return true, "+"
@@ -711,6 +713,7 @@ func isSpecialStringField(key string) bool {
 // isNodeSpecificField returns true if the passed key
 // in aerospike config is Node specific field.
 func isNodeSpecificField(key string) bool {
+	key = SingularOf(key)
 	switch key {
 	case "file", "device", "pidfile",
 		"node-id", "address", "port", "access-address", "access-port",

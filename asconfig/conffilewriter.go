@@ -120,6 +120,7 @@ func writeSection(buf *bytes.Buffer, section string, conf Conf, indent int) {
 }
 
 func writeListField(buf *bytes.Buffer, key string, value string, indent int, sep string) {
+	key = SingularOf(key)
 	if sep != "" {
 		buf.WriteString(indentString(indent) + string(key) + "    " + strings.Replace(value, sep, " ", -1) + "\n")
 	} else {
