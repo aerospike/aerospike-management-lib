@@ -36,12 +36,19 @@ func writeSimpleSection(buf *bytes.Buffer, section string, conf Conf, indent int
 }
 
 func writeLogContext(buf *bytes.Buffer, conf Conf, indent int) {
-	for context, sev := range conf {
+	var keys []string
+	for k := range conf {
+		keys = append(keys, k)
+	}
+
+	sort.Strings(keys)
+
+	for _, context := range keys {
 		if context == "name" {
 			// ignore generated field
 			continue
 		}
-		writeField(buf, "context "+context, sev.(string), indent)
+		writeField(buf, "context "+context, conf[context].(string), indent)
 	}
 }
 
