@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	lib "github.com/citrusleaf/aerospike-management-lib"
+	lib "github.com/aerospike/aerospike-management-lib"
 	"github.com/xeipuuv/gojsonschema"
 )
 
@@ -68,9 +68,7 @@ func confIsValid(flatConf Conf, ver string) (bool, []*ValidationErr, error) {
 func confToDotConf(flatConf Conf) DotConf {
 	var buf bytes.Buffer
 
-	keys := []string{"service", "security", "logging", "network", "xdr", "namespace", "mod-lua", "cluster"}
-
-	writeDotConf(&buf, expandConf(flatConf, sep), 0, &keys)
+	writeDotConf(&buf, expandConf(flatConf, sep), 0, nil)
 
 	return buf.String()
 }

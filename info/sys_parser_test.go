@@ -8,7 +8,7 @@ import (
 	"strings"
 	"sync"
 
-	lib "github.com/citrusleaf/aerospike-management-lib"
+	lib "github.com/aerospike/aerospike-management-lib"
 	"golang.org/x/crypto/ssh"
 )
 

@@ -49,9 +49,13 @@ func parseInfo(info map[string]string) map[string]string {
 		if strings.Contains(v, ";") {
 			all := strings.Split(v, ";")
 			for _, s := range all {
-				ss := strings.Split(s, "=")
-				kk, vv := ss[0], ss[1]
-				m[kk] = vv
+				// TODO: Is it correct, it was crashing in parsing below string
+				// error-no-data-yet-or-back-too-small;error-no-data-yet-or-back-too-small;
+				if strings.Contains(s, "=") {
+					ss := strings.Split(s, "=")
+					kk, vv := ss[0], ss[1]
+					m[kk] = vv
+				}
 			}
 		} else {
 			m[k] = v

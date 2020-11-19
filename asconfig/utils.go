@@ -15,7 +15,7 @@ import (
 	"strconv"
 	"strings"
 
-	lib "github.com/citrusleaf/aerospike-management-lib"
+	lib "github.com/aerospike/aerospike-management-lib"
 	log "github.com/inconshreveable/log15"
 )
 
@@ -495,6 +495,7 @@ func changeKey(key string) string {
 func getSystemProperty(c Conf, key string) (stype sysproptype, value []string) {
 
 	baseKey, _ := baseKey(key, sep)
+	baseKey = SingularOf(baseKey)
 	value = make([]string, 0)
 
 	// Catch all exception for type cast.
@@ -570,6 +571,8 @@ func getSystemProperty(c Conf, key string) (stype sysproptype, value []string) {
 func isListField(key string) (bool, string) {
 
 	key, _ = baseKey(key, sep)
+	key = SingularOf(key)
+
 	switch key {
 	case "dc-node-address-port", "tls-node", "dc-int-ext-ipmap":
 		return true, "+"
@@ -577,7 +580,7 @@ func isListField(key string) (bool, string) {
 	// TODO: Device with shadow device is not reported by server
 	// yet in runtime making it colon separated for now.
 	case "mesh-seed-address-port", "tls-mesh-seed-address-port",
-		"device", "report-data-op":
+		"device", "report-data-op", "node-address-port":
 		return true, ":"
 
 	case "file", "address", "tls-address", "access-address",
@@ -618,6 +621,7 @@ func isInternalField(key string) bool {
 func isListSection(section string) bool {
 
 	section, _ = baseKey(section, sep)
+	section = SingularOf(section)
 	switch section {
 	case "namespace", "datacenter", "dc", "set", "tls", "file":
 		return true
@@ -631,6 +635,7 @@ func isListSection(section string) bool {
 func isSpecialListSection(section string) bool {
 
 	section, _ = baseKey(section, sep)
+	section = SingularOf(section)
 	switch section {
 	case "logging":
 		return true
@@ -708,6 +713,7 @@ func isSpecialStringField(key string) bool {
 // isNodeSpecificField returns true if the passed key
 // in aerospike config is Node specific field.
 func isNodeSpecificField(key string) bool {
+	key = SingularOf(key)
 	switch key {
 	case "file", "device", "pidfile",
 		"node-id", "address", "port", "access-address", "access-port",
@@ -989,6 +995,61 @@ func CompareVersions(version1, version2 string) (int, error) {
 
 	if len(verElems1) < len(verElems2) {
 		return -1, nil
+	}
+
+	return 0, nil
+}
+
+// CompareVersionsIgnoreRevision compares Aerospike Server versions ignoring
+// revisions and builds.
+// if version1 == version2 returns 0
+// else if version1 < version2 returns -1
+// else returns 1
+func CompareVersionsIgnoreRevision(version1, version2 string) (int, error) {
+	if len(version1) == 0 || len(version2) == 0 {
+		return 0, fmt.Errorf("wrong versions to compare")
+	}
+
+	if version1 == version2 {
+		return 0, nil
+	}
+
+	// Ignoring extra comment tag... found in git source code build
+	v1 := strings.Split(version1, "-")[0]
+	v2 := strings.Split(version2, "-")[0]
+
+	if v1 == v2 {
+		return 0, nil
+	}
+
+	verElems1 := strings.Split(v1, ".")
+	verElems2 := strings.Split(v2, ".")
+
+	minLen := len(verElems1)
+	if len(verElems2) < minLen {
+		minLen = len(verElems2)
+	}
+
+	if minLen > 2 {
+		// Force comparison of only major and minor version.
+		minLen = 2
+	}
+
+	for i := 0; i < minLen; i++ {
+		ve1, err := strconv.Atoi(verElems1[i])
+		if err != nil {
+			return 0, fmt.Errorf("wrong version to compare")
+		}
+		ve2, err := strconv.Atoi(verElems2[i])
+		if err != nil {
+			return 0, fmt.Errorf("wrong version to compare")
+		}
+
+		if ve1 > ve2 {
+			return 1, nil
+		} else if ve1 < ve2 {
+			return -1, nil
+		}
 	}
 
 	return 0, nil

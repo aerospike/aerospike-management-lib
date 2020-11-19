@@ -3,8 +3,8 @@ package deployment
 import (
 	"fmt"
 
-	aero "github.com/aerospike/aerospike-client-go"
-	"github.com/citrusleaf/aerospike-management-lib/info"
+	aero "github.com/ashishshinde/aerospike-client-go"
+	"github.com/aerospike/aerospike-management-lib/info"
 	log "github.com/inconshreveable/log15"
 )
 

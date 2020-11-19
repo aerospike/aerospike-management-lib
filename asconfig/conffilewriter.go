@@ -13,7 +13,7 @@ import (
 	"sort"
 	"strings"
 
-	lib "github.com/citrusleaf/aerospike-management-lib"
+	lib "github.com/aerospike/aerospike-management-lib"
 	log "github.com/inconshreveable/log15"
 )
 
@@ -80,6 +80,7 @@ func writeDeviceStorageSection(buf *bytes.Buffer, section string, conf Conf, ind
 }
 
 func writeSpecialListSection(buf *bytes.Buffer, section string, confList []Conf, indent int) {
+	section = SingularOf(section)
 	switch section {
 	case "logging":
 		writeLogSection(buf, section, confList, indent)
@@ -94,6 +95,7 @@ func writeListSection(buf *bytes.Buffer, section string, conf Conf, indent int) 
 	}
 
 	delete(conf, "name")
+	section = SingularOf(section)
 	beginSection(buf, indent, section+" "+name)
 	writeDotConf(buf, conf, indent+1, nil)
 	endSection(buf, indent)
@@ -125,6 +127,7 @@ func writeSection(buf *bytes.Buffer, section string, conf Conf, indent int) {
 }
 
 func writeListField(buf *bytes.Buffer, key string, value string, indent int, sep string) {
+	key = SingularOf(key)
 	if sep != "" {
 		buf.WriteString(indentString(indent) + string(key) + "    " + strings.Replace(value, sep, " ", -1) + "\n")
 	} else {
