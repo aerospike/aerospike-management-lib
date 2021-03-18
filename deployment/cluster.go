@@ -232,11 +232,10 @@ func (c *cluster) InfoQuiesce(hostID string, hostIDs []string) error {
 		ns = strings.Split(info["namespaces"], ";")[0]
 	}
 
-	// Retry 3 times, but why...?
 	if len(ns) > 0 {
 		var passed bool
 
-		for i := 0; i < 3; i++ {
+		for i := 0; i < 30; i++ {
 			lg.Debug("Verifying execution of quiesce by using namespace", log.Ctx{"ns": ns})
 
 			cmd = fmt.Sprintf("namespace/%s", ns)
@@ -287,8 +286,7 @@ func (c *cluster) InfoQuiesce(hostID string, hostIDs []string) error {
 
 	if len(ns) > 0 {
 		var passed bool
-		// Retry 3 times
-		for i := 0; i < 3; i++ {
+		for i := 0; i < 30; i++ {
 			lg.Debug("Verifying execution of recluster by using namespace", log.Ctx{"ns": ns})
 
 			cmd = fmt.Sprintf("namespace/%s", ns)
@@ -338,12 +336,12 @@ func (c *cluster) InfoQuiesce(hostID string, hostIDs []string) error {
 
 	// client refresh interval is 1 second
 	// need to wait till client refreshes cluster and gets new partition table
-	sleepSeconds := 1
+	sleepSeconds := 2
 	succeed := false
 
-	// testing for last 10 seconds transaction
-	// so retry loop for 10
-	for i := 0; i < 10; i++ {
+	// testing for last 60 seconds transaction
+	// so retry loop for 30
+	for i := 0; i < 30; i++ {
 		lg.Debug("Will try after time", log.Ctx{"Seconds": sleepSeconds})
 		time.Sleep(time.Duration(sleepSeconds) * time.Second)
 
@@ -380,6 +378,135 @@ func (c *cluster) InfoQuiesce(hostID string, hostIDs []string) error {
 	}
 
 	lg.Debug("Finished running InfoQuiesce")
+	return nil
+}
+
+func (c *cluster) getQuiescedNodes(hostIDs []string, ns string) ([]string, error) {
+	lg := c.log.New(log.Ctx{"nodes": hostIDs})
+
+	lg.Debug("Verifying isNodeQuiesced", log.Ctx{"ns": ns})
+
+	var quiescedNodes []string
+
+	cmd := fmt.Sprintf("namespace/%s", ns)
+
+	infoResults, err := c.infoOnHosts(hostIDs, cmd)
+	if err != nil {
+		return quiescedNodes, err
+	}
+
+	key := "nodes_quiesced"
+	for nodeID, info := range infoResults {
+		nodesQuiesced, err := info.toInt(key)
+		if err != nil {
+			return quiescedNodes, fmt.Errorf("Failed to execute cluster-stable command on node %s: %v", nodeID, err)
+		}
+
+		if nodesQuiesced == 1 {
+			quiescedNodes = append(quiescedNodes, nodeID)
+		}
+	}
+
+	return quiescedNodes, nil
+}
+
+func (c *cluster) getClusterNamespaces(hostID string) ([]string, error) {
+	// Fetching namespace name
+	n, err := c.findHost(hostID)
+	if err != nil {
+		return nil, err
+	}
+
+	info, err := n.asConnInfo.asinfo.RequestInfo("namespaces")
+	if err != nil {
+		return nil, err
+	}
+
+	if len(info["namespaces"]) > 0 {
+		return strings.Split(info["namespaces"], ";"), nil
+	}
+
+	return nil, fmt.Errorf("Found no namespace for the cluster")
+}
+
+// InfoQuiesceUndo revert the effects of the quiesce on the next recluster event.
+func (c *cluster) InfoQuiesceUndo(hostIDs []string) error {
+	lg := c.log.New(log.Ctx{"nodes": hostIDs})
+
+	lg.Debug("Running InfoQuiesceUndo")
+
+	if len(hostIDs) == 0 {
+		return nil
+	}
+
+	// Fetching namespace name
+	namespaces, err := c.getClusterNamespaces(hostIDs[0])
+	if err != nil {
+		return err
+	}
+
+	ns := namespaces[0]
+
+	// Fetching quiesced Nodes
+	quiescedNodes, err := c.getQuiescedNodes(hostIDs, ns)
+	if err != nil {
+		return err
+	}
+
+	// No Node to undo quiesce
+	if len(quiescedNodes) == 0 {
+		return nil
+	}
+
+	lg.Warn("Found few nodes in quiesced state. Running `quiesce-undo:` for them", log.Ctx{"nodes": quiescedNodes})
+
+	for _, hostID := range quiescedNodes {
+		lg := c.log.New(log.Ctx{"node": hostID})
+
+		n, err := c.findHost(hostID)
+		if err != nil {
+			return err
+		}
+
+		lg.Warn("Issuing undo quiesce command `quiesce-undo:`")
+
+		res, err := n.asConnInfo.asinfo.RequestInfo("quiesce-undo:")
+		if err != nil {
+			return err
+		}
+		if strings.Contains(strings.ToLower(res["quiesce-undo:"]), "error") {
+			return fmt.Errorf("Issuing quiesce command failed: %v", res["quiesce-undo:"])
+		}
+		// TODO: Do we need to check any stats to verify undo?
+	}
+
+	return c.infoRecluster(hostIDs)
+}
+
+func (c *cluster) infoRecluster(hostIDs []string) error {
+	lg := c.log.New(log.Ctx{"nodes": hostIDs})
+
+	lg.Debug("Issuing recluster command")
+
+	cmd := "recluster:"
+	infoResults, err := c.infoOnHosts(hostIDs, cmd)
+	if err != nil {
+		return err
+	}
+
+	found := false
+	for _, info := range infoResults {
+		r, _ := info.toString(cmd)
+		if r == "ok" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		return fmt.Errorf("Failed to execute recluster command: no response from principle node")
+	}
+
+	lg.Debug("Finished running InfoQuiesceUndo")
 	return nil
 }
 

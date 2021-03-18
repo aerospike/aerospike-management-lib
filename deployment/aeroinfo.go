@@ -3,8 +3,8 @@ package deployment
 import (
 	"fmt"
 
-	aero "github.com/ashishshinde/aerospike-client-go"
 	"github.com/aerospike/aerospike-management-lib/info"
+	aero "github.com/ashishshinde/aerospike-client-go"
 	log "github.com/inconshreveable/log15"
 )
 
@@ -25,6 +25,16 @@ func InfoQuiesce(policy *aero.ClientPolicy, allHosts []*HostConn, selectedHost *
 	}
 
 	return c.InfoQuiesce(selectedHost.ID, getHostIDsFromHostConns(allHosts))
+}
+
+// InfoQuiesceUndo revert the effects of the quiesce on the next recluster event
+func InfoQuiesceUndo(policy *aero.ClientPolicy, allHosts []*HostConn) error {
+	c, err := newCluster(policy, allHosts, allHosts, false, false)
+	if err != nil {
+		return fmt.Errorf("unable to create a cluster copy for running aeroinfo: %v", err)
+	}
+
+	return c.InfoQuiesceUndo(getHostIDsFromHostConns(allHosts))
 }
 
 // TipClearHostname runs tip clear
