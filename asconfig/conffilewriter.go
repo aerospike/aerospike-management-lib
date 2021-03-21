@@ -76,6 +76,7 @@ func writeLogSection(buf *bytes.Buffer, section string, logs []Conf, indent int)
 
 func writeTypedSection(buf *bytes.Buffer, section string, conf Conf, indent int) {
 	beginSection(buf, indent, fmt.Sprintf("%s %v", section, conf["type"]))
+	delete(conf, "type")
 	writeDotConf(buf, conf, indent+1, nil)
 	endSection(buf, indent)
 }
