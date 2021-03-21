@@ -9,6 +9,7 @@ package asconfig
 
 import (
 	"bytes"
+	"fmt"
 	"reflect"
 	"sort"
 	"strings"
@@ -73,8 +74,8 @@ func writeLogSection(buf *bytes.Buffer, section string, logs []Conf, indent int)
 	endSection(buf, indent)
 }
 
-func writeDeviceStorageSection(buf *bytes.Buffer, section string, conf Conf, indent int) {
-	beginSection(buf, indent, section+" device")
+func writeTypedSection(buf *bytes.Buffer, section string, conf Conf, indent int) {
+	beginSection(buf, indent, fmt.Sprintf("%s %v", section, conf["type"]))
 	writeDotConf(buf, conf, indent+1, nil)
 	endSection(buf, indent)
 }
@@ -117,7 +118,11 @@ func writeSection(buf *bytes.Buffer, section string, conf Conf, indent int) {
 
 	switch {
 	case strings.EqualFold(section, "storage-engine"):
-		writeDeviceStorageSection(buf, section, m, indent)
+		writeTypedSection(buf, section, m, indent)
+		return
+
+	case strings.EqualFold(section, "index-type"):
+		writeTypedSection(buf, section, m, indent)
 		return
 
 	default:
