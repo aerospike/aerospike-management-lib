@@ -75,10 +75,17 @@ func writeLogSection(buf *bytes.Buffer, section string, logs []Conf, indent int)
 }
 
 func writeTypedSection(buf *bytes.Buffer, section string, conf Conf, indent int) {
-	beginSection(buf, indent, fmt.Sprintf("%s %v", section, conf["type"]))
+	typeStr := conf["type"].(string)
 	delete(conf, "type")
-	writeDotConf(buf, conf, indent+1, nil)
-	endSection(buf, indent)
+
+	if len(conf) > 0 {
+		beginSection(buf, indent, fmt.Sprintf("%s %v", section, typeStr))
+		writeDotConf(buf, conf, indent+1, nil)
+		endSection(buf, indent)
+	} else {
+		// Section with just the type like storage-engine memory
+		writeField(buf, section, typeStr, indent)
+	}
 }
 
 func writeSpecialListSection(buf *bytes.Buffer, section string, confList []Conf, indent int) {

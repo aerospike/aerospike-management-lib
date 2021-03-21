@@ -583,7 +583,7 @@ func isListField(key string) (bool, string) {
 		"device", "report-data-op", "node-address-port":
 		return true, ":"
 
-	case "file", "address", "tls-address", "access-address",
+	case "file", "address", "tls-address", "access-address", "mount",
 		"tls-access-address", "alternate-access-address",
 		"tls-alternate-access-address", "role-query-pattern",
 		"xdr-remote-datacenter", "multicast-group":
