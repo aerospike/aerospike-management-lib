@@ -332,6 +332,7 @@ func (c *cluster) InfoQuiesce(hostID string, hostIDs []string) error {
 		}
 	}
 
+	// TODO: Check if we need to add proxy checks.
 	lg.Debug("Verifying throughput on the node")
 
 	// client refresh interval is 1 second
@@ -381,52 +382,59 @@ func (c *cluster) InfoQuiesce(hostID string, hostIDs []string) error {
 	return nil
 }
 
-func (c *cluster) getQuiescedNodes(hostIDs []string, ns string) ([]string, error) {
-	lg := c.log.New(log.Ctx{"nodes": hostIDs})
-
-	lg.Debug("Verifying isNodeQuiesced", log.Ctx{"ns": ns})
-
+func (c *cluster) getQuiescedNodes(hostIDs []string) ([]string, error) {
 	var quiescedNodes []string
 
-	cmd := fmt.Sprintf("namespace/%s", ns)
+	namespaces, err := c.getClusterNamespaces(hostIDs)
+	if err != nil {
+		return nil, err
+	}
 
-	infoResults, err := c.infoOnHosts(hostIDs, cmd)
+	hostIDCmdMap := map[string]string{}
+
+	for _, hostID := range hostIDs {
+		cmd := fmt.Sprintf("namespace/%s", namespaces[hostID][0])
+		hostIDCmdMap[hostID] = cmd
+	}
+
+	infoResults, err := c.infoCmdsOnHosts(hostIDCmdMap)
 	if err != nil {
 		return quiescedNodes, err
 	}
 
-	key := "nodes_quiesced"
-	for nodeID, info := range infoResults {
-		nodesQuiesced, err := info.toInt(key)
+	pendingQuiesceKey := "pending_quiesce"
+
+	for hostID, info := range infoResults {
+		nodesQuiesced, err := info.toString(pendingQuiesceKey)
 		if err != nil {
-			return quiescedNodes, fmt.Errorf("Failed to execute cluster-stable command on node %s: %v", nodeID, err)
+			return quiescedNodes, fmt.Errorf("Failed to get %s on node %s: %v", pendingQuiesceKey, hostID, err)
 		}
 
-		if nodesQuiesced == 1 {
-			quiescedNodes = append(quiescedNodes, nodeID)
+		if nodesQuiesced == "true" {
+			quiescedNodes = append(quiescedNodes, hostID)
 		}
 	}
 
 	return quiescedNodes, nil
 }
 
-func (c *cluster) getClusterNamespaces(hostID string) ([]string, error) {
-	// Fetching namespace name
-	n, err := c.findHost(hostID)
+func (c *cluster) getClusterNamespaces(hostIDs []string) (map[string][]string, error) {
+	cmd := "namespaces"
+	infoResults, err := c.infoOnHosts(hostIDs, cmd)
 	if err != nil {
 		return nil, err
 	}
 
-	info, err := n.asConnInfo.asinfo.RequestInfo("namespaces")
-	if err != nil {
-		return nil, err
+	namespaces := map[string][]string{}
+	for hostID, info := range infoResults {
+		if len(info["namespaces"]) > 0 {
+			namespaces[hostID] = strings.Split(info["namespaces"], ";")
+		} else {
+			return nil, fmt.Errorf("Failed to get namespaces for node %v", hostID)
+		}
 	}
 
-	if len(info["namespaces"]) > 0 {
-		return strings.Split(info["namespaces"], ";"), nil
-	}
-
-	return nil, fmt.Errorf("Found no namespace for the cluster")
+	return namespaces, nil
 }
 
 // InfoQuiesceUndo revert the effects of the quiesce on the next recluster event.
@@ -439,16 +447,8 @@ func (c *cluster) InfoQuiesceUndo(hostIDs []string) error {
 		return nil
 	}
 
-	// Fetching namespace name
-	namespaces, err := c.getClusterNamespaces(hostIDs[0])
-	if err != nil {
-		return err
-	}
-
-	ns := namespaces[0]
-
 	// Fetching quiesced Nodes
-	quiescedNodes, err := c.getQuiescedNodes(hostIDs, ns)
+	quiescedNodes, err := c.getQuiescedNodes(hostIDs)
 	if err != nil {
 		return err
 	}
@@ -549,6 +549,31 @@ func (c *cluster) infoOnHosts(hostIDs []string, cmd string) (map[string]infoResu
 
 	if len(infos) != len(hostIDs) {
 		return nil, fmt.Errorf("failed to fetch aerospike info `%s` for all hosts %v", cmd, hostIDs)
+	}
+	return infos, nil
+}
+
+// infoCmdsOnHosts returns the result of running the info command on the hosts.
+func (c *cluster) infoCmdsOnHosts(hostIDCmdMap map[string]string) (map[string]infoResult, error) {
+	infos := make(map[string]infoResult) // host id to info output
+
+	var mut sync.Mutex
+	var wg sync.WaitGroup
+	wg.Add(len(hostIDCmdMap))
+	for hostID, cmd := range hostIDCmdMap {
+		go func(hostID string, cmd string, wg *sync.WaitGroup) {
+			defer wg.Done()
+			if info, err := c.infoCmd(hostID, cmd); err == nil {
+				mut.Lock()
+				defer mut.Unlock()
+				infos[hostID] = info
+			}
+		}(hostID, cmd, &wg)
+	}
+	wg.Wait()
+
+	if len(infos) != len(hostIDCmdMap) {
+		return nil, fmt.Errorf("failed to fetch aerospike info for all hosts %v", hostIDCmdMap)
 	}
 	return infos, nil
 }
