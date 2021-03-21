@@ -264,6 +264,7 @@ func (c *cluster) InfoQuiesce(hostID string, hostIDs []string) error {
 		}
 	}
 
+	// TODO: skip recluster if the node is already effectively_quesced.
 	lg.Debug("Issuing recluster command")
 
 	cmd = "recluster:"
@@ -318,8 +319,8 @@ func (c *cluster) InfoQuiesce(hostID string, hostIDs []string) error {
 				return fmt.Errorf("Failed to convert key %q to int: %v", key, err)
 			}
 
-			if nodesQuiesced != 1 {
-				lg.Debug("nodes_quiesced verification failed on node, should be 1", log.Ctx{"nodes_quiesced": nodesQuiesced, "host": hostID, "ns": ns})
+			if nodesQuiesced <= 0 {
+				lg.Debug("nodes_quiesced verification failed on node, should be >= 1", log.Ctx{"nodes_quiesced": nodesQuiesced, "host": hostID, "ns": ns})
 				time.Sleep(2 * time.Second)
 				continue
 			}
