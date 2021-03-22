@@ -580,7 +580,7 @@ func isListField(key string) (bool, string) {
 	// TODO: Device with shadow device is not reported by server
 	// yet in runtime making it colon separated for now.
 	case "mesh-seed-address-port", "tls-mesh-seed-address-port",
-		"device", "report-data-op", "node-address-port":
+		"device", "report-data-op", "node-address-port", "feature-key-file":
 		return true, ":"
 
 	case "file", "address", "tls-address", "access-address", "mount",
@@ -873,7 +873,7 @@ func toConf(input map[string]interface{}) Conf {
 				}
 			}
 		case string:
-			if ok, _ := isListField(k); ok {
+			if ok, _ := isListField(k); ok && k != "feature-key-file" {
 				result[k] = []string{v}
 			} else {
 				result[k] = v
