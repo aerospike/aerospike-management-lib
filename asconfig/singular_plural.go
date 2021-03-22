@@ -12,6 +12,7 @@ var singularToPlural = map[string]string{
 	"dc-node-address-port":         "dc-node-address-ports",
 	"device":                       "devices",
 	"file":                         "files",
+	"feature-key-file":             "feature-key-files",
 	"mount":                        "mounts",
 	"http-url":                     "http-urls",
 	"ignore-bin":                   "ignore-bins",
