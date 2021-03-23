@@ -55,6 +55,8 @@ func parseInfo(info map[string]string) map[string]string {
 					ss := strings.Split(s, "=")
 					kk, vv := ss[0], ss[1]
 					m[kk] = vv
+				} else {
+					m[k] = v
 				}
 			}
 		} else {
