@@ -653,5 +653,5 @@ func ToStatsDeep(input Stats) Stats {
 
 // DeepCopy Make a deep copy from src into dst. src, dst both should be pointer
 func DeepCopy(dst interface{}, src interface{}) error {
-	return copier.Copy(dst, src)
+	return copier.CopyWithOption(dst, src, copier.Option{DeepCopy: true, IgnoreEmpty: false})
 }
