@@ -586,7 +586,7 @@ func isListField(key string) (bool, string) {
 	case "file", "address", "tls-address", "access-address", "mount",
 		"tls-access-address", "alternate-access-address",
 		"tls-alternate-access-address", "role-query-pattern",
-		"xdr-remote-datacenter", "multicast-group":
+		"xdr-remote-datacenter", "multicast-group", "tls-authenticate-client":
 		return true, ""
 	default:
 		return false, ""
@@ -849,7 +849,11 @@ func toConf(input map[string]interface{}) Conf {
 				case string:
 					temp := make([]string, len(v))
 					for i, s := range v {
-						temp[i] = s.(string)
+						if boolVal, isBool := s.(bool); isBool && isSpecialStringField(k) {
+							temp[i] = strconv.FormatBool(boolVal)
+						} else {
+							temp[i] = s.(string)
+						}
 					}
 					result[k] = temp
 				case map[string]interface{}, lib.Stats:
@@ -881,7 +885,11 @@ func toConf(input map[string]interface{}) Conf {
 
 		case bool:
 			if isSpecialStringField(k) {
-				result[k] = strconv.FormatBool(v)
+				if ok, _ := isListField(k); ok {
+					result[k] = []string{strconv.FormatBool(v)}
+				} else {
+					result[k] = strconv.FormatBool(v)
+				}
 			} else {
 				result[k] = v
 			}
