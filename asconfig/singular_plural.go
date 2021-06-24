@@ -34,6 +34,7 @@ var singularToPlural = map[string]string{
 	"tls-mesh-seed-address-port":   "tls-mesh-seed-address-ports",
 	"tls-node":                     "tls-nodes",
 	"xdr-remote-datacenter":        "xdr-remote-datacenters",
+	"tls-authenticate-client":      "tls-authenticate-clients",
 }
 
 var pluralToSingular map[string]string = map[string]string{}
