@@ -11,8 +11,8 @@ import (
 	"sync"
 	"time"
 
-	aero "github.com/ashishshinde/aerospike-client-go"
-	ast "github.com/ashishshinde/aerospike-client-go/types"
+	aero "github.com/ashishshinde/aerospike-client-go/v5"
+	ast "github.com/ashishshinde/aerospike-client-go/v5/types"
 
 	lib "github.com/aerospike/aerospike-management-lib"
 	"github.com/aerospike/aerospike-management-lib/bcrypt"
@@ -179,7 +179,7 @@ func (info *AsInfo) doInfo(commands ...string) (map[string]string, error) {
 			return nil, fmt.Errorf("failed to create secure connection for aerospike info: %v", err)
 		}
 
-		aerr := info.conn.Authenticate(info.policy.User, info.policy.Password)
+		/*aerr := info.conn.Authenticate(info.policy.User, info.policy.Password)
 		if aerr != nil {
 			if _, ok := aerr.(ast.AerospikeError); ok {
 				return nil, fmt.Errorf("failed to authenticate user `%s` in aerospike server: %v", info.policy.User, aerr.(ast.AerospikeError).ResultCode())
@@ -187,6 +187,7 @@ func (info *AsInfo) doInfo(commands ...string) (map[string]string, error) {
 			return nil, fmt.Errorf("failed to authenticate user `%s` in aerospike server: %v", info.policy.User, aerr)
 		}
 		info.log.Debug("secure connection created for aerospike info")
+		*/
 	}
 
 	var deadline time.Time
@@ -195,7 +196,7 @@ func (info *AsInfo) doInfo(commands ...string) (map[string]string, error) {
 	}
 	info.conn.SetTimeout(deadline, asTimeout)
 
-	result, err := aero.RequestInfo(info.conn, commands...)
+	result, err := info.conn.RequestInfo(commands...)
 	if err != nil {
 		info.log.Debug("failed to run aerospike info command", log.Ctx{"err": err})
 		if err == io.EOF {
