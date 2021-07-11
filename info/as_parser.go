@@ -179,7 +179,7 @@ func (info *AsInfo) doInfo(commands ...string) (map[string]string, error) {
 			return nil, fmt.Errorf("failed to create secure connection for aerospike info: %v", err)
 		}
 
-		/*aerr := info.conn.Authenticate(info.policy.User, info.policy.Password)
+		aerr := info.conn.Login(info.policy)
 		if aerr != nil {
 			if _, ok := aerr.(ast.AerospikeError); ok {
 				return nil, fmt.Errorf("failed to authenticate user `%s` in aerospike server: %v", info.policy.User, aerr.(ast.AerospikeError).ResultCode())
@@ -187,7 +187,6 @@ func (info *AsInfo) doInfo(commands ...string) (map[string]string, error) {
 			return nil, fmt.Errorf("failed to authenticate user `%s` in aerospike server: %v", info.policy.User, aerr)
 		}
 		info.log.Debug("secure connection created for aerospike info")
-		*/
 	}
 
 	var deadline time.Time
