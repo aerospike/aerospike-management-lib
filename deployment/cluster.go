@@ -524,8 +524,6 @@ func (c *cluster) infoCmd(hostID, cmd string) (map[string]string, error) {
 	info, err := n.asConnInfo.asinfo.RequestInfo(cmd)
 	lg.Debug("finished running InfoCmd", log.Ctx{"err": err})
 
-	lg.Debug("@@@@@ finished running InfoCmd", log.Ctx{"err": err, "info": info})
-
 	if err != nil {
 		return nil, err
 	}
