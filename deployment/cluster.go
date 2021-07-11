@@ -10,7 +10,7 @@ import (
 	"github.com/aerospike/aerospike-management-lib/asconfig"
 	log "github.com/inconshreveable/log15"
 
-	aero "github.com/ashishshinde/aerospike-client-go"
+	aero "github.com/ashishshinde/aerospike-client-go/v5"
 )
 
 // cluster represents an aerospike cluster
@@ -523,6 +523,7 @@ func (c *cluster) infoCmd(hostID, cmd string) (map[string]string, error) {
 
 	info, err := n.asConnInfo.asinfo.RequestInfo(cmd)
 	lg.Debug("finished running InfoCmd", log.Ctx{"err": err})
+
 	if err != nil {
 		return nil, err
 	}

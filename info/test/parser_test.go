@@ -9,7 +9,7 @@ import (
 
 	"golang.org/x/crypto/ssh"
 
-	aero "github.com/ashishshinde/aerospike-client-go"
+	aero "github.com/ashishshinde/aerospike-client-go/v5"
 
 	lib "github.com/aerospike/aerospike-management-lib"
 	"github.com/aerospike/aerospike-management-lib/info"

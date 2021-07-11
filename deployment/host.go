@@ -6,7 +6,7 @@ import (
 	log "github.com/inconshreveable/log15"
 	"golang.org/x/crypto/ssh"
 
-	aero "github.com/ashishshinde/aerospike-client-go"
+	aero "github.com/ashishshinde/aerospike-client-go/v5"
 
 	"github.com/aerospike/aerospike-management-lib/info"
 	"github.com/aerospike/aerospike-management-lib/system"
