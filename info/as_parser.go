@@ -181,7 +181,10 @@ func (info *AsInfo) doInfo(commands ...string) (map[string]string, error) {
 
 		aerr := info.conn.Login(info.policy)
 		if aerr != nil {
-			return nil, fmt.Errorf("failed to authenticate user `%s` in aerospike server: %v", info.policy.User, aerr.resultCode())
+			if _, ok := aerr.(AerospikeError); ok {
+				return nil, fmt.Errorf("failed to authenticate user `%s` in aerospike server: %v", info.policy.User, aerr.(AerospikeError).ResultCode())
+			}
+			return nil, fmt.Errorf("failed to authenticate user `%s` in aerospike server: %v", info.policy.User, aerr)
 		}
 		info.log.Debug("secure connection created for aerospike info")
 	}
