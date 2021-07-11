@@ -1,6 +1,7 @@
 package info
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -181,8 +182,9 @@ func (info *AsInfo) doInfo(commands ...string) (map[string]string, error) {
 
 		aerr := info.conn.Login(info.policy)
 		if aerr != nil {
-			if _, ok := aerr.(AerospikeError); ok {
-				return nil, fmt.Errorf("failed to authenticate user `%s` in aerospike server: %v", info.policy.User, aerr.(AerospikeError).ResultCode())
+			ae := &aero.AerospikeError{}
+			if errors.As(err, &ae) {
+				return nil, fmt.Errorf("failed to authenticate user `%s` in aerospike server: %v", info.policy.User, ae.ResultCode)
 			}
 			return nil, fmt.Errorf("failed to authenticate user `%s` in aerospike server: %v", info.policy.User, aerr)
 		}
