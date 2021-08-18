@@ -878,7 +878,7 @@ func toConf(input map[string]interface{}) Conf {
 			}
 		case string:
 			if ok, _ := isListField(k); ok && k != "feature-key-file" {
-				if k == "tls-authenticate-client" && v == "any" {
+				if k == "tls-authenticate-client" && (v == "any" || v == "false") {
 					result[k] = v
 				} else {
 					result[k] = []string{v}
