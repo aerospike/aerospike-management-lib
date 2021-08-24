@@ -878,7 +878,11 @@ func toConf(input map[string]interface{}) Conf {
 			}
 		case string:
 			if ok, _ := isListField(k); ok && k != "feature-key-file" {
-				result[k] = []string{v}
+				if k == "tls-authenticate-client" && (v == "any" || v == "false") {
+					result[k] = v
+				} else {
+					result[k] = []string{v}
+				}
 			} else {
 				result[k] = v
 			}
@@ -886,7 +890,12 @@ func toConf(input map[string]interface{}) Conf {
 		case bool:
 			if isSpecialStringField(k) {
 				if ok, _ := isListField(k); ok {
-					result[k] = []string{strconv.FormatBool(v)}
+					if k == "tls-authenticate-client" && v == false {
+						result[k] = strconv.FormatBool(v)
+					} else {
+						result[k] = []string{strconv.FormatBool(v)}
+					}
+
 				} else {
 					result[k] = strconv.FormatBool(v)
 				}
