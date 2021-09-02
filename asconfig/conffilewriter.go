@@ -15,7 +15,6 @@ import (
 	"strings"
 
 	lib "github.com/aerospike/aerospike-management-lib"
-	log "github.com/inconshreveable/log15"
 )
 
 func indentString(indent int) string {
@@ -115,7 +114,7 @@ func writeSection(buf *bytes.Buffer, section string, conf Conf, indent int) {
 
 	m, ok := conf[section].(Conf)
 	if !ok {
-		pkglog.Debug("section is not a config", log.Ctx{"section": section})
+		pkglog.V(4).Info("section is not a config", "section", section)
 		return
 	}
 
@@ -191,7 +190,7 @@ func writeKeys(buf *bytes.Buffer, keys *[]string, conf Conf, isSimple bool, inde
 			if isSimple {
 				ok, sep := isListField(k)
 				if !ok {
-					pkglog.Debug("list found in non list field ", log.Ctx{"key": k})
+					pkglog.V(4).Info("list found in non list field", "key", k)
 					break
 				}
 
@@ -207,7 +206,7 @@ func writeKeys(buf *bytes.Buffer, keys *[]string, conf Conf, isSimple bool, inde
 		case []interface{}:
 			if !isSimple {
 				if !isListSection(k) && !isSpecialListSection(k) {
-					pkglog.Debug("list found in non list section ", log.Ctx{"key": k})
+					pkglog.V(4).Info("list found in non list section", "key", k)
 					break
 				}
 
@@ -236,7 +235,7 @@ func writeKeys(buf *bytes.Buffer, keys *[]string, conf Conf, isSimple bool, inde
 		case []Conf:
 			if !isSimple {
 				if !isListSection(k) && !isSpecialListSection(k) {
-					pkglog.Debug("list found in non list section ", log.Ctx{"key": k})
+					pkglog.V(4).Info("list found in non list section", "key", k)
 					break
 				}
 
@@ -260,7 +259,10 @@ func writeKeys(buf *bytes.Buffer, keys *[]string, conf Conf, isSimple bool, inde
 			}
 
 		default:
-			pkglog.Debug("unknown config value type", log.Ctx{"type": reflect.TypeOf(v), "key": k, "value": v})
+			pkglog.V(4).Info(
+				"unknown config value type",
+				"type", reflect.TypeOf(v), "key", k, "value", v)
+
 		}
 	}
 }

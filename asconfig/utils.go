@@ -16,7 +16,6 @@ import (
 	"strings"
 
 	lib "github.com/aerospike/aerospike-management-lib"
-	log "github.com/inconshreveable/log15"
 )
 
 type sysproptype string
@@ -134,14 +133,15 @@ func expandConfList(input Conf) Conf {
 				for k2, v2 := range v {
 					v2Conf, ok := v2.(Conf)
 					if !ok {
-						pkglog.Warn("wrong value type for list section", log.Ctx{"section": k, "key": k2, "valueType": reflect.TypeOf(v2)})
+						pkglog.V(2).Info("wrong value type for list section",
+							"section", k, "key", k2, "key", reflect.TypeOf(v2))
 						continue
 					}
 
 					// fetch index stored by flattenConf
 					index, ok := v2Conf["index"].(int)
 					if !ok {
-						pkglog.Warn("index not available", log.Ctx{"section": k, "key": k2})
+						pkglog.V(2).Info("index not available", "section", k, "key", k2)
 						continue
 					}
 
@@ -236,7 +236,7 @@ func getContainedName(fullKey string, context string) (string, bool) {
 func splitKey(key, sep string) []string {
 	sepRunes := []rune(sep)
 	if len(sepRunes) > 1 {
-		pkglog.Error("split expects single char as separator")
+		pkglog.V(1).Info("split expects single char as separator")
 		return nil
 	}
 
@@ -266,7 +266,7 @@ func expandKey(input Conf, keys []string, val interface{}) bool {
 	for _, k := range keys {
 		defer func() {
 			if r := recover(); r != nil {
-				pkglog.Error("recovered", log.Ctx{"key": k, "keys": keys, "err": r})
+				pkglog.V(1).Info("recovered", "key", k, "keys", keys, "err", r)
 			}
 		}()
 		if v, ok := m[k]; ok {
@@ -294,7 +294,7 @@ func flattenConfList(input []Conf, sep string) Conf {
 		}
 		name, ok := v["name"].(string)
 		if !ok {
-			pkglog.Warn("flattenConfList not possible for ListSection without name")
+			pkglog.V(2).Info("flattenConfList not possible for ListSection without name")
 			continue
 		}
 
@@ -378,7 +378,7 @@ func isValueDiff(v1 interface{}, v2 interface{}) bool {
 			return true
 		}
 	default:
-		pkglog.Debug("unhandled value type in config diff ", log.Ctx{"type": reflect.TypeOf(v2)})
+		pkglog.V(4).Info("unhandled value type in config diff", "type", reflect.TypeOf(v2))
 		return true
 	}
 	return false
@@ -432,7 +432,8 @@ func diff(c1, c2 Conf, isFlat, c2IsDefault, ignoreInternalFields bool) Conf {
 			// is adding some key which system
 			// does not know about.
 			if c2IsDefault && !isInternalField(k) {
-				pkglog.Debug("key not in default map while performing diff from default. Ignoring", log.Ctx{"key": _k})
+				pkglog.V(4).Info("key not in default map while performing diff from default. Ignoring",
+					"key", _k)
 				// TODO: How to handle dynamic only configs???
 				continue
 			}
@@ -501,7 +502,7 @@ func getSystemProperty(c Conf, key string) (stype sysproptype, value []string) {
 	// Catch all exception for type cast.
 	defer func() {
 		if r := recover(); r != nil {
-			pkglog.Debug("unexpected type ", log.Ctx{"type": reflect.TypeOf(c[key]), "key": baseKey})
+			pkglog.V(4).Info("unexpected type", "type", reflect.TypeOf(c[key]), "key", baseKey)
 			stype = NONE
 		}
 	}()
@@ -777,7 +778,8 @@ func addStorageEngineConfig(key string, v interface{}, conf Conf) {
 		vStr, ok := v.(string)
 		if key == storageKey {
 			if !ok {
-				pkglog.Debug("wrong value type", log.Ctx{"key": key, "valueType": reflect.TypeOf(v)})
+				pkglog.V(4).Info("wrong value type",
+					"key", key, "valueType", reflect.TypeOf(v))
 				return
 			}
 			if vStr == "memory" {
@@ -840,7 +842,8 @@ func toConf(input map[string]interface{}) Conf {
 				} else if ok, _ := isListField(k); ok {
 					result[k] = make([]string, 0)
 				} else {
-					pkglog.Debug("[]interface neither list field or list section ", log.Ctx{"key": k})
+					pkglog.V(4).Info("[]interface neither list field or list section",
+						"key", k)
 				}
 			} else {
 				v1 := v[0]
@@ -867,13 +870,14 @@ func toConf(input map[string]interface{}) Conf {
 						if ok {
 							temp[i] = toConf(m1)
 						} else {
-							pkglog.Debug("[]Conf does not have map[string] interface{}")
+							pkglog.V(4).Info("[]Conf does not have map[string] interface{}")
 							break
 						}
 					}
 					result[k] = temp
 				default:
-					pkglog.Debug("unexpected value", log.Ctx{"type": reflect.TypeOf(v), "key": k, "value": v})
+					pkglog.V(4).Info("unexpected value",
+						"type", reflect.TypeOf(v), "key", k, "value", v)
 				}
 			}
 		case string:

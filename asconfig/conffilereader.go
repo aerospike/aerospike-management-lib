@@ -13,8 +13,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-
-	log "github.com/inconshreveable/log15"
 )
 
 var leadcloseWhtspRegex = regexp.MustCompile(`^[\s\p{Zs}]+|[\s\p{Zs}]+$`)
@@ -141,14 +139,19 @@ func writeConf(tok []string, conf Conf) {
 	case "xdr-digestlog-path":
 		size, err := deHumanizeSize(tok[2])
 		if err != nil {
-			pkglog.Debug("found invalid xdr-digestlog-size value, while creating acc config struct", log.Ctx{"err": err})
+			pkglog.V(2).Info(
+				"found invalid xdr-digestlog-size value, while creating acc config struct",
+				"err", err)
 			break
 		}
 		conf[cfgName] = fmt.Sprintf("%s %d", tok[1], size)
 
 	default:
 		if len(tok) > 2 {
-			pkglog.Debug("found > 2 tokens: Unknown format for config, while creating acc config struct", log.Ctx{"config": cfgName, "token": tok})
+			pkglog.V(4).Info(
+				"found > 2 tokens: Unknown format for config, while creating acc config struct",
+				"config", cfgName, "token", tok)
+
 			break
 		}
 
@@ -174,7 +177,7 @@ func process(scanner *bufio.Scanner, conf Conf) (Conf, error) {
 
 		// Zero tokens
 		if len(tok) == 0 {
-			pkglog.Debug("conf file line has 0 tokens")
+			pkglog.V(4).Info("conf file line has 0 tokens")
 			return nil, ConfigParseError
 		}
 
@@ -192,7 +195,7 @@ func process(scanner *bufio.Scanner, conf Conf) (Conf, error) {
 				conf[tok[0]] = true
 				continue
 			}
-			pkglog.Debug("config file line has  < 2 tokens:", log.Ctx{"token": tok})
+			pkglog.V(4).Info("config file line has  < 2 tokens:", "token", tok)
 			return nil, ConfigParseError
 		}
 

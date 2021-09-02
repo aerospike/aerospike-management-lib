@@ -1,13 +1,26 @@
 package asconfig
 
 import (
-	log "github.com/inconshreveable/log15"
+	"sync"
+
+	"github.com/go-logr/logr"
 )
 
 // AsConfig is wrapper over Conf
 type AsConfig struct {
 	version  string
 	baseConf Conf
+}
+
+var (
+	doOnce sync.Once
+	pkglog = logr.Discard()
+)
+
+func SetManagementLibLogger(logger logr.Logger) {
+	doOnce.Do(func() {
+		pkglog = logger
+	})
 }
 
 // ValidationErr represents version validation error
@@ -18,8 +31,6 @@ type ValidationErr struct {
 	Field       string
 	Value       interface{}
 }
-
-var pkglog = log.New(log.Ctx{"module": "lib.asconfig"})
 
 // NewMapAsConfig creates AsConfig from map
 func NewMapAsConfig(version string, configMap map[string]interface{}) (*AsConfig, error) {

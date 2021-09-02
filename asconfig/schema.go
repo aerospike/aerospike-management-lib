@@ -8,8 +8,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-
-	log "github.com/inconshreveable/log15"
 )
 
 // map of version to schema
@@ -26,7 +24,7 @@ var dynRegex = regexp.MustCompile("(.*).dynamic$")
 //
 // schemaDir is the path to directory having the aerospike config schemas.
 func Init(schemaDir string) error {
-	pkglog.Debug("Config schema dir", log.Ctx{"dir": schemaDir})
+	pkglog.V(4).Info("Config schema dir", "dir", schemaDir)
 	schemas = make(map[string]string)
 
 	fileInfo, err := ioutil.ReadDir(schemaDir)
@@ -50,7 +48,7 @@ func Init(schemaDir string) error {
 		}
 
 		schemas[versionFormat(file.Name())] = string(schema)
-		pkglog.Debug("Config schema added", log.Ctx{"version": versionFormat(file.Name())})
+		pkglog.V(4).Info("Config schema added", "version", versionFormat(file.Name()))
 	}
 
 	return nil
@@ -62,7 +60,7 @@ func Init(schemaDir string) error {
 func InitFromMap(schemaMap map[string]string) {
 	schemas = make(map[string]string)
 	for name, schema := range schemaMap {
-		pkglog.Debug("Config schema added", log.Ctx{"version": name})
+		pkglog.V(4).Info("Config schema added", "version", name)
 		schemas[name] = schema
 	}
 }
