@@ -13,6 +13,8 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/go-logr/logr"
 )
 
 var leadcloseWhtspRegex = regexp.MustCompile(`^[\s\p{Zs}]+|[\s\p{Zs}]+$`)
@@ -28,8 +30,8 @@ func parseLine(line string) string {
 	return final
 }
 
-func skipSection(scanner *bufio.Scanner) {
-	process(scanner, make(Conf))
+func skipSection(log *logr.Logger, scanner *bufio.Scanner) {
+	process(log, scanner, make(Conf))
 }
 
 func toList(conf Conf) []Conf {
@@ -57,7 +59,7 @@ func toList(conf Conf) []Conf {
 	return confList
 }
 
-func processSection(tok []string, scanner *bufio.Scanner, conf Conf) error {
+func processSection(log *logr.Logger, tok []string, scanner *bufio.Scanner, conf Conf) error {
 
 	var err error
 
@@ -68,7 +70,7 @@ func processSection(tok []string, scanner *bufio.Scanner, conf Conf) error {
 			conf[cfgName] = make(Conf)
 		}
 
-		sec, err := process(scanner, conf[cfgName].(Conf))
+		sec, err := process(log, scanner, conf[cfgName].(Conf))
 		if err != nil {
 			return err
 		}
@@ -89,7 +91,7 @@ func processSection(tok []string, scanner *bufio.Scanner, conf Conf) error {
 	}
 
 	tempConf := make(Conf)
-	if err = processSection(tok[1:], scanner, tempConf); err != nil {
+	if err = processSection(log, tok[1:], scanner, tempConf); err != nil {
 		return err
 	}
 
@@ -115,7 +117,7 @@ func addToStrList(conf Conf, cfgName string, val string) {
 	conf[cfgName] = append(conf[cfgName].([]string), val)
 }
 
-func writeConf(tok []string, conf Conf) {
+func writeConf(log *logr.Logger, tok []string, conf Conf) {
 	cfgName := tok[0]
 
 	// Handle List Field
@@ -139,7 +141,7 @@ func writeConf(tok []string, conf Conf) {
 	case "xdr-digestlog-path":
 		size, err := deHumanizeSize(tok[2])
 		if err != nil {
-			pkglog.V(2).Info(
+			log.V(1).Info(
 				"found invalid xdr-digestlog-size value, while creating acc config struct",
 				"err", err)
 			break
@@ -148,7 +150,7 @@ func writeConf(tok []string, conf Conf) {
 
 	default:
 		if len(tok) > 2 {
-			pkglog.V(4).Info(
+			log.V(1).Info(
 				"found > 2 tokens: Unknown format for config, while creating acc config struct",
 				"config", cfgName, "token", tok)
 
@@ -164,7 +166,8 @@ func writeConf(tok []string, conf Conf) {
 		}
 	}
 }
-func process(scanner *bufio.Scanner, conf Conf) (Conf, error) {
+
+func process(log *logr.Logger, scanner *bufio.Scanner, conf Conf) (Conf, error) {
 
 	for scanner.Scan() {
 
@@ -172,15 +175,13 @@ func process(scanner *bufio.Scanner, conf Conf) (Conf, error) {
 		if line == "" {
 			continue
 		}
-
 		tok := strings.Split(line, " ")
 
 		// Zero tokens
 		if len(tok) == 0 {
-			pkglog.V(4).Info("conf file line has 0 tokens")
+			log.V(1).Info("conf file line has 0 tokens")
 			return nil, ConfigParseError
 		}
-
 		// End of Section
 		if tok[0] == "}" {
 			return conf.ToParsedValues(), nil
@@ -195,17 +196,17 @@ func process(scanner *bufio.Scanner, conf Conf) (Conf, error) {
 				conf[tok[0]] = true
 				continue
 			}
-			pkglog.V(4).Info("config file line has  < 2 tokens:", "token", tok)
+			log.V(1).Info("config file line has  < 2 tokens:", "token", tok)
 			return nil, ConfigParseError
 		}
 
 		// Start section
 		if tok[len(tok)-1] == "{" {
-			if err := processSection(tok, scanner, conf); err != nil {
+			if err := processSection(log, tok, scanner, conf); err != nil {
 				return nil, err
 			}
 		} else {
-			writeConf(tok, conf)
+			writeConf(log, tok, conf)
 		}
 	}
 

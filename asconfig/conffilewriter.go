@@ -15,13 +15,14 @@ import (
 	"strings"
 
 	lib "github.com/aerospike/aerospike-management-lib"
+	"github.com/go-logr/logr"
 )
 
 func indentString(indent int) string {
 	return strings.Repeat(" ", indent*4)
 }
 
-func beginSection(buf *bytes.Buffer, indent int, name ...string) {
+func beginSection(log *logr.Logger, buf *bytes.Buffer, indent int, name ...string) {
 	buf.WriteString("\n" + indentString(indent) + strings.Join(name[:], " ") + " {\n")
 }
 
@@ -29,9 +30,9 @@ func endSection(buf *bytes.Buffer, indent int) {
 	buf.WriteString(strings.Repeat(" ", indent*4) + "}\n")
 }
 
-func writeSimpleSection(buf *bytes.Buffer, section string, conf Conf, indent int) {
-	beginSection(buf, indent, section)
-	writeDotConf(buf, conf, indent+1, nil)
+func writeSimpleSection(log *logr.Logger, buf *bytes.Buffer, section string, conf Conf, indent int) {
+	beginSection(log, buf, indent, section)
+	writeDotConf(log, buf, conf, indent+1, nil)
 	endSection(buf, indent)
 }
 
@@ -52,12 +53,12 @@ func writeLogContext(buf *bytes.Buffer, conf Conf, indent int) {
 	}
 }
 
-func writeLogSection(buf *bytes.Buffer, section string, logs []Conf, indent int) {
-	beginSection(buf, indent, section)
-	for i := range logs {
-		log := logs[i]
+func writeLogSection(log *logr.Logger, buf *bytes.Buffer, section string, confs []Conf, indent int) {
+	beginSection(log, buf, indent, section)
+	for i := range confs {
+		conf := confs[i]
 
-		name, ok := log["name"].(string)
+		name, ok := conf["name"].(string)
 		if !ok {
 			continue
 		}
@@ -66,20 +67,20 @@ func writeLogSection(buf *bytes.Buffer, section string, logs []Conf, indent int)
 			key = "file " + name
 		}
 
-		beginSection(buf, indent+1, key)
-		writeLogContext(buf, log, indent+2)
+		beginSection(log, buf, indent+1, key)
+		writeLogContext(buf, conf, indent+2)
 		endSection(buf, indent+1)
 	}
 	endSection(buf, indent)
 }
 
-func writeTypedSection(buf *bytes.Buffer, section string, conf Conf, indent int) {
+func writeTypedSection(log *logr.Logger, buf *bytes.Buffer, section string, conf Conf, indent int) {
 	typeStr := conf["type"].(string)
 	delete(conf, "type")
 
 	if len(conf) > 0 {
-		beginSection(buf, indent, fmt.Sprintf("%s %v", section, typeStr))
-		writeDotConf(buf, conf, indent+1, nil)
+		beginSection(log, buf, indent, fmt.Sprintf("%s %v", section, typeStr))
+		writeDotConf(log, buf, conf, indent+1, nil)
 		endSection(buf, indent)
 	} else {
 		// Section with just the type like storage-engine memory
@@ -87,16 +88,16 @@ func writeTypedSection(buf *bytes.Buffer, section string, conf Conf, indent int)
 	}
 }
 
-func writeSpecialListSection(buf *bytes.Buffer, section string, confList []Conf, indent int) {
+func writeSpecialListSection(log *logr.Logger, buf *bytes.Buffer, section string, confList []Conf, indent int) {
 	section = SingularOf(section)
 	switch section {
 	case "logging":
-		writeLogSection(buf, section, confList, indent)
+		writeLogSection(log, buf, section, confList, indent)
 		return
 	}
 }
 
-func writeListSection(buf *bytes.Buffer, section string, conf Conf, indent int) {
+func writeListSection(log *logr.Logger, buf *bytes.Buffer, section string, conf Conf, indent int) {
 	name, ok := conf["name"].(string)
 	if !ok || len(name) == 0 {
 		return
@@ -104,17 +105,17 @@ func writeListSection(buf *bytes.Buffer, section string, conf Conf, indent int) 
 
 	delete(conf, "name")
 	section = SingularOf(section)
-	beginSection(buf, indent, section+" "+name)
-	writeDotConf(buf, conf, indent+1, nil)
+	beginSection(log, buf, indent, section+" "+name)
+	writeDotConf(log, buf, conf, indent+1, nil)
 	endSection(buf, indent)
 	conf["name"] = name
 }
 
-func writeSection(buf *bytes.Buffer, section string, conf Conf, indent int) {
+func writeSection(log *logr.Logger, buf *bytes.Buffer, section string, conf Conf, indent int) {
 
 	m, ok := conf[section].(Conf)
 	if !ok {
-		pkglog.V(4).Info("section is not a config", "section", section)
+		log.V(1).Info("section is not a config", "section", section)
 		return
 	}
 
@@ -125,15 +126,15 @@ func writeSection(buf *bytes.Buffer, section string, conf Conf, indent int) {
 
 	switch {
 	case strings.EqualFold(section, "storage-engine"):
-		writeTypedSection(buf, section, m, indent)
+		writeTypedSection(log, buf, section, m, indent)
 		return
 
 	case strings.EqualFold(section, "index-type"):
-		writeTypedSection(buf, section, m, indent)
+		writeTypedSection(log, buf, section, m, indent)
 		return
 
 	default:
-		writeSimpleSection(buf, section, m, indent)
+		writeSimpleSection(log, buf, section, m, indent)
 	}
 
 }
@@ -170,7 +171,7 @@ func writeField(buf *bytes.Buffer, key string, value string, indent int) {
 	buf.WriteString(indentString(indent) + string(key) + "    " + value + "\n")
 }
 
-func writeKeys(buf *bytes.Buffer, keys *[]string, conf Conf, isSimple bool, indent int) {
+func writeKeys(log *logr.Logger, buf *bytes.Buffer, keys *[]string, conf Conf, isSimple bool, indent int) {
 
 	for _, k := range *keys {
 
@@ -190,7 +191,7 @@ func writeKeys(buf *bytes.Buffer, keys *[]string, conf Conf, isSimple bool, inde
 			if isSimple {
 				ok, sep := isListField(k)
 				if !ok {
-					pkglog.V(4).Info("list found in non list field", "key", k)
+					log.V(1).Info("list found in non list field", "key", k)
 					break
 				}
 
@@ -206,7 +207,7 @@ func writeKeys(buf *bytes.Buffer, keys *[]string, conf Conf, isSimple bool, inde
 		case []interface{}:
 			if !isSimple {
 				if !isListSection(k) && !isSpecialListSection(k) {
-					pkglog.V(4).Info("list found in non list section", "key", k)
+					log.V(1).Info("list found in non list section", "key", k)
 					break
 				}
 
@@ -221,13 +222,13 @@ func writeKeys(buf *bytes.Buffer, keys *[]string, conf Conf, isSimple bool, inde
 							vList = append(vList, vM)
 						}
 					}
-					writeSpecialListSection(buf, k, vList, indent)
+					writeSpecialListSection(log, buf, k, vList, indent)
 					break
 				}
 
 				for _, confI := range v {
 					if confM, ok := confI.(Conf); ok {
-						writeListSection(buf, k, confM, indent)
+						writeListSection(log, buf, k, confM, indent)
 					}
 				}
 			}
@@ -235,7 +236,7 @@ func writeKeys(buf *bytes.Buffer, keys *[]string, conf Conf, isSimple bool, inde
 		case []Conf:
 			if !isSimple {
 				if !isListSection(k) && !isSpecialListSection(k) {
-					pkglog.V(4).Info("list found in non list section", "key", k)
+					log.V(1).Info("list found in non list section", "key", k)
 					break
 				}
 
@@ -244,22 +245,22 @@ func writeKeys(buf *bytes.Buffer, keys *[]string, conf Conf, isSimple bool, inde
 				}
 
 				if isSpecialListSection(k) {
-					writeSpecialListSection(buf, k, v, indent)
+					writeSpecialListSection(log, buf, k, v, indent)
 					break
 				}
 
 				for _, confM := range v {
-					writeListSection(buf, k, confM, indent)
+					writeListSection(log, buf, k, confM, indent)
 				}
 			}
 
 		case Conf:
 			if !isSimple {
-				writeSection(buf, k, conf, indent)
+				writeSection(log, buf, k, conf, indent)
 			}
 
 		default:
-			pkglog.V(4).Info(
+			log.V(1).Info(
 				"unknown config value type",
 				"type", reflect.TypeOf(v), "key", k, "value", v)
 
@@ -267,7 +268,7 @@ func writeKeys(buf *bytes.Buffer, keys *[]string, conf Conf, isSimple bool, inde
 	}
 }
 
-func writeDotConf(buf *bytes.Buffer, conf Conf, indent int, onlyKeys *[]string) {
+func writeDotConf(log *logr.Logger, buf *bytes.Buffer, conf Conf, indent int, onlyKeys *[]string) {
 
 	var keys = onlyKeys
 
@@ -282,6 +283,6 @@ func writeDotConf(buf *bytes.Buffer, conf Conf, indent int, onlyKeys *[]string) 
 	}
 
 	sort.Strings(*keys)
-	writeKeys(buf, keys, conf, true, indent)
-	writeKeys(buf, keys, conf, false, indent)
+	writeKeys(log, buf, keys, conf, true, indent)
+	writeKeys(log, buf, keys, conf, false, indent)
 }

@@ -8,10 +8,9 @@ import (
 	"strings"
 	"sync"
 
-	log "github.com/inconshreveable/log15"
-
 	lib "github.com/aerospike/aerospike-management-lib"
 	"github.com/aerospike/aerospike-management-lib/system"
+	"github.com/go-logr/logr"
 )
 
 type NodeSysStats = lib.Stats
@@ -43,17 +42,18 @@ var sysCmdMaxRetry = 2
 type SysInfo struct {
 	// FIXME should it have all the shit about system connection
 	system *system.System
-	log    log.Logger
+	log    *logr.Logger
 }
 
 // NewSysInfo returns a new SysInfo
-func NewSysInfo(system *system.System) (*SysInfo, error) {
+func NewSysInfo(log *logr.Logger, system *system.System) (*SysInfo, error) {
+	logger := log.WithValues("node", system)
 	if system == nil {
 		return nil, fmt.Errorf("system connection object nil")
 	}
 	sys := &SysInfo{
 		system: system,
-		log:    pkglog.New(log.Ctx{"node": system}),
+		log:    &logger,
 	}
 	return sys, nil
 }
@@ -90,7 +90,8 @@ func (s *SysInfo) GetSysInfo(cmdList ...string) NodeSysStats {
 
 			cmdOutput, stderr, err := s.RunSysCmd(RunCmd[cmd]...)
 			if err != nil {
-				s.log.Debug("failed to run system command", log.Ctx{"command": cmd, "stderr": stderr, "err": err})
+				s.log.V(1).Info("failed to run system command",
+					"command", cmd, "stderr", stderr, "err", err)
 				return
 			}
 
@@ -100,9 +101,9 @@ func (s *SysInfo) GetSysInfo(cmdList ...string) NodeSysStats {
 			case "uname":
 				m = parseUnameInfo(cmdOutput)
 			case "meminfo":
-				m = parseMemInfo(cmdOutput)
+				m = parseMemInfo(s.log, cmdOutput)
 			case "df":
-				m = parseDfInfo(cmdOutput)
+				m = parseDfInfo(s.log, cmdOutput)
 			case "free-m":
 				m = parseFreeMInfo(cmdOutput)
 			case "hostname":
@@ -128,7 +129,7 @@ func (s *SysInfo) GetSysInfo(cmdList ...string) NodeSysStats {
 			case "iostat":
 				m = parseIostatInfo(cmdOutput)
 			default:
-				s.log.Debug("invalid cmd to parse sysinfo", log.Ctx{"command": cmd})
+				s.log.V(1).Info("invalid cmd to parse sysinfo", "command", cmd)
 			}
 
 			lock.Lock()
@@ -360,7 +361,7 @@ func parseUnameInfo(cmdOutput string) lib.Stats {
 
 // parseMemInfo parse mem info
 // cmdOutput: (output of command - "cat /proc/meminfo", "vmstat -s")
-func parseMemInfo(cmdOutput string) lib.Stats {
+func parseMemInfo(log *logr.Logger, cmdOutput string) lib.Stats {
 	// MemTotal:        8415676 kB
 	m := make(lib.Stats)
 	lines := strings.Split(cmdOutput, "\n")
@@ -392,7 +393,7 @@ func parseMemInfo(cmdOutput string) lib.Stats {
 		key = strings.Replace(key, " ", "_", -1)
 		vali, err := strconv.Atoi(val)
 		if err != nil {
-			pkglog.Debug("failed to parse memInfo val %s: %v", val, err)
+			log.V(1).Info("failed to parse memInfo val %s: %v", val, err)
 		}
 		vali = vali * 1024
 		m[key] = vali
@@ -412,7 +413,7 @@ func parseMemInfo(cmdOutput string) lib.Stats {
 // tmpfs                   961076         0    961076   0% /dev/shm
 //
 // output: [{name: A, size: A, used: A, avail: A, %use: A, mount_point: A},{}]
-func parseDfInfo(cmdOutput string) lib.Stats {
+func parseDfInfo(log *logr.Logger, cmdOutput string) lib.Stats {
 	m := make(lib.Stats)
 	var fsList []lib.Stats
 	tokCount := 6
@@ -465,15 +466,15 @@ func parseDfInfo(cmdOutput string) lib.Stats {
 			fs["name"] = tokens[0]
 			fs["size"], e = getMemInByteFromStr(tokens[1], 1)
 			if e != nil {
-				pkglog.Debug("failed to parse `size` from `df` cmd output `%s`: %v", tokens[1], e)
+				log.V(1).Info("failed to parse `size` from `df` cmd output", tokens[1], e)
 			}
 			fs["used"], e = getMemInByteFromStr(tokens[2], 1)
 			if e != nil {
-				pkglog.Debug("failed to parse `used` from `df` cmd output `%s`: %v", tokens[2], e)
+				log.V(1).Info("failed to parse `used` from `df` cmd output", tokens[2], e)
 			}
 			fs["avail"], e = getMemInByteFromStr(tokens[3], 1)
 			if e != nil {
-				pkglog.Debug("failed to parse `avail` from `df` cmd output `%s`: %v", tokens[3], e)
+				log.V(1).Info("failed to parse `avail` from `df` cmd output", tokens[3], e)
 			}
 			fs["%use"] = strings.Replace(tokens[4], "%", "", -1)
 			fs["mount_point"] = tokens[5]

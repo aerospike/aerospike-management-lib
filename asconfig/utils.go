@@ -16,6 +16,7 @@ import (
 	"strings"
 
 	lib "github.com/aerospike/aerospike-management-lib"
+	"github.com/go-logr/logr"
 )
 
 type sysproptype string
@@ -101,28 +102,28 @@ var sectionNameStartChar = '{'
 var sectionNameEndChar = '}'
 
 // expandConf expands map with flat keys (with sep) to Conf
-func expandConf(input Conf, sep string) Conf {
-	m := expandConfMap(input, sep)
-	return expandConfList(m)
+func expandConf(log *logr.Logger, input *Conf, sep string) Conf {
+	m := expandConfMap(log, input, sep)
+	return expandConfList(log, m)
 }
 
 // expandConfMap expands flat map to Conf by using sep
 // it does not check for list sections
-func expandConfMap(input Conf, sep string) Conf {
+func expandConfMap(log *logr.Logger, input *Conf, sep string) Conf {
 	m := make(Conf)
-	for k, v := range input {
+	for k, v := range *input {
 		switch v := v.(type) {
 		case Conf:
-			m[k] = expandConfMap(v, sep)
+			m[k] = expandConfMap(log, &v, sep)
 		default:
-			expandKey(m, splitKey(k, sep), v)
+			expandKey(log, m, splitKey(log, k, sep), v)
 		}
 	}
 	return m
 }
 
 // expandConfList expands expected list sections to list of Conf
-func expandConfList(input Conf) Conf {
+func expandConfList(log *logr.Logger, input Conf) Conf {
 	for k, val := range input {
 		v, ok := val.(Conf)
 		if ok {
@@ -133,7 +134,7 @@ func expandConfList(input Conf) Conf {
 				for k2, v2 := range v {
 					v2Conf, ok := v2.(Conf)
 					if !ok {
-						pkglog.V(2).Info("wrong value type for list section",
+						log.V(-1).Info("wrong value type for list section",
 							"section", k, "key", k2, "key", reflect.TypeOf(v2))
 						continue
 					}
@@ -141,11 +142,11 @@ func expandConfList(input Conf) Conf {
 					// fetch index stored by flattenConf
 					index, ok := v2Conf["index"].(int)
 					if !ok {
-						pkglog.V(2).Info("index not available", "section", k, "key", k2)
+						log.V(-1).Info("index not available", "section", k, "key", k2)
 						continue
 					}
 
-					confList[index] = expandConfList(v2Conf)
+					confList[index] = expandConfList(log, v2Conf)
 
 					// index is flattenConf generated field, delete it
 					delete(confList[index], "index")
@@ -157,7 +158,7 @@ func expandConfList(input Conf) Conf {
 				}
 
 			} else {
-				v = expandConfList(v)
+				v = expandConfList(log, v)
 			}
 		}
 	}
@@ -213,12 +214,12 @@ func getRawName(name string) string {
 
 // getContainedName returns config name and true if key is part of the passed in
 // context, otherwise empty string and false
-func getContainedName(fullKey string, context string) (string, bool) {
+func getContainedName(log *logr.Logger, fullKey string, context string) (string, bool) {
 	ctx := toAsConfigContext(context)
 
 	if strings.Contains(fullKey, ctx) {
-		fKs := splitKey(fullKey, sep)
-		cKs := splitKey(ctx, sep)
+		fKs := splitKey(log, fullKey, sep)
+		cKs := splitKey(log, ctx, sep)
 
 		// Number of keys in fullKey should
 		// be 1 more that ctx
@@ -233,10 +234,10 @@ func getContainedName(fullKey string, context string) (string, bool) {
 
 // splitKey splits key by using sep
 // it ignore sep inside sectionNameStartChar and sectionNameEndChar
-func splitKey(key, sep string) []string {
+func splitKey(log *logr.Logger, key, sep string) []string {
 	sepRunes := []rune(sep)
 	if len(sepRunes) > 1 {
-		pkglog.V(1).Info("split expects single char as separator")
+		log.Info("split expects single char as separator")
 		return nil
 	}
 
@@ -256,7 +257,7 @@ func splitKey(key, sep string) []string {
 	return strings.FieldsFunc(key, f)
 }
 
-func expandKey(input Conf, keys []string, val interface{}) bool {
+func expandKey(log *logr.Logger, input Conf, keys []string, val interface{}) bool {
 	if len(keys) == 1 {
 		return false
 	}
@@ -266,7 +267,7 @@ func expandKey(input Conf, keys []string, val interface{}) bool {
 	for _, k := range keys {
 		defer func() {
 			if r := recover(); r != nil {
-				pkglog.V(1).Info("recovered", "key", k, "keys", keys, "err", r)
+				log.Info("recovered", "key", k, "keys", keys, "err", r)
 			}
 		}()
 		if v, ok := m[k]; ok {
@@ -285,7 +286,7 @@ func expandKey(input Conf, keys []string, val interface{}) bool {
 }
 
 // flattenConfList flatten list and save index for expandConf
-func flattenConfList(input []Conf, sep string) Conf {
+func flattenConfList(log *logr.Logger, input []Conf, sep string) Conf {
 	res := make(Conf, len(input))
 
 	for i, v := range input {
@@ -294,7 +295,7 @@ func flattenConfList(input []Conf, sep string) Conf {
 		}
 		name, ok := v["name"].(string)
 		if !ok {
-			pkglog.V(2).Info("flattenConfList not possible for ListSection without name")
+			log.V(-1).Info("flattenConfList not possible for ListSection without name")
 			continue
 		}
 
@@ -305,7 +306,7 @@ func flattenConfList(input []Conf, sep string) Conf {
 		// but this solution will work for most of the cases and reduce most of the failure scenarios
 		name = string(sectionNameStartChar) + name + string(sectionNameEndChar)
 
-		for k2, v2 := range flattenConf(v, sep) {
+		for k2, v2 := range flattenConf(log, v, sep) {
 			res[name+sep+k2] = v2
 		}
 		// store index for expanding in correct order
@@ -316,16 +317,16 @@ func flattenConfList(input []Conf, sep string) Conf {
 }
 
 // flattenConf flatten Conf by creating new key by using sep
-func flattenConf(input Conf, sep string) Conf {
+func flattenConf(log *logr.Logger, input Conf, sep string) Conf {
 	res := make(Conf, len(input))
 	for k, v := range input {
 		switch v := v.(type) {
 		case Conf:
-			for k2, v2 := range flattenConf(v, sep) {
+			for k2, v2 := range flattenConf(log, v, sep) {
 				res[k+sep+k2] = v2
 			}
 		case []Conf:
-			for k2, v2 := range flattenConfList(v, sep) {
+			for k2, v2 := range flattenConfList(log, v, sep) {
 				res[k+sep+k2] = v2
 			}
 		default:
@@ -345,7 +346,7 @@ func baseKey(k string, sep string) (string, []string) {
 // basicValue : int64, boolean, string
 // List : list of string
 //      : empty list of interface{} uninitialized list
-func isValueDiff(v1 interface{}, v2 interface{}) bool {
+func isValueDiff(log *logr.Logger, v1 interface{}, v2 interface{}) bool {
 
 	if reflect.TypeOf(v1) != reflect.TypeOf(v2) {
 		return true
@@ -378,7 +379,7 @@ func isValueDiff(v1 interface{}, v2 interface{}) bool {
 			return true
 		}
 	default:
-		pkglog.V(4).Info("unhandled value type in config diff", "type", reflect.TypeOf(v2))
+		log.V(1).Info("unhandled value type in config diff", "type", reflect.TypeOf(v2))
 		return true
 	}
 	return false
@@ -389,12 +390,12 @@ func isValueDiff(v1 interface{}, v2 interface{}) bool {
 //
 // Generally used to compare config from two different nodes. This ignores
 // node specific information like address, device, interface etc..
-func diff(c1, c2 Conf, isFlat, c2IsDefault, ignoreInternalFields bool) Conf {
+func diff(log *logr.Logger, c1, c2 Conf, isFlat, c2IsDefault, ignoreInternalFields bool) Conf {
 
 	// Flatten if not flattened already.
 	if !isFlat {
-		c1 = flattenConf(c1, sep)
-		c2 = flattenConf(c2, sep)
+		c1 = flattenConf(log, c1, sep)
+		c2 = flattenConf(log, c2, sep)
 	}
 
 	d := make(Conf)
@@ -432,7 +433,7 @@ func diff(c1, c2 Conf, isFlat, c2IsDefault, ignoreInternalFields bool) Conf {
 			// is adding some key which system
 			// does not know about.
 			if c2IsDefault && !isInternalField(k) {
-				pkglog.V(4).Info("key not in default map while performing diff from default. Ignoring",
+				log.V(1).Info("key not in default map while performing diff from default. Ignoring",
 					"key", _k)
 				// TODO: How to handle dynamic only configs???
 				continue
@@ -451,7 +452,7 @@ func diff(c1, c2 Conf, isFlat, c2IsDefault, ignoreInternalFields bool) Conf {
 				diff[k] = v
 			}
 		*/
-		if isValueDiff(v1, v2) {
+		if isValueDiff(log, v1, v2) {
 			d[k] = v1
 		}
 	}
@@ -461,16 +462,16 @@ func diff(c1, c2 Conf, isFlat, c2IsDefault, ignoreInternalFields bool) Conf {
 
 // confDiff find diff between two configs;
 //      diff = c1 - c2
-func confDiff(c1 Conf, c2 Conf, isFlat, ignoreInternalFields bool) map[string]interface{} {
-	return diff(c1, c2, isFlat, false, ignoreInternalFields)
+func confDiff(log *logr.Logger, c1 Conf, c2 Conf, isFlat, ignoreInternalFields bool) map[string]interface{} {
+	return diff(log, c1, c2, isFlat, false, ignoreInternalFields)
 }
 
 // defaultDiff returns the values different from the default.
 // This ignore the node specific value. i
 // For all Keys conf
 //    diff = flatConf - flatDefConf
-func defaultDiff(flatConf Conf, flatDefConf Conf) map[string]interface{} {
-	return diff(flatConf, flatDefConf, true, true, false)
+func defaultDiff(log *logr.Logger, flatConf Conf, flatDefConf Conf) map[string]interface{} {
+	return diff(log, flatConf, flatDefConf, true, true, false)
 }
 
 var nsRe = regexp.MustCompile(`namespace\.({[^.]+})\.(.+)`)
@@ -493,7 +494,7 @@ func changeKey(key string) string {
 
 // getSystemProperty return property type and their stringified
 // values
-func getSystemProperty(c Conf, key string) (stype sysproptype, value []string) {
+func getSystemProperty(log *logr.Logger, c Conf, key string) (stype sysproptype, value []string) {
 
 	baseKey, _ := baseKey(key, sep)
 	baseKey = SingularOf(baseKey)
@@ -502,7 +503,7 @@ func getSystemProperty(c Conf, key string) (stype sysproptype, value []string) {
 	// Catch all exception for type cast.
 	defer func() {
 		if r := recover(); r != nil {
-			pkglog.V(4).Info("unexpected type", "type", reflect.TypeOf(c[key]), "key", baseKey)
+			log.V(1).Info("unexpected type", "type", reflect.TypeOf(c[key]), "key", baseKey)
 			stype = NONE
 		}
 	}()
@@ -761,7 +762,7 @@ func isStorageEngineKey(key string) bool {
 	return false
 }
 
-func addStorageEngineConfig(key string, v interface{}, conf Conf) {
+func addStorageEngineConfig(log *logr.Logger, key string, v interface{}, conf Conf) {
 	if !isStorageEngineKey(key) {
 		return
 	}
@@ -771,14 +772,14 @@ func addStorageEngineConfig(key string, v interface{}, conf Conf) {
 	switch v := v.(type) {
 
 	case map[string]interface{}:
-		conf[storageKey] = toConf(v)
+		conf[storageKey] = toConf(log, v)
 	case lib.Stats:
-		conf[storageKey] = toConf(v)
+		conf[storageKey] = toConf(log, v)
 	default:
 		vStr, ok := v.(string)
 		if key == storageKey {
 			if !ok {
-				pkglog.V(4).Info("wrong value type",
+				log.V(1).Info("wrong value type",
 					"key", key, "valueType", reflect.TypeOf(v))
 				return
 			}
@@ -804,7 +805,7 @@ func addStorageEngineConfig(key string, v interface{}, conf Conf) {
 // toConf does deep conversion of map[string]interface{}
 // into Conf objects. Also converts the list form in conf
 // into map form, if required.
-func toConf(input map[string]interface{}) Conf {
+func toConf(log *logr.Logger, input map[string]interface{}) Conf {
 	result := make(Conf)
 
 	if len(input) == 0 {
@@ -813,16 +814,16 @@ func toConf(input map[string]interface{}) Conf {
 
 	for k, v := range input {
 		if isStorageEngineKey(k) {
-			addStorageEngineConfig(k, v, result)
+			addStorageEngineConfig(log, k, v, result)
 			continue
 		}
 
 		switch v := v.(type) {
 		case lib.Stats:
-			result[k] = toConf(v)
+			result[k] = toConf(log, v)
 
 		case map[string]interface{}:
-			result[k] = toConf(v)
+			result[k] = toConf(log, v)
 
 		case []map[string]interface{}:
 			if len(v) == 0 {
@@ -830,7 +831,7 @@ func toConf(input map[string]interface{}) Conf {
 			} else {
 				temp := make([]Conf, len(v))
 				for i, m := range v {
-					temp[i] = toConf(m)
+					temp[i] = toConf(log, m)
 				}
 				result[k] = temp
 			}
@@ -842,7 +843,7 @@ func toConf(input map[string]interface{}) Conf {
 				} else if ok, _ := isListField(k); ok {
 					result[k] = make([]string, 0)
 				} else {
-					pkglog.V(4).Info("[]interface neither list field or list section",
+					log.V(1).Info("[]interface neither list field or list section",
 						"key", k)
 				}
 			} else {
@@ -868,15 +869,15 @@ func toConf(input map[string]interface{}) Conf {
 							m1, ok = m.(lib.Stats)
 						}
 						if ok {
-							temp[i] = toConf(m1)
+							temp[i] = toConf(log, m1)
 						} else {
-							pkglog.V(4).Info("[]Conf does not have map[string] interface{}")
+							log.V(1).Info("[]Conf does not have map[string] interface{}")
 							break
 						}
 					}
 					result[k] = temp
 				default:
-					pkglog.V(4).Info("unexpected value",
+					log.V(1).Info("unexpected value",
 						"type", reflect.TypeOf(v), "key", k, "value", v)
 				}
 			}
@@ -932,10 +933,10 @@ func toConf(input map[string]interface{}) Conf {
 	return result
 }
 
-func getCfgValue(diffKeys []string, flatConf Conf) []CfgValue {
+func getCfgValue(log *logr.Logger, diffKeys []string, flatConf Conf) []CfgValue {
 	diffValues := []CfgValue{}
 	for _, k := range diffKeys {
-		context, name := getContextAndName(k, "/")
+		context, name := getContextAndName(log, k, "/")
 		diffValues = append(diffValues, CfgValue{
 			Context: context,
 			Name:    name,
@@ -945,8 +946,8 @@ func getCfgValue(diffKeys []string, flatConf Conf) []CfgValue {
 	return diffValues
 }
 
-func getContextAndName(key, ctxSep string) (string, string) {
-	keys := splitKey(key, sep)
+func getContextAndName(log *logr.Logger, key, ctxSep string) (string, string) {
+	keys := splitKey(log, key, sep)
 	if len(keys) == 1 {
 		//panic
 		return "", ""

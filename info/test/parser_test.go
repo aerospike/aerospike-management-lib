@@ -7,13 +7,12 @@ import (
 	"io/ioutil"
 	"testing"
 
-	"golang.org/x/crypto/ssh"
-
-	aero "github.com/ashishshinde/aerospike-client-go/v5"
-
 	lib "github.com/aerospike/aerospike-management-lib"
 	"github.com/aerospike/aerospike-management-lib/info"
 	"github.com/aerospike/aerospike-management-lib/system"
+	aero "github.com/ashishshinde/aerospike-client-go/v5"
+	"github.com/go-logr/logr"
+	"golang.org/x/crypto/ssh"
 )
 
 var runCmd = info.RunCmd
@@ -96,7 +95,8 @@ func TestMain(m *testing.M) {
 func NewAsInfo() (*info.AsInfo, error) {
 	p := aero.NewClientPolicy()
 	host := AerospikeHost()
-	return info.NewAsInfo(&host, p), nil
+	log := logr.Discard()
+	return info.NewAsInfo(&log, &host, p), nil
 }
 
 // AerospikeHost returns the aerospike host
@@ -116,12 +116,12 @@ func getSysInfo() (*info.SysInfo, error) {
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 	}
 	sudo := system.NewSudoWithPassword("sud123")
-
-	res, err := system.New("127.0.0.1", 22, sudo, config)
+	logger := logr.Discard()
+	res, err := system.New(&logger, "127.0.0.1", 22, sudo, config)
 	if err != nil {
 		return nil, err
 	}
-	return info.NewSysInfo(res)
+	return info.NewSysInfo(&logger, res)
 }
 
 // TODO: REMOVE IT

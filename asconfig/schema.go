@@ -8,6 +8,8 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/go-logr/logr"
 )
 
 // map of version to schema
@@ -23,8 +25,8 @@ var dynRegex = regexp.MustCompile("(.*).dynamic$")
 // Init needs to be called before using this package.
 //
 // schemaDir is the path to directory having the aerospike config schemas.
-func Init(schemaDir string) error {
-	pkglog.V(4).Info("Config schema dir", "dir", schemaDir)
+func Init(log *logr.Logger, schemaDir string) error {
+	log.V(1).Info("Config schema dir", "dir", schemaDir)
 	schemas = make(map[string]string)
 
 	fileInfo, err := ioutil.ReadDir(schemaDir)
@@ -48,7 +50,7 @@ func Init(schemaDir string) error {
 		}
 
 		schemas[versionFormat(file.Name())] = string(schema)
-		pkglog.V(4).Info("Config schema added", "version", versionFormat(file.Name()))
+		log.V(1).Info("Config schema added", "version", versionFormat(file.Name()))
 	}
 
 	return nil
@@ -57,10 +59,10 @@ func Init(schemaDir string) error {
 // InitFromMap init schema map from a map.
 // Map key format -> 4.1.0
 // Map value format -> string of json schema
-func InitFromMap(schemaMap map[string]string) {
+func InitFromMap(log *logr.Logger, schemaMap map[string]string) {
 	schemas = make(map[string]string)
 	for name, schema := range schemaMap {
-		pkglog.V(4).Info("Config schema added", "version", name)
+		log.V(1).Info("Config schema added", "version", name)
 		schemas[name] = schema
 	}
 }
