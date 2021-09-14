@@ -39,7 +39,7 @@ func (asc *ASConn) RunInfo(aerospikePolicy *aero.ClientPolicy, command ...string
 }
 
 // AlumniReset runs tip clear
-func (asc *ASConn) AlumniReset(aerospikePolicy *aero.ClientPolicy, asConn *ASConn) error {
+func (asc *ASConn) AlumniReset(aerospikePolicy *aero.ClientPolicy) error {
 	res, err := asc.RunInfo(aerospikePolicy, "services-alumni-reset")
 	asc.Log.Info("TipClearHostname", "res", res)
 	return err
@@ -53,7 +53,7 @@ func (asc *ASConn) TipClearHostname(aerospikePolicy *aero.ClientPolicy, address 
 }
 
 // TipHostname runs tip clear
-func (asc *ASConn) TipHostname(aerospikePolicy *aero.ClientPolicy, asConn *ASConn, address string, heartbeatPort int) error {
+func (asc *ASConn) TipHostname(aerospikePolicy *aero.ClientPolicy, address string, heartbeatPort int) error {
 	res, err := asc.RunInfo(aerospikePolicy, fmt.Sprintf("tip:host=%s;port=%d", address, heartbeatPort))
 	asc.Log.Info("TipHostname", "res", res)
 	return err
