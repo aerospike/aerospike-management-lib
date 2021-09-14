@@ -21,7 +21,7 @@ type HostConn struct {
 }
 
 type ASConn struct {
-	log               *logr.Logger
+	Log               *logr.Logger
 	AerospikeHostName string // host name of the machine to connect through aerospike
 	AerospikePort     int    // aerospike port to connec to
 	AerospikeTLSName  string // tls name of the aerospike connection
@@ -34,28 +34,28 @@ func (asc *ASConn) RunInfo(aerospikePolicy *aero.ClientPolicy, command ...string
 		Port:    asc.AerospikePort,
 		TLSName: asc.AerospikeTLSName,
 	}
-	asinfo := info.NewAsInfo(asc.log, &h, aerospikePolicy)
+	asinfo := info.NewAsInfo(asc.Log, &h, aerospikePolicy)
 	return asinfo.RequestInfo(command...)
 }
 
 // AlumniReset runs tip clear
 func (asc *ASConn) AlumniReset(aerospikePolicy *aero.ClientPolicy, asConn *ASConn) error {
 	res, err := asc.RunInfo(aerospikePolicy, "services-alumni-reset")
-	asc.log.Info("TipClearHostname", "res", res)
+	asc.Log.Info("TipClearHostname", "res", res)
 	return err
 }
 
 // TipClearHostname runs tip clear
 func (asc *ASConn) TipClearHostname(aerospikePolicy *aero.ClientPolicy, address string, heartbeatPort int) error {
 	res, err := asc.RunInfo(aerospikePolicy, fmt.Sprintf("tip-clear:host-port-list=%s:%d", address, heartbeatPort))
-	asc.log.Info("TipClearHostname", "res", res)
+	asc.Log.Info("TipClearHostname", "res", res)
 	return err
 }
 
 // TipHostname runs tip clear
 func (asc *ASConn) TipHostname(aerospikePolicy *aero.ClientPolicy, asConn *ASConn, address string, heartbeatPort int) error {
 	res, err := asc.RunInfo(aerospikePolicy, fmt.Sprintf("tip:host=%s;port=%d", address, heartbeatPort))
-	asc.log.Info("TipHostname", "res", res)
+	asc.Log.Info("TipHostname", "res", res)
 	return err
 }
 

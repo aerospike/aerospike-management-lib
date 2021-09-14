@@ -40,7 +40,7 @@ type sshConnInfo struct {
 func newHost(id string, aerospikePolicy *aero.ClientPolicy, asConn *ASConn, sshConn *SSHConn) (*host, error) {
 	nd := host{
 		id:  id,
-		log: asConn.log,
+		log: asConn.Log,
 	}
 
 	if asConn != nil {
@@ -64,7 +64,7 @@ func newASConn(aerospikePolicy *aero.ClientPolicy, asConn *ASConn) *asConnInfo {
 		Port:    asConn.AerospikePort,
 		TLSName: asConn.AerospikeTLSName,
 	}
-	asinfo := info.NewAsInfo(asConn.log, &h, aerospikePolicy)
+	asinfo := info.NewAsInfo(asConn.Log, &h, aerospikePolicy)
 
 	return &asConnInfo{
 		aerospikeHostName: asConn.AerospikeHostName,
