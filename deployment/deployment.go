@@ -14,14 +14,14 @@ import (
 
 // HostConn has all parameters to connect to an aerospike host and the machine.
 type HostConn struct {
-	Log     *logr.Logger
+	Log     logr.Logger
 	ID      string // host UUID string
 	ASConn  *ASConn
 	SSHConn *SSHConn
 }
 
 type ASConn struct {
-	Log               *logr.Logger
+	Log               logr.Logger
 	AerospikeHostName string // host name of the machine to connect through aerospike
 	AerospikePort     int    // aerospike port to connec to
 	AerospikeTLSName  string // tls name of the aerospike connection
@@ -64,11 +64,11 @@ type SSHConn struct {
 	SSHPort     int               // port to ssh into
 	SSHConfig   *ssh.ClientConfig // ssh config to connect to machine
 	Sudo        *system.Sudo      // sudo privileges on the machine
-	Log         *logr.Logger
+	Log         logr.Logger
 }
 
 // NewHostConn returns a new HostConn
-func NewHostConn(log *logr.Logger, id string, asConn *ASConn, sshConn *SSHConn) *HostConn {
+func NewHostConn(log logr.Logger, id string, asConn *ASConn, sshConn *SSHConn) *HostConn {
 	return &HostConn{
 		Log:     log,
 		ID:      id,

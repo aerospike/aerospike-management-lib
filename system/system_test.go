@@ -3,10 +3,10 @@ package system
 import (
 	"flag"
 	"fmt"
-	"github.com/go-logr/logr"
 	"os"
 	"testing"
 
+	"github.com/go-logr/logr"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -30,7 +30,7 @@ func TestMain(m *testing.M) {
 		sudo := NewSudoAsRoot()
 		var err error
 		logger := logr.Discard()
-		system, err = New(&logger, *ip, *port, sudo, config)
+		system, err = New(logger, *ip, *port, sudo, config)
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(-1)

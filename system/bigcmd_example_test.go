@@ -76,7 +76,7 @@ var config *ssh.ClientConfig = &ssh.ClientConfig{
 func ExampleSystem_RunBigCmd() {
 	sudo := system.NewSudoDisallowed()
 	logger := logr.Discard()
-	s, err := system.New(&logger, ip, port, sudo, config)
+	s, err := system.New(logger, ip, port, sudo, config)
 	if err != nil {
 		fmt.Println(err)
 		return

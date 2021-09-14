@@ -22,7 +22,7 @@ func indentString(indent int) string {
 	return strings.Repeat(" ", indent*4)
 }
 
-func beginSection(log *logr.Logger, buf *bytes.Buffer, indent int, name ...string) {
+func beginSection(log logr.Logger, buf *bytes.Buffer, indent int, name ...string) {
 	buf.WriteString("\n" + indentString(indent) + strings.Join(name[:], " ") + " {\n")
 }
 
@@ -30,7 +30,7 @@ func endSection(buf *bytes.Buffer, indent int) {
 	buf.WriteString(strings.Repeat(" ", indent*4) + "}\n")
 }
 
-func writeSimpleSection(log *logr.Logger, buf *bytes.Buffer, section string, conf Conf, indent int) {
+func writeSimpleSection(log logr.Logger, buf *bytes.Buffer, section string, conf Conf, indent int) {
 	beginSection(log, buf, indent, section)
 	writeDotConf(log, buf, conf, indent+1, nil)
 	endSection(buf, indent)
@@ -53,7 +53,7 @@ func writeLogContext(buf *bytes.Buffer, conf Conf, indent int) {
 	}
 }
 
-func writeLogSection(log *logr.Logger, buf *bytes.Buffer, section string, confs []Conf, indent int) {
+func writeLogSection(log logr.Logger, buf *bytes.Buffer, section string, confs []Conf, indent int) {
 	beginSection(log, buf, indent, section)
 	for i := range confs {
 		conf := confs[i]
@@ -74,7 +74,7 @@ func writeLogSection(log *logr.Logger, buf *bytes.Buffer, section string, confs 
 	endSection(buf, indent)
 }
 
-func writeTypedSection(log *logr.Logger, buf *bytes.Buffer, section string, conf Conf, indent int) {
+func writeTypedSection(log logr.Logger, buf *bytes.Buffer, section string, conf Conf, indent int) {
 	typeStr := conf["type"].(string)
 	delete(conf, "type")
 
@@ -88,7 +88,7 @@ func writeTypedSection(log *logr.Logger, buf *bytes.Buffer, section string, conf
 	}
 }
 
-func writeSpecialListSection(log *logr.Logger, buf *bytes.Buffer, section string, confList []Conf, indent int) {
+func writeSpecialListSection(log logr.Logger, buf *bytes.Buffer, section string, confList []Conf, indent int) {
 	section = SingularOf(section)
 	switch section {
 	case "logging":
@@ -97,7 +97,7 @@ func writeSpecialListSection(log *logr.Logger, buf *bytes.Buffer, section string
 	}
 }
 
-func writeListSection(log *logr.Logger, buf *bytes.Buffer, section string, conf Conf, indent int) {
+func writeListSection(log logr.Logger, buf *bytes.Buffer, section string, conf Conf, indent int) {
 	name, ok := conf["name"].(string)
 	if !ok || len(name) == 0 {
 		return
@@ -111,7 +111,7 @@ func writeListSection(log *logr.Logger, buf *bytes.Buffer, section string, conf 
 	conf["name"] = name
 }
 
-func writeSection(log *logr.Logger, buf *bytes.Buffer, section string, conf Conf, indent int) {
+func writeSection(log logr.Logger, buf *bytes.Buffer, section string, conf Conf, indent int) {
 
 	m, ok := conf[section].(Conf)
 	if !ok {
@@ -171,7 +171,7 @@ func writeField(buf *bytes.Buffer, key string, value string, indent int) {
 	buf.WriteString(indentString(indent) + string(key) + "    " + value + "\n")
 }
 
-func writeKeys(log *logr.Logger, buf *bytes.Buffer, keys *[]string, conf Conf, isSimple bool, indent int) {
+func writeKeys(log logr.Logger, buf *bytes.Buffer, keys *[]string, conf Conf, isSimple bool, indent int) {
 
 	for _, k := range *keys {
 
@@ -268,7 +268,7 @@ func writeKeys(log *logr.Logger, buf *bytes.Buffer, keys *[]string, conf Conf, i
 	}
 }
 
-func writeDotConf(log *logr.Logger, buf *bytes.Buffer, conf Conf, indent int, onlyKeys *[]string) {
+func writeDotConf(log logr.Logger, buf *bytes.Buffer, conf Conf, indent int, onlyKeys *[]string) {
 
 	var keys = onlyKeys
 

@@ -16,7 +16,7 @@ type host struct {
 	id          string // host UUID string
 	asConnInfo  *asConnInfo
 	sshConnInfo *sshConnInfo
-	log         *logr.Logger
+	log         logr.Logger
 }
 
 type asConnInfo struct {

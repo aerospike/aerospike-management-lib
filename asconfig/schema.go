@@ -25,7 +25,7 @@ var dynRegex = regexp.MustCompile("(.*).dynamic$")
 // Init needs to be called before using this package.
 //
 // schemaDir is the path to directory having the aerospike config schemas.
-func Init(log *logr.Logger, schemaDir string) error {
+func Init(log logr.Logger, schemaDir string) error {
 	log.V(1).Info("Config schema dir", "dir", schemaDir)
 	schemas = make(map[string]string)
 
@@ -59,7 +59,7 @@ func Init(log *logr.Logger, schemaDir string) error {
 // InitFromMap init schema map from a map.
 // Map key format -> 4.1.0
 // Map value format -> string of json schema
-func InitFromMap(log *logr.Logger, schemaMap map[string]string) {
+func InitFromMap(log logr.Logger, schemaMap map[string]string) {
 	schemas = make(map[string]string)
 	for name, schema := range schemaMap {
 		log.V(1).Info("Config schema added", "version", name)

@@ -166,7 +166,7 @@ type System struct {
 // New returns a system connected by ssh on the hostName, sshPort with the given sudo privileges.
 //
 // The sudo privileges will be used across all commands that require it.
-func New(log *logr.Logger, hostName string, sshPort int, sudo *Sudo, config *ssh.ClientConfig) (*System, error) {
+func New(log logr.Logger, hostName string, sshPort int, sudo *Sudo, config *ssh.ClientConfig) (*System, error) {
 	logger := log.WithValues("ip", hostName, "port", sshPort)
 	logger.V(1).Info("creating new ssh system")
 
@@ -193,7 +193,7 @@ func New(log *logr.Logger, hostName string, sshPort int, sudo *Sudo, config *ssh
 // NewSystem creates ssh.config and returns a system connected by ssh on the hostName, sshPort with the given sudo privileges.
 //
 // The sudo privileges will be used across all commands that require it.
-func NewSystem(log *logr.Logger, hostName string, sshPort int, sudo *Sudo, userName, password string, sshKey []byte) (*System, error) {
+func NewSystem(log logr.Logger, hostName string, sshPort int, sudo *Sudo, userName, password string, sshKey []byte) (*System, error) {
 	config, err := newSSHConfig(userName, password, sshKey)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create ssh config: %v", err)

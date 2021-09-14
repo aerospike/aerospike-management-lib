@@ -96,7 +96,7 @@ func NewAsInfo() (*info.AsInfo, error) {
 	p := aero.NewClientPolicy()
 	host := AerospikeHost()
 	log := logr.Discard()
-	return info.NewAsInfo(&log, &host, p), nil
+	return info.NewAsInfo(log, &host, p), nil
 }
 
 // AerospikeHost returns the aerospike host
@@ -117,11 +117,11 @@ func getSysInfo() (*info.SysInfo, error) {
 	}
 	sudo := system.NewSudoWithPassword("sud123")
 	logger := logr.Discard()
-	res, err := system.New(&logger, "127.0.0.1", 22, sudo, config)
+	res, err := system.New(logger, "127.0.0.1", 22, sudo, config)
 	if err != nil {
 		return nil, err
 	}
-	return info.NewSysInfo(&logger, res)
+	return info.NewSysInfo(logger, res)
 }
 
 // TODO: REMOVE IT

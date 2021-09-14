@@ -30,7 +30,7 @@ func parseLine(line string) string {
 	return final
 }
 
-func skipSection(log *logr.Logger, scanner *bufio.Scanner) {
+func skipSection(log logr.Logger, scanner *bufio.Scanner) {
 	process(log, scanner, make(Conf))
 }
 
@@ -59,7 +59,7 @@ func toList(conf Conf) []Conf {
 	return confList
 }
 
-func processSection(log *logr.Logger, tok []string, scanner *bufio.Scanner, conf Conf) error {
+func processSection(log logr.Logger, tok []string, scanner *bufio.Scanner, conf Conf) error {
 
 	var err error
 
@@ -117,7 +117,7 @@ func addToStrList(conf Conf, cfgName string, val string) {
 	conf[cfgName] = append(conf[cfgName].([]string), val)
 }
 
-func writeConf(log *logr.Logger, tok []string, conf Conf) {
+func writeConf(log logr.Logger, tok []string, conf Conf) {
 	cfgName := tok[0]
 
 	// Handle List Field
@@ -167,7 +167,7 @@ func writeConf(log *logr.Logger, tok []string, conf Conf) {
 	}
 }
 
-func process(log *logr.Logger, scanner *bufio.Scanner, conf Conf) (Conf, error) {
+func process(log logr.Logger, scanner *bufio.Scanner, conf Conf) (Conf, error) {
 
 	for scanner.Scan() {
 

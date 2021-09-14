@@ -20,7 +20,7 @@ type cluster struct {
 	aerospikeHasTLS      bool // whether aerospike server requires tls authentication
 	useServicesAlternate bool // whether aerospike connection uses alternate addresses
 
-	log *logr.Logger
+	log logr.Logger
 }
 
 func getHosts(policy *aero.ClientPolicy, conns []*HostConn) (map[string]*host, error) {
@@ -46,7 +46,7 @@ func getHosts(policy *aero.ClientPolicy, conns []*HostConn) (map[string]*host, e
 }
 
 // NewCluster returns a new cluster for the hosts
-func newCluster(log *logr.Logger, policy *aero.ClientPolicy, allConns []*HostConn, operableConns []*HostConn, aerospikeHasTLS, useServicesAlternate bool) (*cluster, error) {
+func newCluster(log logr.Logger, policy *aero.ClientPolicy, allConns []*HostConn, operableConns []*HostConn, aerospikeHasTLS, useServicesAlternate bool) (*cluster, error) {
 	allHosts, err := getHosts(policy, allConns)
 	if err != nil {
 		return nil, err

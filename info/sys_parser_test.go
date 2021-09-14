@@ -3,13 +3,13 @@ package info
 import (
 	"bytes"
 	"fmt"
-	"github.com/go-logr/logr"
 	"net"
 	"os/exec"
 	"strings"
 	"sync"
 
 	lib "github.com/aerospike/aerospike-management-lib"
+	"github.com/go-logr/logr"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -40,7 +40,7 @@ import (
 // }
 
 // GetSysCmdInfo fetch and parse info for given commands
-func GetSysCmdInfo(log *logr.Logger, ip string, cmdList ...string) NodeSysStats {
+func GetSysCmdInfo(log logr.Logger, ip string, cmdList ...string) NodeSysStats {
 	var wg sync.WaitGroup
 	var lock = sync.RWMutex{}
 	sysMap := make(NodeSysStats)

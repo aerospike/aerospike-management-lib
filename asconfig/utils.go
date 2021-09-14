@@ -102,14 +102,14 @@ var sectionNameStartChar = '{'
 var sectionNameEndChar = '}'
 
 // expandConf expands map with flat keys (with sep) to Conf
-func expandConf(log *logr.Logger, input *Conf, sep string) Conf {
+func expandConf(log logr.Logger, input *Conf, sep string) Conf {
 	m := expandConfMap(log, input, sep)
 	return expandConfList(log, m)
 }
 
 // expandConfMap expands flat map to Conf by using sep
 // it does not check for list sections
-func expandConfMap(log *logr.Logger, input *Conf, sep string) Conf {
+func expandConfMap(log logr.Logger, input *Conf, sep string) Conf {
 	m := make(Conf)
 	for k, v := range *input {
 		switch v := v.(type) {
@@ -123,7 +123,7 @@ func expandConfMap(log *logr.Logger, input *Conf, sep string) Conf {
 }
 
 // expandConfList expands expected list sections to list of Conf
-func expandConfList(log *logr.Logger, input Conf) Conf {
+func expandConfList(log logr.Logger, input Conf) Conf {
 	for k, val := range input {
 		v, ok := val.(Conf)
 		if ok {
@@ -214,7 +214,7 @@ func getRawName(name string) string {
 
 // getContainedName returns config name and true if key is part of the passed in
 // context, otherwise empty string and false
-func getContainedName(log *logr.Logger, fullKey string, context string) (string, bool) {
+func getContainedName(log logr.Logger, fullKey string, context string) (string, bool) {
 	ctx := toAsConfigContext(context)
 
 	if strings.Contains(fullKey, ctx) {
@@ -234,7 +234,7 @@ func getContainedName(log *logr.Logger, fullKey string, context string) (string,
 
 // splitKey splits key by using sep
 // it ignore sep inside sectionNameStartChar and sectionNameEndChar
-func splitKey(log *logr.Logger, key, sep string) []string {
+func splitKey(log logr.Logger, key, sep string) []string {
 	sepRunes := []rune(sep)
 	if len(sepRunes) > 1 {
 		log.Info("split expects single char as separator")
@@ -257,7 +257,7 @@ func splitKey(log *logr.Logger, key, sep string) []string {
 	return strings.FieldsFunc(key, f)
 }
 
-func expandKey(log *logr.Logger, input Conf, keys []string, val interface{}) bool {
+func expandKey(log logr.Logger, input Conf, keys []string, val interface{}) bool {
 	if len(keys) == 1 {
 		return false
 	}
@@ -286,7 +286,7 @@ func expandKey(log *logr.Logger, input Conf, keys []string, val interface{}) boo
 }
 
 // flattenConfList flatten list and save index for expandConf
-func flattenConfList(log *logr.Logger, input []Conf, sep string) Conf {
+func flattenConfList(log logr.Logger, input []Conf, sep string) Conf {
 	res := make(Conf, len(input))
 
 	for i, v := range input {
@@ -317,7 +317,7 @@ func flattenConfList(log *logr.Logger, input []Conf, sep string) Conf {
 }
 
 // flattenConf flatten Conf by creating new key by using sep
-func flattenConf(log *logr.Logger, input Conf, sep string) Conf {
+func flattenConf(log logr.Logger, input Conf, sep string) Conf {
 	res := make(Conf, len(input))
 	for k, v := range input {
 		switch v := v.(type) {
@@ -346,7 +346,7 @@ func baseKey(k string, sep string) (string, []string) {
 // basicValue : int64, boolean, string
 // List : list of string
 //      : empty list of interface{} uninitialized list
-func isValueDiff(log *logr.Logger, v1 interface{}, v2 interface{}) bool {
+func isValueDiff(log logr.Logger, v1 interface{}, v2 interface{}) bool {
 
 	if reflect.TypeOf(v1) != reflect.TypeOf(v2) {
 		return true
@@ -390,7 +390,7 @@ func isValueDiff(log *logr.Logger, v1 interface{}, v2 interface{}) bool {
 //
 // Generally used to compare config from two different nodes. This ignores
 // node specific information like address, device, interface etc..
-func diff(log *logr.Logger, c1, c2 Conf, isFlat, c2IsDefault, ignoreInternalFields bool) Conf {
+func diff(log logr.Logger, c1, c2 Conf, isFlat, c2IsDefault, ignoreInternalFields bool) Conf {
 
 	// Flatten if not flattened already.
 	if !isFlat {
@@ -462,7 +462,7 @@ func diff(log *logr.Logger, c1, c2 Conf, isFlat, c2IsDefault, ignoreInternalFiel
 
 // confDiff find diff between two configs;
 //      diff = c1 - c2
-func confDiff(log *logr.Logger, c1 Conf, c2 Conf, isFlat, ignoreInternalFields bool) map[string]interface{} {
+func confDiff(log logr.Logger, c1 Conf, c2 Conf, isFlat, ignoreInternalFields bool) map[string]interface{} {
 	return diff(log, c1, c2, isFlat, false, ignoreInternalFields)
 }
 
@@ -470,7 +470,7 @@ func confDiff(log *logr.Logger, c1 Conf, c2 Conf, isFlat, ignoreInternalFields b
 // This ignore the node specific value. i
 // For all Keys conf
 //    diff = flatConf - flatDefConf
-func defaultDiff(log *logr.Logger, flatConf Conf, flatDefConf Conf) map[string]interface{} {
+func defaultDiff(log logr.Logger, flatConf Conf, flatDefConf Conf) map[string]interface{} {
 	return diff(log, flatConf, flatDefConf, true, true, false)
 }
 
@@ -494,7 +494,7 @@ func changeKey(key string) string {
 
 // getSystemProperty return property type and their stringified
 // values
-func getSystemProperty(log *logr.Logger, c Conf, key string) (stype sysproptype, value []string) {
+func getSystemProperty(log logr.Logger, c Conf, key string) (stype sysproptype, value []string) {
 
 	baseKey, _ := baseKey(key, sep)
 	baseKey = SingularOf(baseKey)
@@ -762,7 +762,7 @@ func isStorageEngineKey(key string) bool {
 	return false
 }
 
-func addStorageEngineConfig(log *logr.Logger, key string, v interface{}, conf Conf) {
+func addStorageEngineConfig(log logr.Logger, key string, v interface{}, conf Conf) {
 	if !isStorageEngineKey(key) {
 		return
 	}
@@ -805,7 +805,7 @@ func addStorageEngineConfig(log *logr.Logger, key string, v interface{}, conf Co
 // toConf does deep conversion of map[string]interface{}
 // into Conf objects. Also converts the list form in conf
 // into map form, if required.
-func toConf(log *logr.Logger, input map[string]interface{}) Conf {
+func toConf(log logr.Logger, input map[string]interface{}) Conf {
 	result := make(Conf)
 
 	if len(input) == 0 {
@@ -933,7 +933,7 @@ func toConf(log *logr.Logger, input map[string]interface{}) Conf {
 	return result
 }
 
-func getCfgValue(log *logr.Logger, diffKeys []string, flatConf Conf) []CfgValue {
+func getCfgValue(log logr.Logger, diffKeys []string, flatConf Conf) []CfgValue {
 	diffValues := []CfgValue{}
 	for _, k := range diffKeys {
 		context, name := getContextAndName(log, k, "/")
@@ -946,7 +946,7 @@ func getCfgValue(log *logr.Logger, diffKeys []string, flatConf Conf) []CfgValue 
 	return diffValues
 }
 
-func getContextAndName(log *logr.Logger, key, ctxSep string) (string, string) {
+func getContextAndName(log logr.Logger, key, ctxSep string) (string, string) {
 	keys := splitKey(log, key, sep)
 	if len(keys) == 1 {
 		//panic

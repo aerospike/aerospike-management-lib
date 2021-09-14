@@ -42,18 +42,18 @@ var sysCmdMaxRetry = 2
 type SysInfo struct {
 	// FIXME should it have all the shit about system connection
 	system *system.System
-	log    *logr.Logger
+	log    logr.Logger
 }
 
 // NewSysInfo returns a new SysInfo
-func NewSysInfo(log *logr.Logger, system *system.System) (*SysInfo, error) {
+func NewSysInfo(log logr.Logger, system *system.System) (*SysInfo, error) {
 	logger := log.WithValues("node", system)
 	if system == nil {
 		return nil, fmt.Errorf("system connection object nil")
 	}
 	sys := &SysInfo{
 		system: system,
-		log:    &logger,
+		log:    logger,
 	}
 	return sys, nil
 }
@@ -361,7 +361,7 @@ func parseUnameInfo(cmdOutput string) lib.Stats {
 
 // parseMemInfo parse mem info
 // cmdOutput: (output of command - "cat /proc/meminfo", "vmstat -s")
-func parseMemInfo(log *logr.Logger, cmdOutput string) lib.Stats {
+func parseMemInfo(log logr.Logger, cmdOutput string) lib.Stats {
 	// MemTotal:        8415676 kB
 	m := make(lib.Stats)
 	lines := strings.Split(cmdOutput, "\n")
@@ -413,7 +413,7 @@ func parseMemInfo(log *logr.Logger, cmdOutput string) lib.Stats {
 // tmpfs                   961076         0    961076   0% /dev/shm
 //
 // output: [{name: A, size: A, used: A, avail: A, %use: A, mount_point: A},{}]
-func parseDfInfo(log *logr.Logger, cmdOutput string) lib.Stats {
+func parseDfInfo(log logr.Logger, cmdOutput string) lib.Stats {
 	m := make(lib.Stats)
 	var fsList []lib.Stats
 	tokCount := 6

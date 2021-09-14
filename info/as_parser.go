@@ -106,16 +106,17 @@ type AsInfo struct {
 	host   *aero.Host
 	conn   *aero.Connection
 	mutex  sync.Mutex
-	log    *logr.Logger
+	log    logr.Logger
 }
 
-func NewAsInfo(log *logr.Logger, h *aero.Host, cp *aero.ClientPolicy) *AsInfo {
+func NewAsInfo(log logr.Logger, h *aero.Host, cp *aero.ClientPolicy) *AsInfo {
+	
 	logger := log.WithValues("node", h)
 	return &AsInfo{
 		host:   h,
 		policy: cp,
 		conn:   nil,
-		log:    &logger,
+		log:    logger,
 	}
 }
 
@@ -559,7 +560,7 @@ func setNames(str, ns string) []string {
 // execute raw cmds
 //*******************************************************************************************
 
-func (info *AsInfo) execute(log *logr.Logger, rawCmdList []string, m map[string]string, cmdList ...string) (NodeAsStats, error) {
+func (info *AsInfo) execute(log logr.Logger, rawCmdList []string, m map[string]string, cmdList ...string) (NodeAsStats, error) {
 	rawMap, err := info.RequestInfo(rawCmdList...)
 	if err != nil {
 		return nil, err
@@ -578,7 +579,7 @@ func (info *AsInfo) execute(log *logr.Logger, rawCmdList []string, m map[string]
 // parse raw cmd results
 //*******************************************************************************************
 
-func parseCmdResults(log *logr.Logger, rawMap map[string]string, cmdList ...string) lib.Stats {
+func parseCmdResults(log logr.Logger, rawMap map[string]string, cmdList ...string) lib.Stats {
 	asMap := make(lib.Stats)
 
 	for _, cmd := range cmdList {
@@ -977,7 +978,7 @@ func parseThroughputInfo(rawStr string) lib.Stats {
 
 // TODO: check diff lat bucket in agg
 //typical format is {test}-read:10:17:37-GMT,ops/sec,>1ms,>8ms,>64ms;10:17:47,29648.2,3.44,0.08,0.00;
-func parseLatencyInfo(log *logr.Logger, rawStr string) lib.Stats {
+func parseLatencyInfo(log logr.Logger, rawStr string) lib.Stats {
 
 	ip := lib.NewInfoParser(rawStr)
 	nodeStats := make(map[string]lib.Stats)

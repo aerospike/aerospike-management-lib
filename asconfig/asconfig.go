@@ -8,10 +8,10 @@ import (
 type AsConfig struct {
 	version  string
 	baseConf *Conf
-	log      *logr.Logger
+	log      logr.Logger
 }
 
-func New(log *logr.Logger, version string, bconf *Conf) *AsConfig {
+func New(log logr.Logger, version string, bconf *Conf) *AsConfig {
 
 	return &AsConfig{
 		version:  version,
@@ -30,7 +30,7 @@ type ValidationErr struct {
 }
 
 // NewMapAsConfig creates AsConfig from map
-func NewMapAsConfig(log *logr.Logger, version string, configMap map[string]interface{}) (*AsConfig, error) {
+func NewMapAsConfig(log logr.Logger, version string, configMap map[string]interface{}) (*AsConfig, error) {
 	baseConf := newMap(log, configMap)
 
 	return &AsConfig{
@@ -40,12 +40,12 @@ func NewMapAsConfig(log *logr.Logger, version string, configMap map[string]inter
 }
 
 // newMap converts passed in map[string]interface{} into Conf
-func newMap(log *logr.Logger, configMap map[string]interface{}) Conf {
+func newMap(log logr.Logger, configMap map[string]interface{}) Conf {
 	return flattenConf(log, toConf(log, configMap), sep)
 }
 
 // IsValid checks validity of config
-func (cfg *AsConfig) IsValid(log *logr.Logger, version string) (bool, []*ValidationErr, error) {
+func (cfg *AsConfig) IsValid(log logr.Logger, version string) (bool, []*ValidationErr, error) {
 	return confIsValid(log, cfg.baseConf, version)
 }
 
