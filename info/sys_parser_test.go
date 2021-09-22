@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	lib "github.com/aerospike/aerospike-management-lib"
+	"github.com/go-logr/logr"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -39,7 +40,7 @@ import (
 // }
 
 // GetSysCmdInfo fetch and parse info for given commands
-func GetSysCmdInfo(ip string, cmdList ...string) NodeSysStats {
+func GetSysCmdInfo(log logr.Logger, ip string, cmdList ...string) NodeSysStats {
 	var wg sync.WaitGroup
 	var lock = sync.RWMutex{}
 	sysMap := make(NodeSysStats)
@@ -54,9 +55,9 @@ func GetSysCmdInfo(ip string, cmdList ...string) NodeSysStats {
 			if cmd == "uname" {
 				m = parseUnameInfo(cmdOutput)
 			} else if cmd == "meminfo" {
-				m = parseMemInfo(cmdOutput)
+				m = parseMemInfo(log, cmdOutput)
 			} else if cmd == "df" {
-				m = parseDfInfo(cmdOutput)
+				m = parseDfInfo(log, cmdOutput)
 			} else if cmd == "free-m" {
 				m = parseFreeMInfo(cmdOutput)
 			} else if cmd == "hostname" {

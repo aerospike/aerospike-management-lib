@@ -1,13 +1,23 @@
 package asconfig
 
 import (
-	log "github.com/inconshreveable/log15"
+	"github.com/go-logr/logr"
 )
 
 // AsConfig is wrapper over Conf
 type AsConfig struct {
 	version  string
-	baseConf Conf
+	baseConf *Conf
+	log      logr.Logger
+}
+
+func New(log logr.Logger, version string, bconf *Conf) *AsConfig {
+
+	return &AsConfig{
+		version:  version,
+		baseConf: bconf,
+		log:      log,
+	}
 }
 
 // ValidationErr represents version validation error
@@ -19,31 +29,30 @@ type ValidationErr struct {
 	Value       interface{}
 }
 
-var pkglog = log.New(log.Ctx{"module": "lib.asconfig"})
-
 // NewMapAsConfig creates AsConfig from map
-func NewMapAsConfig(version string, configMap map[string]interface{}) (*AsConfig, error) {
-	baseConf := newMap(configMap)
+func NewMapAsConfig(log logr.Logger, version string, configMap map[string]interface{}) (*AsConfig, error) {
+	baseConf := newMap(log, configMap)
 
 	return &AsConfig{
-		baseConf: baseConf,
+		log:      log,
+		baseConf: &baseConf,
 		version:  version}, nil
 }
 
 // newMap converts passed in map[string]interface{} into Conf
-func newMap(configMap map[string]interface{}) Conf {
-	return flattenConf(toConf(configMap), sep)
+func newMap(log logr.Logger, configMap map[string]interface{}) Conf {
+	return flattenConf(log, toConf(log, configMap), sep)
 }
 
 // IsValid checks validity of config
-func (cfg *AsConfig) IsValid(version string) (bool, []*ValidationErr, error) {
-	return confIsValid(cfg.baseConf, version)
+func (cfg *AsConfig) IsValid(log logr.Logger, version string) (bool, []*ValidationErr, error) {
+	return confIsValid(log, cfg.baseConf, version)
 }
 
 // ToConfFile returns DotConf
 func (cfg *AsConfig) ToConfFile() DotConf {
 	conf := cfg.baseConf
-	return confToDotConf(conf)
+	return confToDotConf(cfg.log, conf)
 }
 
 // IsSupportedVersion returns true if version supported else false

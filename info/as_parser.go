@@ -12,19 +12,16 @@ import (
 	"sync"
 	"time"
 
-	aero "github.com/ashishshinde/aerospike-client-go/v5"
-	ast "github.com/ashishshinde/aerospike-client-go/v5/types"
-
 	lib "github.com/aerospike/aerospike-management-lib"
 	"github.com/aerospike/aerospike-management-lib/bcrypt"
-	log "github.com/inconshreveable/log15"
+	aero "github.com/ashishshinde/aerospike-client-go/v5"
+	ast "github.com/ashishshinde/aerospike-client-go/v5/types"
+	"github.com/go-logr/logr"
 )
 
 type ClusterAsStat = lib.Stats
 
 type NodeAsStats = lib.Stats
-
-var pkglog = log.New(log.Ctx{"module": "lib.info"})
 
 // InvalidNamespaceErr specifies that the namespace is invalid on the cluster.
 var InvalidNamespaceErr = fmt.Errorf("invalid namespace")
@@ -109,16 +106,17 @@ type AsInfo struct {
 	host   *aero.Host
 	conn   *aero.Connection
 	mutex  sync.Mutex
-
-	log log.Logger
+	log    logr.Logger
 }
 
-func NewAsInfo(h *aero.Host, cp *aero.ClientPolicy) *AsInfo {
+func NewAsInfo(log logr.Logger, h *aero.Host, cp *aero.ClientPolicy) *AsInfo {
+	
+	logger := log.WithValues("node", h)
 	return &AsInfo{
 		host:   h,
 		policy: cp,
 		conn:   nil,
-		log:    pkglog.New(log.Ctx{"node": h}),
+		log:    logger,
 	}
 }
 
@@ -188,7 +186,7 @@ func (info *AsInfo) doInfo(commands ...string) (map[string]string, error) {
 			}
 			return nil, fmt.Errorf("failed to authenticate user `%s` in aerospike server: %v", info.policy.User, aerr)
 		}
-		info.log.Debug("secure connection created for aerospike info")
+		info.log.V(1).Info("secure connection created for aerospike info")
 	}
 
 	var deadline time.Time
@@ -199,7 +197,7 @@ func (info *AsInfo) doInfo(commands ...string) (map[string]string, error) {
 
 	result, err := info.conn.RequestInfo(commands...)
 	if err != nil {
-		info.log.Debug("failed to run aerospike info command", log.Ctx{"err": err})
+		info.log.V(1).Info("failed to run aerospike info command", "err", err)
 		if err == io.EOF {
 			// Peer closed connection.
 			info.conn.Close()
@@ -244,7 +242,7 @@ func (info *AsInfo) GetAsInfo(cmdList ...string) (NodeAsStats, error) {
 		cmdList = asCmds
 	}
 	rawCmdList := info.createCmdList(m, cmdList...)
-	return info.execute(rawCmdList, m, cmdList...)
+	return info.execute(info.log, rawCmdList, m, cmdList...)
 }
 
 // GetAsConfig function fetch and parse config data for given context from given host
@@ -267,7 +265,7 @@ func (info *AsInfo) GetAsConfig(contextList ...string) (lib.Stats, error) {
 
 	rawCmdList := info.createConfigCmdList(m, contextList...)
 	key := "configs"
-	configs, err := info.execute(rawCmdList, m, key)
+	configs, err := info.execute(info.log, rawCmdList, m, key)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get config info from aerospike server: %v", err)
 	}
@@ -387,7 +385,7 @@ func (info *AsInfo) createCmdList(m map[string]string, cmdList ...string) []stri
 			rawCmdList = append(rawCmdList, _THROUGHPUT)
 
 		default:
-			info.log.Debug("invalid cmd to parse asinfo", log.Ctx{"command": cmd})
+			info.log.V(1).Info("invalid cmd to parse asinfo", "command", cmd)
 		}
 	}
 	return rawCmdList
@@ -467,7 +465,7 @@ func (info *AsInfo) createConfigCmdList(m map[string]string, contextList ...stri
 			cmdList = append(cmdList, _STAT_LOG_IDS)
 
 		default:
-			info.log.Debug("invalid context to parse AsConfig", log.Ctx{"context": c})
+			info.log.V(1).Info("invalid context to parse AsConfig", "context", c)
 		}
 	}
 
@@ -562,7 +560,7 @@ func setNames(str, ns string) []string {
 // execute raw cmds
 //*******************************************************************************************
 
-func (info *AsInfo) execute(rawCmdList []string, m map[string]string, cmdList ...string) (NodeAsStats, error) {
+func (info *AsInfo) execute(log logr.Logger, rawCmdList []string, m map[string]string, cmdList ...string) (NodeAsStats, error) {
 	rawMap, err := info.RequestInfo(rawCmdList...)
 	if err != nil {
 		return nil, err
@@ -573,7 +571,7 @@ func (info *AsInfo) execute(rawCmdList []string, m map[string]string, cmdList ..
 		rawMap[k] = v
 	}
 
-	parsedMap := parseCmdResults(rawMap, cmdList...)
+	parsedMap := parseCmdResults(log, rawMap, cmdList...)
 	return parsedMap, nil
 }
 
@@ -581,7 +579,7 @@ func (info *AsInfo) execute(rawCmdList []string, m map[string]string, cmdList ..
 // parse raw cmd results
 //*******************************************************************************************
 
-func parseCmdResults(rawMap map[string]string, cmdList ...string) lib.Stats {
+func parseCmdResults(log logr.Logger, rawMap map[string]string, cmdList ...string) lib.Stats {
 	asMap := make(lib.Stats)
 
 	for _, cmd := range cmdList {
@@ -593,12 +591,12 @@ func parseCmdResults(rawMap map[string]string, cmdList ...string) lib.Stats {
 		case "metadata":
 			asMap[cmd] = parseMetadataInfo(rawMap)
 		case "latency":
-			asMap[cmd] = parseLatencyInfo(rawMap[_LATENCY])
+			asMap[cmd] = parseLatencyInfo(log, rawMap[_LATENCY])
 		case "throughput":
 			asMap[cmd] = parseThroughputInfo(rawMap[_THROUGHPUT])
 
 		default:
-			pkglog.Debug("invalid cmd to parse asinfo", log.Ctx{"command": cmd})
+			log.V(1).Info("invalid cmd to parse asinfo", "command", cmd)
 		}
 	}
 
@@ -980,7 +978,7 @@ func parseThroughputInfo(rawStr string) lib.Stats {
 
 // TODO: check diff lat bucket in agg
 //typical format is {test}-read:10:17:37-GMT,ops/sec,>1ms,>8ms,>64ms;10:17:47,29648.2,3.44,0.08,0.00;
-func parseLatencyInfo(rawStr string) lib.Stats {
+func parseLatencyInfo(log logr.Logger, rawStr string) lib.Stats {
 
 	ip := lib.NewInfoParser(rawStr)
 	nodeStats := make(map[string]lib.Stats)
@@ -1042,8 +1040,7 @@ func parseLatencyInfo(rawStr string) lib.Stats {
 			valBucketsFloat[i-1] = math.Max(0, valBucketsFloat[i-1]-lineAggPct)
 		}
 		if len(buckets) != len(valBuckets) {
-			//log.Errorf("Error parsing latency values for node: `%s`. Bucket mismatch: buckets: `%s`, values: `%s`.", n.Address(), bucketsStr, valBucketsStr)
-			pkglog.Error("parsing latency values")
+			log.Error(fmt.Errorf("parsing latency values"), "buckets not equal")
 			break
 		}
 		for i := range valBucketsFloat {

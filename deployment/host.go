@@ -3,13 +3,11 @@ package deployment
 import (
 	"fmt"
 
-	log "github.com/inconshreveable/log15"
-	"golang.org/x/crypto/ssh"
-
-	aero "github.com/ashishshinde/aerospike-client-go/v5"
-
 	"github.com/aerospike/aerospike-management-lib/info"
 	"github.com/aerospike/aerospike-management-lib/system"
+	aero "github.com/ashishshinde/aerospike-client-go/v5"
+	"github.com/go-logr/logr"
+	"golang.org/x/crypto/ssh"
 )
 
 // host is a system on which the aerospike server is running. It provides aerospike
@@ -18,8 +16,7 @@ type host struct {
 	id          string // host UUID string
 	asConnInfo  *asConnInfo
 	sshConnInfo *sshConnInfo
-
-	log log.Logger
+	log         logr.Logger
 }
 
 type asConnInfo struct {
@@ -43,7 +40,7 @@ type sshConnInfo struct {
 func newHost(id string, aerospikePolicy *aero.ClientPolicy, asConn *ASConn, sshConn *SSHConn) (*host, error) {
 	nd := host{
 		id:  id,
-		log: pkglog.New(log.Ctx{"node": id}),
+		log: asConn.Log,
 	}
 
 	if asConn != nil {
@@ -67,7 +64,7 @@ func newASConn(aerospikePolicy *aero.ClientPolicy, asConn *ASConn) *asConnInfo {
 		Port:    asConn.AerospikePort,
 		TLSName: asConn.AerospikeTLSName,
 	}
-	asinfo := info.NewAsInfo(&h, aerospikePolicy)
+	asinfo := info.NewAsInfo(asConn.Log, &h, aerospikePolicy)
 
 	return &asConnInfo{
 		aerospikeHostName: asConn.AerospikeHostName,
@@ -78,7 +75,7 @@ func newASConn(aerospikePolicy *aero.ClientPolicy, asConn *ASConn) *asConnInfo {
 }
 
 func newSSHConn(sshConn *SSHConn) (*sshConnInfo, error) {
-	s, err := system.New(sshConn.SSHHostName, sshConn.SSHPort, sshConn.Sudo, sshConn.SSHConfig)
+	s, err := system.New(sshConn.Log, sshConn.SSHHostName, sshConn.SSHPort, sshConn.Sudo, sshConn.SSHConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to host[%s %d]: %v", sshConn.SSHHostName, sshConn.SSHPort, err)
 	}

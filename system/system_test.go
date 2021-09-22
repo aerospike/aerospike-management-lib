@@ -6,6 +6,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/go-logr/logr"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -28,7 +29,8 @@ func TestMain(m *testing.M) {
 
 		sudo := NewSudoAsRoot()
 		var err error
-		system, err = New(*ip, *port, sudo, config)
+		logger := logr.Discard()
+		system, err = New(logger, *ip, *port, sudo, config)
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(-1)

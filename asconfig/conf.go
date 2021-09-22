@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	lib "github.com/aerospike/aerospike-management-lib"
+	"github.com/go-logr/logr"
 	"github.com/xeipuuv/gojsonschema"
 )
 
@@ -26,8 +27,8 @@ type CfgValue struct {
 // confIsValid checks if passed conf is valid. If it is not valid
 // then returns json validation error string. String is nil in case of other
 // error conditions.
-func confIsValid(flatConf Conf, ver string) (bool, []*ValidationErr, error) {
-	confJSON, err := json.Marshal(expandConf(flatConf, sep))
+func confIsValid(log logr.Logger, flatConf *Conf, ver string) (bool, []*ValidationErr, error) {
+	confJSON, err := json.Marshal(expandConf(log, flatConf, sep))
 	if err != nil {
 		return false, nil, fmt.Errorf("failed to do json.Marshal for flatten aerospike conf: %v", err)
 	}
@@ -65,10 +66,10 @@ func confIsValid(flatConf Conf, ver string) (bool, []*ValidationErr, error) {
 // confToDotConf takes Conf as parameter and returns server
 // aerospike.conf file. Returns error in case the Conf does
 // not adhere to standards.
-func confToDotConf(flatConf Conf) DotConf {
+func confToDotConf(log logr.Logger, flatConf *Conf) DotConf {
 	var buf bytes.Buffer
 
-	writeDotConf(&buf, expandConf(flatConf, sep), 0, nil)
+	writeDotConf(log, &buf, expandConf(log, flatConf, sep), 0, nil)
 
 	return buf.String()
 }
