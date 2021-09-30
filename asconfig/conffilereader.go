@@ -31,7 +31,7 @@ func parseLine(line string) string {
 }
 
 func skipSection(log logr.Logger, scanner *bufio.Scanner) {
-	process(log, scanner, make(Conf))
+	_, _ = process(log, scanner, make(Conf))
 }
 
 func toList(conf Conf) []Conf {
@@ -142,7 +142,8 @@ func writeConf(log logr.Logger, tok []string, conf Conf) {
 		size, err := deHumanizeSize(tok[2])
 		if err != nil {
 			log.V(1).Info(
-				"found invalid xdr-digestlog-size value, while creating acc config struct",
+				"Found invalid xdr-digestlog-size value, "+
+					"while creating acc config struct",
 				"err", err)
 			break
 		}
@@ -151,7 +152,8 @@ func writeConf(log logr.Logger, tok []string, conf Conf) {
 	default:
 		if len(tok) > 2 {
 			log.V(1).Info(
-				"found > 2 tokens: Unknown format for config, while creating acc config struct",
+				"Found > 2 tokens: Unknown format for config, "+
+					"while creating acc config struct",
 				"config", cfgName, "token", tok)
 
 			break
@@ -179,7 +181,7 @@ func process(log logr.Logger, scanner *bufio.Scanner, conf Conf) (Conf, error) {
 
 		// Zero tokens
 		if len(tok) == 0 {
-			log.V(1).Info("conf file line has 0 tokens")
+			log.V(1).Info("Config file line has 0 tokens")
 			return nil, ConfigParseError
 		}
 		// End of Section
@@ -196,7 +198,7 @@ func process(log logr.Logger, scanner *bufio.Scanner, conf Conf) (Conf, error) {
 				conf[tok[0]] = true
 				continue
 			}
-			log.V(1).Info("config file line has  < 2 tokens:", "token", tok)
+			log.V(1).Info("Config file line has  < 2 tokens:", "token", tok)
 			return nil, ConfigParseError
 		}
 

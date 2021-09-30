@@ -168,7 +168,7 @@ type System struct {
 // The sudo privileges will be used across all commands that require it.
 func New(log logr.Logger, hostName string, sshPort int, sudo *Sudo, config *ssh.ClientConfig) (*System, error) {
 	logger := log.WithValues("ip", hostName, "port", sshPort)
-	logger.V(1).Info("creating new ssh system")
+	logger.V(1).Info("Creating new ssh system")
 
 	client, err := newClient(hostName, sshPort, config)
 	if err != nil {
@@ -218,12 +218,13 @@ func (sys *System) newSession() (*ssh.Session, error) {
 		// cases the client might still be valid and in use by long running
 		// commands. So not closing the client. Collect all these clients and
 		// close them when Close is called on the System.
-		sys.log.V(-1).Info("failed to create new session", "err", err, "clientPoolSize", len(sys.prevClients))
+		sys.log.V(-1).Info("Failed to create new session", "err", err,
+			"clientPoolSize", len(sys.prevClients))
 		sys.prevClients = append(sys.prevClients, sys.client)
 		sys.client = nil
 	}
 
-	sys.log.V(1).Info("creating new ssh client")
+	sys.log.V(1).Info("Creating new ssh client")
 	client, err := newClient(sys.hostName, sys.sshPort, sys.sshConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create new ssh client: %v", err)
@@ -233,7 +234,7 @@ func (sys *System) newSession() (*ssh.Session, error) {
 	if err != nil {
 		// failed to create new session
 		// close client and return error
-		client.Close()
+		_ = client.Close()
 		return nil, fmt.Errorf("failed to create new ssh session: %v", err)
 	}
 
@@ -275,17 +276,17 @@ func newClient(hostName string, sshPort int, config *ssh.ClientConfig) (*ssh.Cli
 
 // init initializes the set of parameters the system is running with
 func (sys *System) init() {
-	// os
-	os, ver, err := sys.fetchOSType()
+	// osType
+	osType, ver, err := sys.fetchOSType()
 	if err == nil {
-		sys.osName = os
+		sys.osName = osType
 		sys.osVersion = ver
 	} else {
-		sys.log.V(1).Info("failed to fetch os info", "err", err)
+		sys.log.V(1).Info("Failed to fetch osType info", "err", err)
 	}
 
 	// package manager
-	switch os {
+	switch osType {
 	case "ubuntu", "debian":
 		sys.pkgMgr = DpkgPkgMgr
 		sys.updateMethod = AptUpdateMethod
@@ -295,7 +296,9 @@ func (sys *System) init() {
 	default:
 		sys.pkgMgr = UnknownPkgMgr
 		sys.updateMethod = UnknownUpdateMethod
-		sys.log.V(1).Info("package manager and update method unknown", "os", os)
+		sys.log.V(1).Info("Package manager and update method unknown", "osType",
+			osType,
+		)
 	}
 
 	// service system
@@ -303,7 +306,7 @@ func (sys *System) init() {
 	if err == nil {
 		sys.serviceSystem = svc
 	} else {
-		sys.log.V(1).Info("failed to fetch service system info", "err", err)
+		sys.log.V(1).Info("Failed to fetch service system info", "err", err)
 		sys.serviceSystem = UknownServiceSystem
 	}
 
@@ -334,12 +337,12 @@ func (sys *System) fetchServiceSystem() (ServiceSystem, error) {
 }
 
 func (sys *System) fetchOSType() (name, version string, err error) {
-	os := newOSFacts()
-	sys.RunCmd(os)
+	osFacts := newOSFacts()
+	sys.RunCmd(osFacts)
 
-	name, version = os.Facts()
-	if err := os.Err(); err != nil {
-		return "", "", fmt.Errorf("failed to collect system os fact: %v", err)
+	name, version = osFacts.Facts()
+	if err := osFacts.Err(); err != nil {
+		return "", "", fmt.Errorf("failed to collect system osFacts fact: %v", err)
 	}
 
 	return name, version, nil
@@ -446,7 +449,7 @@ func (sys *System) RunCmd(cmd Command) {
 // RunBigCmd runs the cmd and returns the job representing the command.
 func (sys *System) RunBigCmd(cmd BigCommand) (*Job, error) {
 	lg := sys.log.WithValues("cmd", cmd.Cmd(), "sudo", cmd.Sudo())
-	lg.V(1).Info("running big system command")
+	lg.V(1).Info("Running big system command")
 
 	session, err := sys.newSession()
 	if err != nil {
@@ -470,10 +473,10 @@ func (sys *System) RunBigCmd(cmd BigCommand) (*Job, error) {
 
 	canch := make(chan struct{})
 	cancel := func() {
-		lg.V(1).Info("cancelled big system command")
+		lg.V(1).Info("Cancelled big system command")
 		// FIXME session.Close() does not stop command running on the remote machine.
 		// see http://grokbase.com/t/gg/golang-nuts/1514k8qk67/go-nuts-how-to-stop-an-infinite-ssh-command-session
-		session.Close()
+		_ = session.Close()
 		close(canch)
 	}
 
@@ -482,9 +485,9 @@ func (sys *System) RunBigCmd(cmd BigCommand) (*Job, error) {
 	errch := make(chan error, 1)
 	go func() {
 		err := session.Run(command)
-		lg.V(1).Info("finished big system command", "err", err)
+		lg.V(1).Info("Finished big system command", "err", err)
 
-		session.Close()
+		_ = session.Close()
 		errch <- err
 		job.completed = true
 	}()
@@ -519,14 +522,16 @@ func (sys *System) RunWithSudo(cmd string) (stdout, stderr string, err error) {
 // a lot of output. If not then use RunBigCmd to run those commands.
 func (sys *System) run(cmd string, sudo bool) (stdout, stderr string, err error) {
 	lg := sys.log.WithValues("cmd", cmd, "sudo", sudo)
-	lg.V(1).Info("running system command")
+	lg.V(1).Info("Running system command")
 
 	session, e := sys.newSession()
 	if e != nil {
 		err = fmt.Errorf("failed to create ssh session: %v", e)
 		return
 	}
-	defer session.Close()
+	defer func(session *ssh.Session) {
+		_ = session.Close()
+	}(session)
 
 	outio, e := session.StdoutPipe()
 	if e != nil {
@@ -546,11 +551,11 @@ func (sys *System) run(cmd string, sudo bool) (stdout, stderr string, err error)
 	}
 
 	e = session.Run(cmd)
-	lg.V(1).Info("finished system command", "err", e)
+	lg.V(1).Info("Finished system command", "err", e)
 
 	tostr := func(in io.Reader) string {
 		var b bytes.Buffer
-		b.ReadFrom(in)
+		_, _ = b.ReadFrom(in)
 		return b.String()
 	}
 
@@ -576,7 +581,7 @@ func parseErr(stderr string, err error) error {
 // IsRunning returns true if the service is running.
 func (sys *System) IsRunning(service string) (bool, error) {
 	lg := sys.log.WithValues("service", service)
-	lg.V(1).Info("checking system service status")
+	lg.V(1).Info("Checking system service status")
 
 	cmd, stopped, absent := "", "", ""
 	ignoreErr := false
@@ -614,7 +619,7 @@ func (sys *System) IsRunning(service string) (bool, error) {
 // StartService starts service on system
 func (sys *System) StartService(service string) error {
 	lg := sys.log.WithValues("service", service)
-	lg.V(1).Info("starting system service")
+	lg.V(1).Info("Starting system service")
 
 	var cmd string
 	switch sys.InitManager() {
@@ -627,14 +632,14 @@ func (sys *System) StartService(service string) error {
 	}
 
 	_, stderr, err := sys.RunWithSudo(cmd)
-	lg.V(1).Info("finished starting system service", "err", err)
+	lg.V(1).Info("Finished starting system service", "err", err)
 	return parseErr(stderr, err)
 }
 
 // StopService stops service on the system
 func (sys *System) StopService(service string) error {
 	lg := sys.log.WithValues("service", service)
-	lg.V(1).Info("stopping system service")
+	lg.V(1).Info("Stopping system service")
 
 	var cmd string
 	switch sys.serviceSystem {
@@ -647,14 +652,14 @@ func (sys *System) StopService(service string) error {
 	}
 
 	_, stderr, err := sys.RunWithSudo(cmd)
-	lg.V(1).Info("finished stopping system service", "err", err)
+	lg.V(1).Info("Finished stopping system service", "err", err)
 	return parseErr(stderr, err)
 }
 
 // InstallPkg installs pkg on the system.
 func (sys *System) InstallPkg(pkg string) error {
 	lg := sys.log.WithValues("package", pkg)
-	lg.V(1).Info("installing package")
+	lg.V(1).Info("Installing package")
 
 	var cmd string
 	switch sys.updateMethod {
@@ -667,14 +672,14 @@ func (sys *System) InstallPkg(pkg string) error {
 	}
 
 	_, stderr, err := sys.RunWithSudo(cmd)
-	lg.V(1).Info("finished installing package", "err", err)
+	lg.V(1).Info("Finished installing package", "err", err)
 	return parseErr(stderr, err)
 }
 
 // InstallBinary installs the binary at path on the system.
 func (sys *System) InstallBinary(path string) error {
 	lg := sys.log.WithValues("binary", path)
-	lg.V(1).Info("installing binary")
+	lg.V(1).Info("Installing binary")
 
 	var cmd string
 	switch sys.pkgMgr {
@@ -687,7 +692,7 @@ func (sys *System) InstallBinary(path string) error {
 	}
 
 	_, stderr, err := sys.RunWithSudo(cmd)
-	lg.V(1).Info("finished installing binary", "err", err)
+	lg.V(1).Info("Finished installing binary", "err", err)
 	return parseErr(stderr, err)
 }
 
@@ -697,7 +702,7 @@ func (sys *System) InstallBinary(path string) error {
 // Only use this method if the package was installed from a binary.
 func (sys *System) uninstallBinary(binaryName string) error {
 	lg := sys.log.WithValues("binary", binaryName)
-	lg.V(1).Info("uninstalling binary")
+	lg.V(1).Info("Uninstalling binary")
 
 	var cmd string
 	switch sys.pkgMgr {
@@ -710,7 +715,7 @@ func (sys *System) uninstallBinary(binaryName string) error {
 	}
 
 	_, stderr, err := sys.RunWithSudo(cmd)
-	lg.V(1).Info("finished uninstalling binary", "err", err)
+	lg.V(1).Info("Finished uninstalling binary", "err", err)
 	return parseErr(stderr, err)
 }
 
@@ -719,7 +724,7 @@ func (sys *System) uninstallBinary(binaryName string) error {
 // Only use this method if the package was installed from a binary.
 func (sys *System) PurgeBinary(binaryName string) error {
 	lg := sys.log.WithValues("binary", binaryName)
-	lg.V(1).Info("purging binary")
+	lg.V(1).Info("Purging binary")
 
 	var cmd string
 	switch sys.pkgMgr {
@@ -732,7 +737,7 @@ func (sys *System) PurgeBinary(binaryName string) error {
 	}
 
 	_, stderr, err := sys.RunWithSudo(cmd)
-	lg.V(1).Info("finished purging binary", "err", err)
+	lg.V(1).Info("Finished purging binary", "err", err)
 	return parseErr(stderr, err)
 }
 
@@ -741,7 +746,7 @@ func (sys *System) PurgeBinary(binaryName string) error {
 // Only use this method if the package was installed from a binary.
 func (sys *System) UpgradeBinary(pkgName, binaryPath string) error {
 	lg := sys.log.WithValues("binary", binaryPath)
-	lg.V(1).Info("upgrading binary")
+	lg.V(1).Info("Upgrading binary")
 
 	var cmd string
 	switch sys.pkgMgr {
@@ -750,7 +755,7 @@ func (sys *System) UpgradeBinary(pkgName, binaryPath string) error {
 		if err == nil {
 			err = sys.InstallBinary(binaryPath)
 		}
-		lg.V(1).Info("finished upgrading binary", "err", err)
+		lg.V(1).Info("Finished upgrading binary", "err", err)
 		return err
 
 	case RpmPkgMgr:
@@ -760,14 +765,14 @@ func (sys *System) UpgradeBinary(pkgName, binaryPath string) error {
 	}
 
 	_, stderr, err := sys.RunWithSudo(cmd)
-	lg.V(1).Info("finished purging binary", "err", err)
+	lg.V(1).Info("Finished purging binary", "err", err)
 	return parseErr(stderr, err)
 }
 
 // IsPackageInstalled returns true if the pkg is installed
 func (sys *System) IsPackageInstalled(pkg string) (bool, error) {
 	lg := sys.log.WithValues("package", pkg)
-	lg.V(1).Info("is package installed")
+	lg.V(1).Info("Checking if package is installed")
 
 	var cmd string
 	switch sys.updateMethod {
@@ -795,7 +800,7 @@ func (sys *System) IsPackageInstalled(pkg string) (bool, error) {
 // UninstallPkg uninstalls the package on the system.
 func (sys *System) UninstallPkg(pkg string) error {
 	lg := sys.log.WithValues("package", pkg)
-	lg.V(1).Info("uninstalling package")
+	lg.V(1).Info("Uninstalling package")
 
 	var cmd string
 	switch sys.updateMethod {
@@ -808,7 +813,7 @@ func (sys *System) UninstallPkg(pkg string) error {
 	}
 
 	_, stderr, err := sys.RunWithSudo(cmd)
-	lg.V(1).Info("finished uninstalling package", "err", err)
+	lg.V(1).Info("Finished uninstalling package", "err", err)
 	return parseErr(stderr, err)
 }
 
@@ -820,11 +825,11 @@ func (sys *System) CreateFile(size int64, name string, in io.Reader, dir string)
 	}
 
 	lg := sys.log.WithValues("name", name, "size", size, "destination", dir)
-	lg.V(1).Info("creating file")
+	lg.V(1).Info("Creating file")
 
 	err = scp.Copy(size, os.ModePerm, name, in, dir, session)
 
-	lg.V(1).Info("finished creating file", "err", err)
+	lg.V(1).Info("Finished creating file", "err", err)
 	return err
 }
 
@@ -841,7 +846,7 @@ func (sys *System) CreateFileFromStr(contents, name, dir string) error {
 // privileges.
 func (sys *System) Mkdir(dir string, perms string, sudo bool) error {
 	lg := sys.log.WithValues("directory", dir, "permissions", perms)
-	lg.V(1).Info("creating directory")
+	lg.V(1).Info("Creating directory")
 
 	cmd := ""
 	if len(perms) > 0 {
@@ -852,11 +857,11 @@ func (sys *System) Mkdir(dir string, perms string, sudo bool) error {
 
 	_, stderr, err := sys.run(cmd, sudo)
 
-	lg.V(1).Info("finished creating directory", "err", err)
+	lg.V(1).Info("Finished creating directory", "err", err)
 	return parseErr(stderr, err)
 }
 
-// GetFile gets the file specified at the the path.
+// GetFile gets the file specified at the path.
 // Do not use this command for huge files.
 func (sys *System) GetFile(path string) (string, error) {
 	cmd := fmt.Sprintf("cat %s", path)
@@ -864,7 +869,7 @@ func (sys *System) GetFile(path string) (string, error) {
 	return conf, err
 }
 
-// HomeDir returns the path of the logged in user's home directory.
+// HomeDir returns the path of the logged-in user's home directory.
 func (sys *System) HomeDir() string {
 	return sys.homeDir
 }

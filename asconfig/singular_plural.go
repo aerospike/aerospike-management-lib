@@ -37,7 +37,7 @@ var singularToPlural = map[string]string{
 	"tls-authenticate-client":      "tls-authenticate-clients",
 }
 
-var pluralToSingular map[string]string = map[string]string{}
+var pluralToSingular = map[string]string{}
 
 func init() {
 	// Create the reverse mapping.

@@ -115,7 +115,7 @@ func writeSection(log logr.Logger, buf *bytes.Buffer, section string, conf Conf,
 
 	m, ok := conf[section].(Conf)
 	if !ok {
-		log.V(1).Info("section is not a config", "section", section)
+		log.V(1).Info("Section is not a config", "section", section)
 		return
 	}
 
@@ -142,14 +142,14 @@ func writeSection(log logr.Logger, buf *bytes.Buffer, section string, conf Conf,
 func writeListField(buf *bytes.Buffer, key string, value string, indent int, sep string) {
 	key = SingularOf(key)
 	if sep != "" {
-		buf.WriteString(indentString(indent) + string(key) + "    " + strings.Replace(value, sep, " ", -1) + "\n")
+		buf.WriteString(indentString(indent) + key + "    " + strings.Replace(value, sep, " ", -1) + "\n")
 	} else {
-		buf.WriteString(indentString(indent) + string(key) + "    " + value + "\n")
+		buf.WriteString(indentString(indent) + key + "    " + value + "\n")
 	}
 }
 
 func writeSpecialBoolField(buf *bytes.Buffer, key string, indent int) {
-	buf.WriteString(indentString(indent) + string(key) + "\n")
+	buf.WriteString(indentString(indent) + key + "\n")
 }
 
 func writeField(buf *bytes.Buffer, key string, value string, indent int) {
@@ -168,7 +168,7 @@ func writeField(buf *bytes.Buffer, key string, value string, indent int) {
 		return
 	}
 
-	buf.WriteString(indentString(indent) + string(key) + "    " + value + "\n")
+	buf.WriteString(indentString(indent) + key + "    " + value + "\n")
 }
 
 func writeKeys(log logr.Logger, buf *bytes.Buffer, keys *[]string, conf Conf, isSimple bool, indent int) {
@@ -191,7 +191,7 @@ func writeKeys(log logr.Logger, buf *bytes.Buffer, keys *[]string, conf Conf, is
 			if isSimple {
 				ok, sep := isListField(k)
 				if !ok {
-					log.V(1).Info("list found in non list field", "key", k)
+					log.V(1).Info("List found in non list field", "key", k)
 					break
 				}
 
@@ -207,7 +207,7 @@ func writeKeys(log logr.Logger, buf *bytes.Buffer, keys *[]string, conf Conf, is
 		case []interface{}:
 			if !isSimple {
 				if !isListSection(k) && !isSpecialListSection(k) {
-					log.V(1).Info("list found in non list section", "key", k)
+					log.V(1).Info("List found in non list section", "key", k)
 					break
 				}
 
@@ -236,7 +236,7 @@ func writeKeys(log logr.Logger, buf *bytes.Buffer, keys *[]string, conf Conf, is
 		case []Conf:
 			if !isSimple {
 				if !isListSection(k) && !isSpecialListSection(k) {
-					log.V(1).Info("list found in non list section", "key", k)
+					log.V(1).Info("List found in non list section", "key", k)
 					break
 				}
 
@@ -261,7 +261,7 @@ func writeKeys(log logr.Logger, buf *bytes.Buffer, keys *[]string, conf Conf, is
 
 		default:
 			log.V(1).Info(
-				"unknown config value type",
+				"Unknown config value type",
 				"type", reflect.TypeOf(v), "key", k, "value", v)
 
 		}

@@ -52,7 +52,7 @@ func ToString(sv interface{}) (string, error) {
 	case bool:
 		return strconv.FormatBool(v), nil
 	default:
-		return "", fmt.Errorf("Invalid value type")
+		return "", fmt.Errorf("invalid value type")
 	}
 }
 
@@ -96,7 +96,7 @@ func (s Stats) FindKeyPath(del string, key string) []string {
 	return pathList
 }
 
-// Value should be an float64 or a convertible string
+// AggregateStats Value should be a float64 or a convertible string
 // this function never panics
 func (s Stats) AggregateStats(other Stats) {
 	for k, v := range other {
@@ -172,14 +172,15 @@ func (s Stats) TryInt(name string, defValue int64, aliases ...string) int64 {
 	return defValue
 }
 
-// Value should be an int64, and should exist; otherwise panics
+// Int returns in64 value of a field after asserting value is an int64 and
+// exists otherwise panics
 func (s Stats) Int(name string, aliases ...string) int64 {
 	field := s.Get(name, aliases...)
 	return field.(int64)
 }
 
-// Value should be an float64 or a convertible string; otherwise defValue is returned
-// this function never panics
+// TryFloat returns float64 value of a field after asserting it is float64 or a
+// convertible string otherwise defValue is returned.
 func (s Stats) TryFloat(name string, defValue float64, aliases ...string) float64 {
 	field := s.Get(name, aliases...)
 	if field != nil {
@@ -551,8 +552,8 @@ func addValues(v1, v2 interface{}) interface{} {
 
 // Getraw(map, key ...)
 // input is full qualified name
-func (input Stats) GetRaw(keys ...string) interface{} {
-	var d = input
+func (s Stats) GetRaw(keys ...string) interface{} {
+	var d = s
 	for _, k := range keys {
 		// TODO: Just (Map) does not work !!!
 		if d1, ok := d[k].(Stats); ok {
@@ -566,10 +567,10 @@ func (input Stats) GetRaw(keys ...string) interface{} {
 }
 
 // CopyMap(map)
-func (input Stats) DeepClone() Stats {
+func (s Stats) DeepClone() Stats {
 	var result = make(Stats)
-	for k := range input {
-		v := input[k]
+	for k := range s {
+		v := s[k]
 		switch v := v.(type) {
 		case string:
 			result[k] = v

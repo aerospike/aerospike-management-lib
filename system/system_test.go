@@ -41,8 +41,8 @@ func TestMain(m *testing.M) {
 }
 
 func TestSystem(t *testing.T) {
-	os := system.OSName()
-	if os != "centos" {
-		t.Fatalf("os = %q, want %q", os, "ubuntu")
+	osName := system.OSName()
+	if osName != "centos" {
+		t.Fatalf("osName = %q, want %q", osName, "ubuntu")
 	}
 }

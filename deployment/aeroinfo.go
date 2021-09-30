@@ -26,7 +26,7 @@ func InfoQuiesce(log logr.Logger, policy *aero.ClientPolicy, allHosts []*HostCon
 	return c.InfoQuiesce(selectedHost.ID, getHostIDsFromHostConns(allHosts))
 }
 
-// InfoQuiesceUndo revert the effects of the quiesce on the next recluster event
+// InfoQuiesceUndo revert the effects of quiesce on the next recluster event
 func InfoQuiesceUndo(log logr.Logger, policy *aero.ClientPolicy, allHosts []*HostConn) error {
 	c, err := newCluster(log, policy, allHosts, allHosts, false, false)
 	if err != nil {

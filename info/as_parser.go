@@ -110,7 +110,7 @@ type AsInfo struct {
 }
 
 func NewAsInfo(log logr.Logger, h *aero.Host, cp *aero.ClientPolicy) *AsInfo {
-	
+
 	logger := log.WithValues("node", h)
 	return &AsInfo{
 		host:   h,
@@ -186,18 +186,20 @@ func (info *AsInfo) doInfo(commands ...string) (map[string]string, error) {
 			}
 			return nil, fmt.Errorf("failed to authenticate user `%s` in aerospike server: %v", info.policy.User, aerr)
 		}
-		info.log.V(1).Info("secure connection created for aerospike info")
+		info.log.V(1).Info("Secure connection created for aerospike info")
 	}
 
 	var deadline time.Time
 	if asTimeout > 0 {
 		deadline = time.Now().Add(asTimeout)
 	}
-	info.conn.SetTimeout(deadline, asTimeout)
+	if err := info.conn.SetTimeout(deadline, asTimeout); err != nil {
+		return nil, err
+	}
 
 	result, err := info.conn.RequestInfo(commands...)
 	if err != nil {
-		info.log.V(1).Info("failed to run aerospike info command", "err", err)
+		info.log.V(1).Info("Failed to run aerospike info command", "err", err)
 		if err == io.EOF {
 			// Peer closed connection.
 			info.conn.Close()
@@ -385,7 +387,7 @@ func (info *AsInfo) createCmdList(m map[string]string, cmdList ...string) []stri
 			rawCmdList = append(rawCmdList, _THROUGHPUT)
 
 		default:
-			info.log.V(1).Info("invalid cmd to parse asinfo", "command", cmd)
+			info.log.V(1).Info("Invalid cmd to parse asinfo", "command", cmd)
 		}
 	}
 	return rawCmdList
@@ -465,7 +467,8 @@ func (info *AsInfo) createConfigCmdList(m map[string]string, contextList ...stri
 			cmdList = append(cmdList, _STAT_LOG_IDS)
 
 		default:
-			info.log.V(1).Info("invalid context to parse AsConfig", "context", c)
+			info.log.V(1).Info("Invalid context to parse AsConfig",
+				"context", c)
 		}
 	}
 
@@ -596,7 +599,7 @@ func parseCmdResults(log logr.Logger, rawMap map[string]string, cmdList ...strin
 			asMap[cmd] = parseThroughputInfo(rawMap[_THROUGHPUT])
 
 		default:
-			log.V(1).Info("invalid cmd to parse asinfo", "command", cmd)
+			log.V(1).Info("Invalid cmd to parse asinfo", "command", cmd)
 		}
 	}
 

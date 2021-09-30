@@ -147,7 +147,9 @@ func runSysCmdSSH(cmd string, nodeIP string) string {
 		//log.Fatal("Failed to create session: ", err)
 		fmt.Println(err)
 	}
-	defer session.Close()
+	defer func(session *ssh.Session) {
+		_ = session.Close()
+	}(session)
 
 	// Once a Session is created, you can execute a single command on
 	// the remote side using the Run method.

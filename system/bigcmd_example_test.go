@@ -66,7 +66,7 @@ func (y *yes) Parse(stdin, stderr io.Reader, err <-chan error, cancel <-chan str
 const ip = "127.0.0.1"
 const port = 22
 
-var config *ssh.ClientConfig = &ssh.ClientConfig{
+var config = &ssh.ClientConfig{
 	User: "root",
 	Auth: []ssh.AuthMethod{
 		ssh.Password("root"),

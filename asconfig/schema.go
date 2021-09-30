@@ -15,7 +15,7 @@ import (
 // map of version to schema
 var schemas map[string]string
 
-var validVersionRe = regexp.MustCompile(`(\d+\.){2,2}\d+`)
+var validVersionRe = regexp.MustCompile(`(\d+\.){2}\d+`)
 var defRegex = regexp.MustCompile("(.*).default$")
 var dynRegex = regexp.MustCompile("(.*).dynamic$")
 

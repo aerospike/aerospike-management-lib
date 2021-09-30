@@ -57,7 +57,7 @@ func BenchmarkSysParser__map(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		ParsedData = SysInfo.GetSysInfo(runCmdKeys...)
 	}
-	writeToFile(ParsedData, "sys_info.json")
+	_ = writeToFile(ParsedData, "sys_info.json")
 }
 
 func BenchmarkAsParser__map(b *testing.B) {
@@ -72,7 +72,7 @@ func BenchmarkAsParser__map(b *testing.B) {
 			return
 		}
 	}
-	writeToFile(ParsedData, "as_info.json")
+	_ = writeToFile(ParsedData, "as_info.json")
 }
 
 func TestMain(m *testing.M) {

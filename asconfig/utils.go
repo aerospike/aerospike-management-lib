@@ -78,13 +78,13 @@ func deHumanizeSize(val string) (uint64, error) {
 	case 'K', 'k':
 		multiplier = 1024
 	case 'M', 'm':
-		multiplier = (1024 * 1024)
+		multiplier = 1024 * 1024
 	case 'G', 'g':
-		multiplier = (1024 * 1024 * 1024)
+		multiplier = 1024 * 1024 * 1024
 	case 'T', 't':
-		multiplier = (1024 * 1024 * 1024 * 1024)
+		multiplier = 1024 * 1024 * 1024 * 1024
 	case 'P', 'p':
-		multiplier = (1024 * 1024 * 1024 * 1024 * 1024)
+		multiplier = 1024 * 1024 * 1024 * 1024 * 1024
 	default:
 		return strconv.ParseUint(val, 10, 64)
 	}
@@ -134,7 +134,7 @@ func expandConfList(log logr.Logger, input Conf) Conf {
 				for k2, v2 := range v {
 					v2Conf, ok := v2.(Conf)
 					if !ok {
-						log.V(-1).Info("wrong value type for list section",
+						log.V(-1).Info("Wrong value type for list section",
 							"section", k, "key", k2, "key", reflect.TypeOf(v2))
 						continue
 					}
@@ -142,7 +142,8 @@ func expandConfList(log logr.Logger, input Conf) Conf {
 					// fetch index stored by flattenConf
 					index, ok := v2Conf["index"].(int)
 					if !ok {
-						log.V(-1).Info("index not available", "section", k, "key", k2)
+						log.V(-1).Info("Index not available", "section", k,
+							"key", k2)
 						continue
 					}
 
@@ -237,7 +238,7 @@ func getContainedName(log logr.Logger, fullKey string, context string) (string, 
 func splitKey(log logr.Logger, key, sep string) []string {
 	sepRunes := []rune(sep)
 	if len(sepRunes) > 1 {
-		log.Info("split expects single char as separator")
+		log.Info("Split expects single char as separator")
 		return nil
 	}
 
@@ -267,7 +268,7 @@ func expandKey(log logr.Logger, input Conf, keys []string, val interface{}) bool
 	for _, k := range keys {
 		defer func() {
 			if r := recover(); r != nil {
-				log.Info("recovered", "key", k, "keys", keys, "err", r)
+				log.Info("Recovered", "key", k, "keys", keys, "err", r)
 			}
 		}()
 		if v, ok := m[k]; ok {
@@ -295,7 +296,8 @@ func flattenConfList(log logr.Logger, input []Conf, sep string) Conf {
 		}
 		name, ok := v["name"].(string)
 		if !ok {
-			log.V(-1).Info("flattenConfList not possible for ListSection without name")
+			log.V(-1).Info("FlattenConfList not possible for ListSection" +
+				" without name")
 			continue
 		}
 
@@ -379,7 +381,8 @@ func isValueDiff(log logr.Logger, v1 interface{}, v2 interface{}) bool {
 			return true
 		}
 	default:
-		log.V(1).Info("unhandled value type in config diff", "type", reflect.TypeOf(v2))
+		log.V(1).Info("Unhandled value type in config diff", "type",
+			reflect.TypeOf(v2))
 		return true
 	}
 	return false
@@ -433,7 +436,8 @@ func diff(log logr.Logger, c1, c2 Conf, isFlat, c2IsDefault, ignoreInternalField
 			// is adding some key which system
 			// does not know about.
 			if c2IsDefault && !isInternalField(k) {
-				log.V(1).Info("key not in default map while performing diff from default. Ignoring",
+				log.V(1).Info("Key not in default map while performing diff"+
+					" from default. Ignoring",
 					"key", _k)
 				// TODO: How to handle dynamic only configs???
 				continue
@@ -503,7 +507,8 @@ func getSystemProperty(log logr.Logger, c Conf, key string) (stype sysproptype, 
 	// Catch all exception for type cast.
 	defer func() {
 		if r := recover(); r != nil {
-			log.V(1).Info("unexpected type", "type", reflect.TypeOf(c[key]), "key", baseKey)
+			log.V(1).Info("Unexpected type", "type", reflect.TypeOf(c[key]),
+				"key", baseKey)
 			stype = NONE
 		}
 	}()
@@ -779,7 +784,7 @@ func addStorageEngineConfig(log logr.Logger, key string, v interface{}, conf Con
 		vStr, ok := v.(string)
 		if key == storageKey {
 			if !ok {
-				log.V(1).Info("wrong value type",
+				log.V(1).Info("Wrong value type",
 					"key", key, "valueType", reflect.TypeOf(v))
 				return
 			}
@@ -871,13 +876,13 @@ func toConf(log logr.Logger, input map[string]interface{}) Conf {
 						if ok {
 							temp[i] = toConf(log, m1)
 						} else {
-							log.V(1).Info("[]Conf does not have map[string] interface{}")
+							log.V(1).Info("[]Conf does not have map[string]interface{}")
 							break
 						}
 					}
 					result[k] = temp
 				default:
-					log.V(1).Info("unexpected value",
+					log.V(1).Info("Unexpected value",
 						"type", reflect.TypeOf(v), "key", k, "value", v)
 				}
 			}
@@ -934,7 +939,7 @@ func toConf(log logr.Logger, input map[string]interface{}) Conf {
 }
 
 func getCfgValue(log logr.Logger, diffKeys []string, flatConf Conf) []CfgValue {
-	diffValues := []CfgValue{}
+	var diffValues []CfgValue
 	for _, k := range diffKeys {
 		context, name := getContextAndName(log, k, "/")
 		diffValues = append(diffValues, CfgValue{

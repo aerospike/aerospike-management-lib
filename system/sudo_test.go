@@ -56,7 +56,7 @@ func TestSudoPromptReader(t *testing.T) {
 	fn := func(s string, sudo *Sudo) string {
 		r := sudo.removePromptInReader(strings.NewReader(s))
 		buf := new(bytes.Buffer)
-		buf.ReadFrom(r)
+		_, _ = buf.ReadFrom(r)
 
 		s = strings.TrimSpace(buf.String())
 		return s

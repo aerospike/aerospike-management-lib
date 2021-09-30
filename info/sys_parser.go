@@ -16,21 +16,21 @@ import (
 type NodeSysStats = lib.Stats
 
 var RunCmd = map[string][]string{
-	"hostname":   []string{"hostname -I", "hostname"},
-	"top":        []string{"top -n1 -b", "top -l 1"},
-	"lsb":        []string{"lsb_release -a", "ls /etc|grep release|xargs -I f cat /etc/f"},
-	"meminfo":    []string{"cat /proc/meminfo", "vmstat -s"},
-	"dmesg":      []string{"dmesg -T", "dmesg"},
-	"interrupts": []string{"cat /proc/interrupts"},
-	"iostat":     []string{"iostat -x 1 1"},
-	"limits":     []string{"sudo  pgrep asd | xargs -I f sh -c 'sudo cat /proc/f/limits'"},
-	"lscpu":      []string{"lscpu"},
-	"sysctlall":  []string{"sudo sysctl vm fs"},
-	"iptables":   []string{"sudo iptables -S"},
-	"hdparm":     []string{"sudo fdisk -l |grep Disk |grep dev | cut -d ' ' -f 2 | cut -d ':' -f 1 | xargs sudo hdparm -I 2>/dev/null", "sudo fdisk -l |grep Disk |grep dev | cut -d ' ' -f 2 | cut -d ':' -f 1 | xargs sudo hdparm -I 2>/dev/null"},
-	"df":         []string{"df -h"},
-	"free-m":     []string{"free -m"},
-	"uname":      []string{"uname -a"},
+	"hostname":   {"hostname -I", "hostname"},
+	"top":        {"top -n1 -b", "top -l 1"},
+	"lsb":        {"lsb_release -a", "ls /etc|grep release|xargs -I f cat /etc/f"},
+	"meminfo":    {"cat /proc/meminfo", "vmstat -s"},
+	"dmesg":      {"dmesg -T", "dmesg"},
+	"interrupts": {"cat /proc/interrupts"},
+	"iostat":     {"iostat -x 1 1"},
+	"limits":     {"sudo  pgrep asd | xargs -I f sh -c 'sudo cat /proc/f/limits'"},
+	"lscpu":      {"lscpu"},
+	"sysctlall":  {"sudo sysctl vm fs"},
+	"iptables":   {"sudo iptables -S"},
+	"hdparm":     {"sudo fdisk -l |grep Disk |grep dev | cut -d ' ' -f 2 | cut -d ':' -f 1 | xargs sudo hdparm -I 2>/dev/null", "sudo fdisk -l |grep Disk |grep dev | cut -d ' ' -f 2 | cut -d ':' -f 1 | xargs sudo hdparm -I 2>/dev/null"},
+	"df":         {"df -h"},
+	"free-m":     {"free -m"},
+	"uname":      {"uname -a"},
 }
 
 var RunCmdKeys = []string{"hostname", "top", "lsb", "meminfo", "interrupts", "iostat",
@@ -90,7 +90,7 @@ func (s *SysInfo) GetSysInfo(cmdList ...string) NodeSysStats {
 
 			cmdOutput, stderr, err := s.RunSysCmd(RunCmd[cmd]...)
 			if err != nil {
-				s.log.V(1).Info("failed to run system command",
+				s.log.V(1).Info("Failed to run system command",
 					"command", cmd, "stderr", stderr, "err", err)
 				return
 			}
@@ -129,7 +129,7 @@ func (s *SysInfo) GetSysInfo(cmdList ...string) NodeSysStats {
 			case "iostat":
 				m = parseIostatInfo(cmdOutput)
 			default:
-				s.log.V(1).Info("invalid cmd to parse sysinfo", "command", cmd)
+				s.log.V(1).Info("Invalid cmd to parse sysinfo", "command", cmd)
 			}
 
 			lock.Lock()
@@ -393,7 +393,7 @@ func parseMemInfo(log logr.Logger, cmdOutput string) lib.Stats {
 		key = strings.Replace(key, " ", "_", -1)
 		vali, err := strconv.Atoi(val)
 		if err != nil {
-			log.V(1).Info("failed to parse memInfo val %s: %v", val, err)
+			log.V(1).Info("Failed to parse memInfo val %s: %v", val, err)
 		}
 		vali = vali * 1024
 		m[key] = vali
@@ -466,15 +466,18 @@ func parseDfInfo(log logr.Logger, cmdOutput string) lib.Stats {
 			fs["name"] = tokens[0]
 			fs["size"], e = getMemInByteFromStr(tokens[1], 1)
 			if e != nil {
-				log.V(1).Info("failed to parse `size` from `df` cmd output", tokens[1], e)
+				log.V(1).Info("Failed to parse `size` from `df` cmd output",
+					tokens[1], e)
 			}
 			fs["used"], e = getMemInByteFromStr(tokens[2], 1)
 			if e != nil {
-				log.V(1).Info("failed to parse `used` from `df` cmd output", tokens[2], e)
+				log.V(1).Info("Failed to parse `used` from `df` cmd output",
+					tokens[2], e)
 			}
 			fs["avail"], e = getMemInByteFromStr(tokens[3], 1)
 			if e != nil {
-				log.V(1).Info("failed to parse `avail` from `df` cmd output", tokens[3], e)
+				log.V(1).Info("Failed to parse `avail` from `df` cmd output",
+					tokens[3], e)
 			}
 			fs["%use"] = strings.Replace(tokens[4], "%", "", -1)
 			fs["mount_point"] = tokens[5]

@@ -82,11 +82,11 @@ func newSSHConn(sshConn *SSHConn) (*sshConnInfo, error) {
 
 	// supported versions as of now
 	if pm := s.PackageManager(); pm != system.DpkgPkgMgr && pm != system.RpmPkgMgr {
-		s.Close()
+		_ = s.Close()
 		return nil, fmt.Errorf("unsupported package manager, has to be one of dpkg or rpm")
 	}
 	if sm := s.InitManager(); sm == system.UknownServiceSystem {
-		s.Close()
+		_ = s.Close()
 		return nil, fmt.Errorf("failed to recognize init systems on the host")
 	}
 

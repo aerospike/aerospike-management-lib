@@ -83,7 +83,7 @@ func consume(r *bytes.Buffer, b byte) bool {
 		return false
 	}
 	if got != b {
-		r.UnreadByte()
+		_ = r.UnreadByte()
 		return false
 	}
 
