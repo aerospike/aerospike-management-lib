@@ -112,7 +112,6 @@ func writeListSection(log logr.Logger, buf *bytes.Buffer, section string, conf C
 }
 
 func writeSection(log logr.Logger, buf *bytes.Buffer, section string, conf Conf, indent int) {
-
 	m, ok := conf[section].(Conf)
 	if !ok {
 		log.V(1).Info("Section is not a config", "section", section)
@@ -120,7 +119,7 @@ func writeSection(log logr.Logger, buf *bytes.Buffer, section string, conf Conf,
 	}
 
 	// Skip if no entry for the list.
-	if len(m) == 0 {
+	if len(m) == 0 && !strings.EqualFold(section, "security") {
 		return
 	}
 
@@ -174,7 +173,6 @@ func writeField(buf *bytes.Buffer, key string, value string, indent int) {
 func writeKeys(log logr.Logger, buf *bytes.Buffer, keys *[]string, conf Conf, isSimple bool, indent int) {
 
 	for _, k := range *keys {
-
 		v := conf[k]
 		if v == nil {
 			continue

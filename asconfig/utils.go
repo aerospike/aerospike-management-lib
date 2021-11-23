@@ -324,6 +324,9 @@ func flattenConf(log logr.Logger, input Conf, sep string) Conf {
 	for k, v := range input {
 		switch v := v.(type) {
 		case Conf:
+			if len(v) == 0 {
+				res[k] = v
+			}
 			for k2, v2 := range flattenConf(log, v, sep) {
 				res[k+sep+k2] = v2
 			}
