@@ -154,8 +154,15 @@ func (c *cluster) IsClusterAndStable(hostIDs []string) (bool, error) {
 }
 
 // InfoQuiesce quiesces host.
-func (c *cluster) InfoQuiesce(hostID string, hostIDs []string) error {
+func (c *cluster) InfoQuiesce(hostID string, hostIDs []string, ns string) error {
 	lg := c.log.WithValues("node", hostID)
+
+	// Find all namespaces, Find SC namespace
+	// Take param isInRosterBlacklist
+	// Skip SC namespace in blacklisted node
+	// If node not blacklisted then normal flow
+	// If node blacklisted then skip SC namespaces
+	// Find non SC namespace, if not found then go out. No need for quiesce
 
 	if len(hostIDs) < 2 {
 		lg.V(1).Info(fmt.Sprintf("Skipping quiesce: cluster size %d", len(hostIDs)))
@@ -229,15 +236,15 @@ func (c *cluster) InfoQuiesce(hostID string, hostIDs []string) error {
 
 	lg.V(1).Info("Fetching namespace name")
 
-	info, err := n.asConnInfo.asinfo.RequestInfo("namespaces")
-	if err != nil {
-		return err
-	}
+	// info, err := n.asConnInfo.asinfo.RequestInfo("namespaces")
+	// if err != nil {
+	// 	return err
+	// }
 
-	ns := ""
-	if len(info["namespaces"]) > 0 {
-		ns = strings.Split(info["namespaces"], ";")[0]
-	}
+	// ns := ""
+	// if len(info["namespaces"]) > 0 {
+	// 	ns = strings.Split(info["namespaces"], ";")[0]
+	// }
 
 	if len(ns) > 0 {
 		var passed bool
@@ -246,7 +253,7 @@ func (c *cluster) InfoQuiesce(hostID string, hostIDs []string) error {
 			lg.V(1).Info("Verifying execution of quiesce by using namespace", "ns", ns)
 
 			cmd = fmt.Sprintf("namespace/%s", ns)
-			info, err = c.infoCmd(hostID, cmd)
+			info, err := c.infoCmd(hostID, cmd)
 			if err != nil {
 				return err
 			}
@@ -301,7 +308,7 @@ func (c *cluster) InfoQuiesce(hostID string, hostIDs []string) error {
 			lg.V(1).Info("Verifying execution of recluster by using namespace", "ns", ns)
 
 			cmd = fmt.Sprintf("namespace/%s", ns)
-			info, err = c.infoCmd(hostID, cmd)
+			info, err := c.infoCmd(hostID, cmd)
 			if err != nil {
 				return err
 			}
