@@ -596,7 +596,8 @@ func isListField(key string) (bool, string) {
 	case "file", "address", "tls-address", "access-address", "mount",
 		"tls-access-address", "alternate-access-address",
 		"tls-alternate-access-address", "role-query-pattern",
-		"xdr-remote-datacenter", "multicast-group", "tls-authenticate-client":
+		"xdr-remote-datacenter", "multicast-group",
+		"tls-authenticate-client", "http-url":
 		return true, ""
 	default:
 		return false, ""
