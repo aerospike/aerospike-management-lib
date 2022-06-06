@@ -599,7 +599,14 @@ func isListField(key string) (bool, string) {
 		"xdr-remote-datacenter", "multicast-group",
 		"tls-authenticate-client", "http-url":
 		return true, ""
+
 	default:
+		// TODO: This should use the configuration schema instead.
+		// Kludge for not to ensure we do not miss list items.
+		if _, ok := singularToPlural[key]; ok {
+			return true, ""
+		}
+
 		return false, ""
 	}
 }
