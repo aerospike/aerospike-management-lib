@@ -14,8 +14,8 @@ import (
 
 	lib "github.com/aerospike/aerospike-management-lib"
 	"github.com/aerospike/aerospike-management-lib/bcrypt"
-	aero "github.com/ashishshinde/aerospike-client-go/v5"
-	ast "github.com/ashishshinde/aerospike-client-go/v5/types"
+	aero "github.com/ashishshinde/aerospike-client-go/v6"
+	ast "github.com/ashishshinde/aerospike-client-go/v6/types"
 	"github.com/go-logr/logr"
 )
 

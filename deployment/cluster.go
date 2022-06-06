@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/aerospike/aerospike-management-lib/asconfig"
-	aero "github.com/ashishshinde/aerospike-client-go/v5"
+	aero "github.com/ashishshinde/aerospike-client-go/v6"
 	"github.com/go-logr/logr"
 )
 
