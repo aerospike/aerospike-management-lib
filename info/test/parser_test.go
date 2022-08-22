@@ -9,56 +9,15 @@ import (
 
 	lib "github.com/aerospike/aerospike-management-lib"
 	"github.com/aerospike/aerospike-management-lib/info"
-	"github.com/aerospike/aerospike-management-lib/system"
 	aero "github.com/ashishshinde/aerospike-client-go/v6"
 	"github.com/go-logr/logr"
-	"golang.org/x/crypto/ssh"
 )
-
-var runCmd = info.RunCmd
-
-/*
-var runCmdKeys = info.RunCmdKeys
-var runCmdKeys = []string{"hostname", "top", "lsb", "meminfo", "interrupts", "iostat",
-	"dmesg", "limits", "lscpu", "sysctlall", "iptables", "hdparm", "df", "free-m", "uname"}
-*/
-var runCmdKeys = []string{"hostname", "top", "lsb", "meminfo", "interrupts", "iostat",
-	"dmesg", "limits", "lscpu", "sysctlall", "iptables", "hdparm", "df", "free-m", "uname"}
-
-// all 8295 198
-// -dmesg 7814 194
-// -limits 7120 192
-// -top 6607 179
-// -lscpu 6038 177
-// -sysctl 5134 177
-// -meminfo 4488 178
-// -hdparm 3983 87------------
-// -interrupts 3523 87
-// -iptables 3056 86
-// -df 2422 86
-// -freem 1939 84
-// -iostat 1407 84
-// -lsb 933 29------------------
-// -uname 466 24
-//
 
 var ParsedData lib.Stats
 
 var err error
 
 var AsInfo *info.AsInfo
-var SysInfo *info.SysInfo
-
-func BenchmarkSysParser__map(b *testing.B) {
-
-	b.ReportAllocs()
-	b.ResetTimer()
-	//b.N = 2
-	for i := 0; i < b.N; i++ {
-		ParsedData = SysInfo.GetSysInfo(runCmdKeys...)
-	}
-	_ = writeToFile(ParsedData, "sys_info.json")
-}
 
 func BenchmarkAsParser__map(b *testing.B) {
 
@@ -82,9 +41,6 @@ func TestMain(m *testing.M) {
 		fmt.Println(err)
 	}
 
-	SysInfo, err = getSysInfo()
-	fmt.Printf("sud: sysinfo: %v, err: %v", SysInfo, err)
-
 	m.Run()
 
 	fmt.Println("Run finished")
@@ -107,31 +63,14 @@ func AerospikeHost() aero.Host {
 	}
 }
 
-func getSysInfo() (*info.SysInfo, error) {
-	config := &ssh.ClientConfig{
-		User: "sud",
-		Auth: []ssh.AuthMethod{
-			ssh.Password("sud123"),
-		},
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
-	}
-	sudo := system.NewSudoWithPassword("sud123")
-	logger := logr.Discard()
-	res, err := system.New(logger, "127.0.0.1", 22, sudo, config)
-	if err != nil {
-		return nil, err
-	}
-	return info.NewSysInfo(logger, res)
-}
-
 // TODO: REMOVE IT
-func writeToFile(m interface{}, fname string) error {
+func writeToFile(m interface{}, filename string) error {
 	buf := new(bytes.Buffer)
 	enc := json.NewEncoder(buf)
 	enc.SetEscapeHTML(false)
 	enc.SetIndent("", "    ")
 	_ = enc.Encode(m)
-	err := ioutil.WriteFile(fname, buf.Bytes(), 0644)
+	err := ioutil.WriteFile(filename, buf.Bytes(), 0644)
 	return err
 }
 

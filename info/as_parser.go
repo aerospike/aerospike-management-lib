@@ -13,7 +13,6 @@ import (
 	"time"
 
 	lib "github.com/aerospike/aerospike-management-lib"
-	"github.com/aerospike/aerospike-management-lib/bcrypt"
 	aero "github.com/ashishshinde/aerospike-client-go/v6"
 	ast "github.com/ashishshinde/aerospike-client-go/v6/types"
 	"github.com/go-logr/logr"
@@ -71,7 +70,7 @@ const (
 	_META_EDITION            = "edition"            // Edition
 )
 
-// other metainfos
+// other meta-info
 // "cluster-generation", "partition-generation", "build_time",
 // "udf-list", "cluster-name", "service-clear-std", "service-tls-std",
 
@@ -96,7 +95,9 @@ const (
 
 //var asCmds = []string{"statistics", "configs", "metadata", "latency", "throughput", "hist-dump", "udf-list", "udf-get"}
 
-var asCmds = []string{"statistics", "configs", "metadata", "latency", "throughput"}
+var asCmds = []string{
+	"statistics", "configs", "metadata", "latency", "throughput",
+}
 
 var networkTLSNameRe = regexp.MustCompile("^tls\\[([0-9]+)].name$")
 
@@ -124,7 +125,9 @@ var maxInfoRetries = 3
 var asTimeout = time.Second * 100
 
 // RequestInfo get aerospike info
-func (info *AsInfo) RequestInfo(cmd ...string) (result map[string]string, err error) {
+func (info *AsInfo) RequestInfo(cmd ...string) (
+	result map[string]string, err error,
+) {
 	if len(cmd) == 0 {
 		return map[string]string{}, nil
 	}
@@ -150,19 +153,11 @@ func (info *AsInfo) AllConfigs() (map[string]interface{}, error) {
 	configs, ok := values[key].(lib.Stats)
 	if !ok {
 		typ := reflect.TypeOf(values[key])
-		return nil, fmt.Errorf("failed to convert to lib.Stats, is of type %v", typ)
+		return nil, fmt.Errorf(
+			"failed to convert to lib.Stats, is of type %v", typ,
+		)
 	}
 	return configs, nil
-}
-
-func hashPassword(password string) ([]byte, error) {
-	// Hashing the password with the cost of 10, with a static salt
-	const salt = "$2a$10$7EqJtq98hPqEX7fNZaFWoO"
-	hashedPassword, err := bcrypt.Hash(password, salt)
-	if err != nil {
-		return nil, err
-	}
-	return []byte(hashedPassword), nil
 }
 
 func (info *AsInfo) doInfo(commands ...string) (map[string]string, error) {
@@ -175,24 +170,31 @@ func (info *AsInfo) doInfo(commands ...string) (map[string]string, error) {
 		var err error
 		info.conn, err = aero.NewConnection(info.policy, info.host)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create secure connection for aerospike info: %v", err)
+			return nil, fmt.Errorf(
+				"failed to create secure connection for aerospike info: %v",
+				err,
+			)
 		}
 
 		aerr := info.conn.Login(info.policy)
 		if aerr != nil {
 			ae := &aero.AerospikeError{}
 			if errors.As(err, &ae) {
-				return nil, fmt.Errorf("failed to authenticate user `%s` in aerospike server: %v", info.policy.User, ae.ResultCode)
+				return nil, fmt.Errorf(
+					"failed to authenticate user `%s` in aerospike server: %v",
+					info.policy.User, ae.ResultCode,
+				)
 			}
-			return nil, fmt.Errorf("failed to authenticate user `%s` in aerospike server: %v", info.policy.User, aerr)
+			return nil, fmt.Errorf(
+				"failed to authenticate user `%s` in aerospike server: %v",
+				info.policy.User, aerr,
+			)
 		}
 		info.log.V(1).Info("Secure connection created for aerospike info")
 	}
 
 	var deadline time.Time
-	if asTimeout > 0 {
-		deadline = time.Now().Add(asTimeout)
-	}
+	deadline = time.Now().Add(asTimeout)
 	if err := info.conn.SetTimeout(deadline, asTimeout); err != nil {
 		return nil, err
 	}
@@ -260,8 +262,10 @@ func (info *AsInfo) GetAsConfig(contextList ...string) (lib.Stats, error) {
 
 	if len(contextList) == 0 {
 		contextList = []string{
-			ConfigServiceContext, ConfigNetworkContext, ConfigNamespaceContext, ConfigSetContext,
-			ConfigXDRContext, ConfigDCContext, ConfigSecurityContext, ConfigLoggingContext,
+			ConfigServiceContext, ConfigNetworkContext, ConfigNamespaceContext,
+			ConfigSetContext,
+			ConfigXDRContext, ConfigDCContext, ConfigSecurityContext,
+			ConfigLoggingContext,
 		}
 	}
 
@@ -269,42 +273,46 @@ func (info *AsInfo) GetAsConfig(contextList ...string) (lib.Stats, error) {
 	key := "configs"
 	configs, err := info.execute(info.log, rawCmdList, m, key)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get config info from aerospike server: %v", err)
+		return nil, fmt.Errorf(
+			"failed to get config info from aerospike server: %v", err,
+		)
 	}
 	c, ok := configs[key].(lib.Stats)
 	if !ok {
 		typ := reflect.TypeOf(configs[key])
-		return nil, fmt.Errorf("failed to convert to lib.Stats, is of type %v", typ)
+		return nil, fmt.Errorf(
+			"failed to convert to lib.Stats, is of type %v", typ,
+		)
 	}
 	return c, nil
 }
 
-// GetNamespaceNamesCmd
+// GetNamespaceNamesCmd returns the command to get namespace names
 func GetNamespaceNamesCmd() string {
 	return _STAT_NS_NAMES
 }
 
-// GetDCNamesCmd
+// GetDCNamesCmd returns the command to get DC namespace
 func GetDCNamesCmd() string {
 	return _STAT_DC_NAMES
 }
 
-// GetTLSNamesCmd
+// GetTLSNamesCmd returns the command to get TLS names
 func GetTLSNamesCmd() string {
 	return _CONFIG_NETWORK
 }
 
-// GetLogNamesCmd
+// GetLogNamesCmd returns the command to get log names
 func GetLogNamesCmd() string {
 	return _STAT_LOG_IDS
 }
 
-// GetSindexNamesCmd
+// GetSindexNamesCmd returns the command to get sindex names
 func GetSindexNamesCmd() string {
 	return _STAT_SINDEX
 }
 
-// GetSetNamesCmd
+// GetSetNamesCmd returns the command to get set names
 func GetSetNamesCmd() string {
 	return _STAT_SET
 }
@@ -360,14 +368,18 @@ func ParseSetNames(m map[string]string, ns string) []string {
 //*******************************************************************************************
 
 func (info *AsInfo) getCoreInfo() (map[string]string, error) {
-	m, err := info.RequestInfo(_STAT_NS_NAMES, _STAT_DC_NAMES, _STAT_SINDEX, _STAT_LOG_IDS)
+	m, err := info.RequestInfo(
+		_STAT_NS_NAMES, _STAT_DC_NAMES, _STAT_SINDEX, _STAT_LOG_IDS,
+	)
 	if err != nil {
 		return nil, err
 	}
 	return m, nil
 }
 
-func (info *AsInfo) createCmdList(m map[string]string, cmdList ...string) []string {
+func (info *AsInfo) createCmdList(
+	m map[string]string, cmdList ...string,
+) []string {
 	var rawCmdList []string
 
 	for _, cmd := range cmdList {
@@ -399,11 +411,13 @@ func (info *AsInfo) createStatCmdList(m map[string]string) []string {
 	nsNames := getNames(m[_STAT_NS_NAMES])
 	for _, ns := range nsNames {
 		// namespace, sets, bins, sindex
-		cmdList = append(cmdList, _STAT_NS+ns, _STAT_SET+ns, _STAT_BIN+ns, _STAT_SINDEX+ns)
+		cmdList = append(
+			cmdList, _STAT_NS+ns, _STAT_SET+ns, _STAT_BIN+ns, _STAT_SINDEX+ns,
+		)
 
-		indxNames := sindexNames(m[_STAT_SINDEX], ns)
-		for _, indx := range indxNames {
-			cmdList = append(cmdList, _STAT_SINDEX+ns+"/"+indx)
+		indexNames := sindexNames(m[_STAT_SINDEX], ns)
+		for _, index := range indexNames {
+			cmdList = append(cmdList, _STAT_SINDEX+ns+"/"+index)
 		}
 	}
 
@@ -416,11 +430,16 @@ func (info *AsInfo) createStatCmdList(m map[string]string) []string {
 }
 
 // createConfigCmdList creates get-config commands for all context from contextList
-func (info *AsInfo) createConfigCmdList(m map[string]string, contextList ...string) []string {
+func (info *AsInfo) createConfigCmdList(
+	m map[string]string, contextList ...string,
+) []string {
 	if len(contextList) == 0 {
-		contextList = []string{ConfigServiceContext, ConfigNetworkContext, ConfigNamespaceContext,
-			ConfigSetContext, ConfigXDRContext, ConfigDCContext, ConfigSecurityContext,
-			ConfigLoggingContext, _ConfigDCNames, _ConfigNamespaceNames, _ConfigLogIDs,
+		contextList = []string{
+			ConfigServiceContext, ConfigNetworkContext, ConfigNamespaceContext,
+			ConfigSetContext, ConfigXDRContext, ConfigDCContext,
+			ConfigSecurityContext,
+			ConfigLoggingContext, _ConfigDCNames, _ConfigNamespaceNames,
+			_ConfigLogIDs,
 			ConfigRacksContext,
 		}
 	}
@@ -436,16 +455,25 @@ func (info *AsInfo) createConfigCmdList(m map[string]string, contextList ...stri
 			cmdList = append(cmdList, _CONFIG_NETWORK)
 
 		case ConfigNamespaceContext:
-			cmdList = append(cmdList, info.createNamespaceConfigCmdList(getNames(m[_STAT_NS_NAMES])...)...)
+			cmdList = append(
+				cmdList,
+				info.createNamespaceConfigCmdList(getNames(m[_STAT_NS_NAMES])...)...,
+			)
 
 		case ConfigSetContext:
-			cmdList = append(cmdList, info.createSetConfigCmdList(getNames(m[_STAT_NS_NAMES])...)...)
+			cmdList = append(
+				cmdList,
+				info.createSetConfigCmdList(getNames(m[_STAT_NS_NAMES])...)...,
+			)
 
 		case ConfigXDRContext:
 			cmdList = append(cmdList, _CONFIG_XDR)
 
 		case ConfigDCContext:
-			cmdList = append(cmdList, info.createDCConfigCmdList(getNames(m[_STAT_DC_NAMES])...)...)
+			cmdList = append(
+				cmdList,
+				info.createDCConfigCmdList(getNames(m[_STAT_DC_NAMES])...)...,
+			)
 
 		case ConfigSecurityContext:
 			cmdList = append(cmdList, _CONFIG_SECURITY)
@@ -467,8 +495,10 @@ func (info *AsInfo) createConfigCmdList(m map[string]string, contextList ...stri
 			cmdList = append(cmdList, _STAT_LOG_IDS)
 
 		default:
-			info.log.V(1).Info("Invalid context to parse AsConfig",
-				"context", c)
+			info.log.V(1).Info(
+				"Invalid context to parse AsConfig",
+				"context", c,
+			)
 		}
 	}
 
@@ -506,9 +536,12 @@ func (info *AsInfo) createDCConfigCmdList(dcNames ...string) []string {
 }
 
 func (info *AsInfo) createMetaCmdList() []string {
-	cmdList := []string{_META_NODE_ID, _META_BUILD, _META_SERVICE,
-		_META_SERVICES, _META_SERVICES_ALUMNI, _META_SERVICES_ALTERNATE, _META_VERSION,
-		_META_BUILD_OS, _META_CLUSTER_NAME, _META_FEATURES, _META_EDITION}
+	cmdList := []string{
+		_META_NODE_ID, _META_BUILD, _META_SERVICE,
+		_META_SERVICES, _META_SERVICES_ALUMNI, _META_SERVICES_ALTERNATE,
+		_META_VERSION,
+		_META_BUILD_OS, _META_CLUSTER_NAME, _META_FEATURES, _META_EDITION,
+	}
 	return cmdList
 }
 
@@ -521,7 +554,7 @@ func getNames(s string) []string {
 
 // ns=test:set=testset:indexname=idx_foo:bin=loop:type=NUMERIC:indextype=NONE:path=loop:state=RW;
 func sindexNames(str, ns string) []string {
-	var indxNames []string
+	var indexNames []string
 	sindexStrList := strings.Split(str, ";")
 	for _, str := range sindexStrList {
 		if str == "" {
@@ -534,9 +567,9 @@ func sindexNames(str, ns string) []string {
 			continue
 		}
 		// Assume indexname is always there
-		indxNames = append(indxNames, idxMap.TryString("indexname", ""))
+		indexNames = append(indexNames, idxMap.TryString("indexname", ""))
 	}
-	return indxNames
+	return indexNames
 }
 
 // ns=test:set=demo:objects=2:tombstones=0:memory_data_bytes=28:truncate_lut=0:stop-writes-count=0:set-enable-xdr=use-default:disable-eviction=false;
@@ -563,7 +596,10 @@ func setNames(str, ns string) []string {
 // execute raw cmds
 //*******************************************************************************************
 
-func (info *AsInfo) execute(log logr.Logger, rawCmdList []string, m map[string]string, cmdList ...string) (NodeAsStats, error) {
+func (info *AsInfo) execute(
+	log logr.Logger, rawCmdList []string, m map[string]string,
+	cmdList ...string,
+) (NodeAsStats, error) {
 	rawMap, err := info.RequestInfo(rawCmdList...)
 	if err != nil {
 		return nil, err
@@ -582,7 +618,9 @@ func (info *AsInfo) execute(log logr.Logger, rawCmdList []string, m map[string]s
 // parse raw cmd results
 //*******************************************************************************************
 
-func parseCmdResults(log logr.Logger, rawMap map[string]string, cmdList ...string) lib.Stats {
+func parseCmdResults(
+	log logr.Logger, rawMap map[string]string, cmdList ...string,
+) lib.Stats {
 	asMap := make(lib.Stats)
 
 	for _, cmd := range cmdList {
@@ -699,12 +737,12 @@ func parseStatNsInfo(res string) lib.Stats {
 }
 
 func parseStatSindexsInfo(rawMap map[string]string, ns string) lib.Stats {
-	indxMap := make(lib.Stats)
-	indxNames := sindexNames(rawMap[_STAT_SINDEX], ns)
-	for _, indx := range indxNames {
-		indxMap[indx] = parseBasicInfo(rawMap[_STAT_SINDEX+ns+"/"+indx])
+	indexMap := make(lib.Stats)
+	indexNames := sindexNames(rawMap[_STAT_SINDEX], ns)
+	for _, index := range indexNames {
+		indexMap[index] = parseBasicInfo(rawMap[_STAT_SINDEX+ns+"/"+index])
 	}
-	return indxMap
+	return indexMap
 }
 
 func parseStatSetsInfo(res string) lib.Stats {
@@ -720,7 +758,7 @@ func parseStatSetsInfo(res string) lib.Stats {
 }
 
 func parseStatBinsInfo(res string) lib.Stats {
-	// This can be optimize, bin has only 2 stats, so just parse those 2.
+	// This can be optimized, bin has only 2 stats, so just parse those 2.
 	var binStatStr string
 	binStr := strings.Split(res, ",")
 	for _, s := range binStr {
@@ -812,7 +850,7 @@ func parseAllNsConfig(rawMap map[string]string, cmd string) lib.Stats {
 		}
 
 		newM := parseNsKeys(m)
-		// Some config are like {test}-configname
+		// Some configs are like {test}-configname
 		if len(newM) > 0 {
 			nsConfigMap[ns] = newM
 		}
@@ -876,8 +914,12 @@ func parseMetadataInfo(rawMap map[string]string) lib.Stats {
 	metaMap["asd_build"] = rawMap[_META_BUILD]
 	metaMap["service"] = parseListTypeMetaInfo(rawMap, _META_SERVICE)
 	metaMap["services"] = parseListTypeMetaInfo(rawMap, _META_SERVICES)
-	metaMap["services-alumni"] = parseListTypeMetaInfo(rawMap, _META_SERVICES_ALUMNI)
-	metaMap["services-alternate"] = parseListTypeMetaInfo(rawMap, _META_SERVICES_ALTERNATE)
+	metaMap["services-alumni"] = parseListTypeMetaInfo(
+		rawMap, _META_SERVICES_ALUMNI,
+	)
+	metaMap["services-alternate"] = parseListTypeMetaInfo(
+		rawMap, _META_SERVICES_ALTERNATE,
+	)
 	metaMap["features"] = parseListTypeMetaInfo(rawMap, _META_FEATURES)
 	metaMap["edition"] = rawMap[_META_EDITION]
 	metaMap["version"] = rawMap[_META_VERSION]
@@ -951,7 +993,7 @@ func parseThroughputInfo(rawStr string) lib.Stats {
 			res[ns][op] = opsCount
 		}
 	}
-	// TODO Cross check with khosrow, was it double accounting. for latency also
+	// TODO Cross-check with khosrow, was it double accounting. for latency also
 	// calc totals
 	for _, mp := range res {
 		for op, tps := range mp {
@@ -1081,7 +1123,10 @@ func parseLatencyInfo(log logr.Logger, rawStr string) lib.Stats {
 			nBuckets := nstats["buckets"].([]string)
 			if len(buckets) > len(nBuckets) {
 				nstats["buckets"] = append(nBuckets, buckets[len(nBuckets):]...)
-				nstats["valBuckets"] = append(nstats["valBuckets"].([]float64), make([]float64, len(buckets[len(nBuckets):]))...)
+				nstats["valBuckets"] = append(
+					nstats["valBuckets"].([]float64),
+					make([]float64, len(buckets[len(nBuckets):]))...,
+				)
 			}
 
 			nValBuckets := nstats["valBuckets"].([]float64)
@@ -1232,7 +1277,9 @@ func getParsedValue(val interface{}) interface{} {
 	}
 }
 
-func parseIntoListOfMap(str string, del1 string, del2 string, sep string) []lib.Stats {
+func parseIntoListOfMap(
+	str string, del1 string, del2 string, sep string,
+) []lib.Stats {
 	var strListMap []lib.Stats
 	strList := strings.Split(str, del1)
 	for _, s := range strList {

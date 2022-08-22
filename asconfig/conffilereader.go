@@ -30,10 +30,6 @@ func parseLine(line string) string {
 	return final
 }
 
-func skipSection(log logr.Logger, scanner *bufio.Scanner) {
-	_, _ = process(log, scanner, make(Conf))
-}
-
 func toList(conf Conf) []Conf {
 	if len(conf) == 0 {
 		return nil
@@ -59,7 +55,9 @@ func toList(conf Conf) []Conf {
 	return confList
 }
 
-func processSection(log logr.Logger, tok []string, scanner *bufio.Scanner, conf Conf) error {
+func processSection(
+	log logr.Logger, tok []string, scanner *bufio.Scanner, conf Conf,
+) error {
 
 	var err error
 
@@ -101,7 +99,7 @@ func processSection(log logr.Logger, tok []string, scanner *bufio.Scanner, conf 
 		// storage engine device
 		seList := toList(tempConf)
 		if len(seList) > 0 {
-			// storage engine is named section but it is not list so use first entry
+			// storage engine is named section, but it is not list so use first entry
 			delete(seList[0], "name")
 			conf[cfgName] = seList[0]
 		}
@@ -144,7 +142,8 @@ func writeConf(log logr.Logger, tok []string, conf Conf) {
 			log.V(1).Info(
 				"Found invalid xdr-digestlog-size value, "+
 					"while creating acc config struct",
-				"err", err)
+				"err", err,
+			)
 			break
 		}
 		conf[cfgName] = fmt.Sprintf("%s %d", tok[1], size)
@@ -154,7 +153,8 @@ func writeConf(log logr.Logger, tok []string, conf Conf) {
 			log.V(1).Info(
 				"Found > 2 tokens: Unknown format for config, "+
 					"while creating acc config struct",
-				"config", cfgName, "token", tok)
+				"config", cfgName, "token", tok,
+			)
 
 			break
 		}
