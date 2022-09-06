@@ -239,11 +239,6 @@ func (c *cluster) InfoQuiesce(hostID string, hostIDs []string, removedNamespaces
 		ns = strings.Split(info["namespaces"], ";")
 	}
 
-	// Display all elements.
-	for i := range ns {
-		fmt.Println(ns[i])
-	}
-
 	for index := range ns {
 		var passed bool
 		skipQuiesce := false

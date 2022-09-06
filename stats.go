@@ -653,6 +653,9 @@ func ToStatsDeep(input Stats) Stats {
 }
 
 // DeepCopy Make a deep copy from src into dst. src, dst both should be pointer
-func DeepCopy(dst interface{}, src interface{}) error {
-	return reprint.FromTo(src, dst)
+func DeepCopy(dst interface{}, src interface{}) {
+	err := reprint.FromTo(src, dst)
+	if err != nil {
+		panic(fmt.Sprintf("error while deepCopy interfaces: %v", err))
+	}
 }
