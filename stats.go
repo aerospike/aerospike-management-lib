@@ -181,7 +181,9 @@ func (s Stats) Int(name string, aliases ...string) int64 {
 
 // TryFloat returns float64 value of a field after asserting it is float64 or a
 // convertible string otherwise defValue is returned.
-func (s Stats) TryFloat(name string, defValue float64, aliases ...string) float64 {
+func (s Stats) TryFloat(
+	name string, defValue float64, aliases ...string,
+) float64 {
 	field := s.Get(name, aliases...)
 	if field != nil {
 		if value, ok := field.(float64); ok {
@@ -194,9 +196,12 @@ func (s Stats) TryFloat(name string, defValue float64, aliases ...string) float6
 	return defValue
 }
 
-// Value should be an int64 or a convertible string; otherwise defValue is returned
+// TryString Value should be an int64 or a convertible string; otherwise
+//defValue is returned
 // this function never panics
-func (s Stats) TryString(name string, defValue string, aliases ...string) string {
+func (s Stats) TryString(
+	name string, defValue string, aliases ...string,
+) string {
 	field := s.Get(name, aliases...)
 	if field != nil {
 		if value, ok := field.(string); ok {
@@ -206,9 +211,11 @@ func (s Stats) TryString(name string, defValue string, aliases ...string) string
 	return defValue
 }
 
-// Value should be an int64 or a convertible string; otherwise defValue is returned
+// TryStringP value should be an int64 or a convertible string; otherwise defValue is returned
 // this function never panics
-func (s Stats) TryStringP(name string, defValue string, aliases ...string) *string {
+func (s Stats) TryStringP(
+	name string, defValue string, aliases ...string,
+) *string {
 	field := s.Get(name, aliases...)
 	if field != nil {
 		s := field.(string)
@@ -285,8 +292,8 @@ func (s Stats) Flatten(sep string) Stats {
 	return res
 }
 
-// Type should be map[string]interface{} otherwise same map is returned.
-// info_parser needs parsed values
+// ToParsedValues Type should be map[string]interface{} otherwise same map is
+// returned. info_parser needs parsed values
 func (s Stats) ToParsedValues() map[string]interface{} {
 	res := make(map[string]interface{}, len(s))
 
@@ -316,7 +323,7 @@ func (s Stats) ToParsedValues() map[string]interface{} {
 
 // GetInnerVal will give inner map from a nested map, not the base field.
 // By using this we can get the map at any level. if this map is the
-// lower most then there are other TryString type calls which can be
+// lowermost then there are other TryString type calls which can be
 // used to further get any specific type of base field
 func (s Stats) GetInnerVal(keys ...string) Stats {
 	temp := s
@@ -332,9 +339,6 @@ func (s Stats) GetInnerVal(keys ...string) Stats {
 	return temp
 }
 
-/**********************************************************************
-					Type SyncStats
-***********************************************************************/
 type SyncStats struct {
 	_Stats Stats
 
@@ -412,7 +416,7 @@ func (s *SyncStats) Del(names ...string) {
 	s._Stats.Del(names...)
 }
 
-// Value MUST exist, and MUST be an int64 or a convertible string.
+// Int Value MUST exist, and MUST be an int64 or a convertible string.
 // Panics if the above constraints are not met
 func (s *SyncStats) Int(name string, aliases ...string) int64 {
 	s.mutex.RLock()
@@ -421,34 +425,39 @@ func (s *SyncStats) Int(name string, aliases ...string) int64 {
 	return s._Stats.Int(name, aliases...)
 }
 
-// Value should be an int64 or a convertible string; otherwise defValue is returned
+// TryInt Value should be an int64 or a convertible string; otherwise defValue is returned
 // this function never panics
-func (s *SyncStats) TryInt(name string, defValue int64, aliases ...string) int64 {
+func (s *SyncStats) TryInt(
+	name string, defValue int64, aliases ...string,
+) int64 {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
 	return s._Stats.TryInt(name, defValue, aliases...)
 }
 
-// Value should be an float64 or a convertible string; otherwise defValue is returned
-// this function never panics
-func (s *SyncStats) TryFloat(name string, defValue float64, aliases ...string) float64 {
+// TryFloat Value should be a float64 or a convertible string; otherwise
+// defValue is/returned this function never panics
+func (s *SyncStats) TryFloat(
+	name string, defValue float64, aliases ...string,
+) float64 {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
 	return s._Stats.TryFloat(name, defValue, aliases...)
 }
 
-// Value should be a string; otherwise defValue is returned
-// this function never panics
-func (s *SyncStats) TryString(name string, defValue string, aliases ...string) string {
+// TryString Value should be a string; otherwise defValue is returned this function never panics
+func (s *SyncStats) TryString(
+	name string, defValue string, aliases ...string,
+) string {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
 	return s._Stats.TryString(name, defValue, aliases...)
 }
 
-// Value should be an float64 or a convertible string
+// AggregateStatsTo Value should be a float64 or a convertible string
 // this function never panics
 func (s *SyncStats) AggregateStatsTo(other Stats) {
 	s.mutex.RLock()
@@ -461,7 +470,7 @@ func (s *SyncStats) AggregateStatsTo(other Stats) {
 	Utility functions
 */
 
-// StatsBy is the type of a "less" function that defines the ordering of its Stats arguments.
+// StatsBy is the type of "less" function that defines the ordering of its Stats arguments.
 type StatsBy func(fieldName string, p1, p2 Stats) bool
 
 var ByFloatField = func(fieldName string, p1, p2 Stats) bool {
@@ -498,7 +507,9 @@ func (by StatsBy) SortReverse(fieldName string, statsList []Stats) {
 type statsSorter struct {
 	fieldName string
 	statsList []Stats
-	by        func(fieldName string, p1, p2 Stats) bool // Closure used in the Less method.
+	by        func(
+		fieldName string, p1, p2 Stats,
+	) bool // Closure used in the Less method.
 }
 
 // Len is part of sort.Interface.
@@ -550,8 +561,7 @@ func addValues(v1, v2 interface{}) interface{} {
 	return nil
 }
 
-// Getraw(map, key ...)
-// input is full qualified name
+// GetRaw input is full qualified name
 func (s Stats) GetRaw(keys ...string) interface{} {
 	var d = s
 	for _, k := range keys {
@@ -566,7 +576,7 @@ func (s Stats) GetRaw(keys ...string) interface{} {
 	return d
 }
 
-// CopyMap(map)
+// DeepClone CopyMap(map)
 func (s Stats) DeepClone() Stats {
 	var result = make(Stats)
 	for k := range s {

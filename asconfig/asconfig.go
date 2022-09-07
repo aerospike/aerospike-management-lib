@@ -30,13 +30,16 @@ type ValidationErr struct {
 }
 
 // NewMapAsConfig creates AsConfig from map
-func NewMapAsConfig(log logr.Logger, version string, configMap map[string]interface{}) (*AsConfig, error) {
+func NewMapAsConfig(
+	log logr.Logger, version string, configMap map[string]interface{},
+) (*AsConfig, error) {
 	baseConf := newMap(log, configMap)
 
 	return &AsConfig{
 		log:      log,
 		baseConf: &baseConf,
-		version:  version}, nil
+		version:  version,
+	}, nil
 }
 
 // newMap converts passed in map[string]interface{} into Conf
@@ -45,7 +48,9 @@ func newMap(log logr.Logger, configMap map[string]interface{}) Conf {
 }
 
 // IsValid checks validity of config
-func (cfg *AsConfig) IsValid(log logr.Logger, version string) (bool, []*ValidationErr, error) {
+func (cfg *AsConfig) IsValid(log logr.Logger, version string) (
+	bool, []*ValidationErr, error,
+) {
 	return confIsValid(log, cfg.baseConf, version)
 }
 
@@ -60,7 +65,7 @@ func IsSupportedVersion(ver string) (bool, error) {
 	return isSupportedVersion(ver)
 }
 
-// BaseVersion returns baseversion for ver
+// BaseVersion returns base-version for ver
 func BaseVersion(ver string) (string, error) {
 	return baseVersion(ver)
 }
