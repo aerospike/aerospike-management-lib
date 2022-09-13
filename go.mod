@@ -1,13 +1,18 @@
 module github.com/aerospike/aerospike-management-lib
 
-go 1.16
+go 1.18
+
+require github.com/qdm12/reprint v0.0.0-20200326205758-722754a53494
 
 require (
 	github.com/ashishshinde/aerospike-client-go/v6 v6.0.1-0.20220606044039-77304169d3a4
 	github.com/go-logr/logr v0.4.0
-	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51 // indirect
-	github.com/qdm12/reprint v0.0.0-20200326205758-722754a53494
-	github.com/tmc/scp v0.0.0-20170824174625-f7b48647feef
 	github.com/xeipuuv/gojsonschema v1.2.0
-	golang.org/x/crypto v0.0.0-20210817164053-32db794688a5
+)
+
+require (
+	github.com/xeipuuv/gojsonpointer v0.0.0-20190905194746-02993c407bfb // indirect
+	github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 // indirect
+	github.com/yuin/gopher-lua v0.0.0-20220504180219-658193537a64 // indirect
+	golang.org/x/sync v0.0.0-20220819030929-7fc1605a5dde // indirect
 )
