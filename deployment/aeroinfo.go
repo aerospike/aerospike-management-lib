@@ -17,7 +17,7 @@ func IsClusterAndStable(log logr.Logger, policy *aero.ClientPolicy, allHosts []*
 }
 
 // InfoQuiesce quiesces host.
-func InfoQuiesce(log logr.Logger, policy *aero.ClientPolicy, allHosts []*HostConn, selectedHost *HostConn, removedNamespaces []string) error {
+func InfoQuiesce(log logr.Logger, policy *aero.ClientPolicy, allHosts []*HostConn, selectedHost *HostConn, removedNamespaces map[string]bool) error {
 	c, err := newCluster(log, policy, allHosts, []*HostConn{selectedHost}, false, false)
 	if err != nil {
 		return fmt.Errorf("unable to create a cluster copy for running aeroinfo: %v", err)

@@ -177,7 +177,7 @@ func (c *cluster) IsClusterAndStable(hostIDs []string) (bool, error) {
 }
 
 // InfoQuiesce quiesces host.
-func (c *cluster) InfoQuiesce(hostID string, hostIDs []string, removedNamespaces []string) error {
+func (c *cluster) InfoQuiesce(hostID string, hostIDs []string, removedNamespaces map[string]bool) error {
 	lg := c.log.WithValues("node", hostID)
 
 	if len(hostIDs) < 2 {
@@ -281,15 +281,8 @@ func (c *cluster) InfoQuiesce(hostID string, hostIDs []string, removedNamespaces
 
 	for index := range ns {
 		var passed bool
-		skipQuiesce := false
-		for _, removedNamespace := range removedNamespaces {
-			if removedNamespace == ns[index] {
-				skipQuiesce = true
-				break
-			}
-		}
 
-		if skipQuiesce {
+		if removedNamespaces[ns[index]] {
 			continue
 		}
 
@@ -356,22 +349,15 @@ func (c *cluster) InfoQuiesce(hostID string, hostIDs []string, removedNamespaces
 
 	for index := range ns {
 		var passed bool
-		skipQuiesce := false
-		for _, removedNamespace := range removedNamespaces {
-			if removedNamespace == ns[index] {
-				skipQuiesce = true
-				break
-			}
-		}
 
-		if skipQuiesce {
+		if removedNamespaces[ns[index]] {
 			continue
 		}
 
 		for i := 0; i < 30; i++ {
 			lg.V(1).Info(
- 				"Verifying execution of recluster by using namespace", "ns", ns[index],
- 			)
+				"Verifying execution of recluster by using namespace", "ns", ns[index],
+			)
 
 			cmd = fmt.Sprintf("namespace/%s", ns[index])
 			info, err = c.infoCmd(hostID, cmd)
@@ -383,18 +369,18 @@ func (c *cluster) InfoQuiesce(hostID string, hostIDs []string, removedNamespaces
 			effectiveIsQuiesced, ok := info[key]
 			if !ok {
 				return fmt.Errorf(
- 					"field %s missing on node %s, "+
- 						"namespace %s", key, hostID, ns[index],
- 				)
+					"field %s missing on node %s, "+
+						"namespace %s", key, hostID, ns[index],
+				)
 			}
 
 			if effectiveIsQuiesced != "true" {
 				lg.V(1).Info(
- 					"Verifying effective_is_quiesced failed on node,"+
- 						" should be true",
- 					"effective_is_quiesced", effectiveIsQuiesced, "host",
- 					hostID, "ns", ns[index],
- 				)
+					"Verifying effective_is_quiesced failed on node,"+
+						" should be true",
+					"effective_is_quiesced", effectiveIsQuiesced, "host",
+					hostID, "ns", ns[index],
+				)
 				time.Sleep(2 * time.Second)
 				continue
 			}
@@ -403,9 +389,9 @@ func (c *cluster) InfoQuiesce(hostID string, hostIDs []string, removedNamespaces
 			nodesQuiescedStr, ok := info[key]
 			if !ok {
 				return fmt.Errorf(
- 					"field %s missing on node %s, "+
- 						"namespace %s", key, hostID, ns[index],
- 				)
+					"field %s missing on node %s, "+
+						"namespace %s", key, hostID, ns[index],
+				)
 			}
 
 			nodesQuiesced, err := strconv.Atoi(nodesQuiescedStr)
