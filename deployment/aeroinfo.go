@@ -17,13 +17,17 @@ func IsClusterAndStable(log logr.Logger, policy *aero.ClientPolicy, allHosts []*
 }
 
 // InfoQuiesce quiesces host.
-func InfoQuiesce(log logr.Logger, policy *aero.ClientPolicy, allHosts []*HostConn, selectedHost *HostConn) error {
-	c, err := newCluster(log, policy, allHosts, []*HostConn{selectedHost}, false, false)
+func InfoQuiesce(log logr.Logger, policy *aero.ClientPolicy, allHosts []*HostConn, selectedHosts []*HostConn) error {
+	c, err := newCluster(log, policy, allHosts, selectedHosts, false, false)
 	if err != nil {
 		return fmt.Errorf("unable to create a cluster copy for running aeroinfo: %v", err)
 	}
 
-	return c.InfoQuiesce(selectedHost.ID, getHostIDsFromHostConns(allHosts))
+	var hostIDs []string
+	for _, selectedHost := range selectedHosts {
+		hostIDs = append(hostIDs, selectedHost.ID)
+	}
+	return c.InfoQuiesce(hostIDs, getHostIDsFromHostConns(allHosts))
 }
 
 // InfoQuiesceUndo revert the effects of quiesce on the next recluster event

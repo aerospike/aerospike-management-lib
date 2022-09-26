@@ -7,7 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/aerospike/aerospike-management-lib/asconfig"
 	aero "github.com/ashishshinde/aerospike-client-go/v6"
 	"github.com/go-logr/logr"
 )
@@ -177,8 +176,8 @@ func (c *cluster) IsClusterAndStable(hostIDs []string) (bool, error) {
 }
 
 // InfoQuiesce quiesces host.
-func (c *cluster) InfoQuiesce(hostID string, hostIDs []string) error {
-	lg := c.log.WithValues("node", hostID)
+func (c *cluster) InfoQuiesce(hostsToBeQuiesced []string, hostIDs []string) error {
+	lg := c.log.WithValues("nodes", hostsToBeQuiesced)
 
 	if len(hostIDs) < 2 {
 		lg.V(1).Info(
@@ -190,35 +189,35 @@ func (c *cluster) InfoQuiesce(hostID string, hostIDs []string) error {
 	}
 	lg.V(1).Info("Running InfoQuiesce")
 
-	n, err := c.findHost(hostID)
-	if err != nil {
-		return err
-	}
-
-	lg.V(1).Info("Finding aerospike version")
-
-	build, err := n.asConnInfo.asinfo.RequestInfo("build")
-	if err != nil {
-		return err
-	}
-
-	r, err := asconfig.CompareVersions(build["build"], "4.3.1")
-	if err != nil {
-		return fmt.Errorf(
-			"failed to compare aerospike version on node %s: %v"+
-				"", hostID, err,
-		)
-	}
-
-	if r < 0 {
-		// aerospike server version < 4.3.1 does not support quiesce
-		lg.V(1).Info(
-			fmt.Sprintf(
-				"Skipping quiesce: server version (%s) < 4.3.1", build["build"],
-			),
-		)
-		return nil
-	}
+	//n, err := c.findHost(hostID)
+	//if err != nil {
+	//	return err
+	//}
+	//
+	//lg.V(1).Info("Finding aerospike version")
+	//
+	//build, err := n.asConnInfo.asinfo.RequestInfo("build")
+	//if err != nil {
+	//	return err
+	//}
+	//
+	//r, err := asconfig.CompareVersions(build["build"], "4.3.1")
+	//if err != nil {
+	//	return fmt.Errorf(
+	//		"failed to compare aerospike version on node %s: %v"+
+	//			"", hostID, err,
+	//	)
+	//}
+	//
+	//if r < 0 {
+	//	// aerospike server version < 4.3.1 does not support quiesce
+	//	lg.V(1).Info(
+	//		fmt.Sprintf(
+	//			"Skipping quiesce: server version (%s) < 4.3.1", build["build"],
+	//		),
+	//	)
+	//	return nil
+	//}
 
 	lg.V(1).Info("Executing cluster-stable command")
 
@@ -257,72 +256,79 @@ func (c *cluster) InfoQuiesce(hostID string, hostIDs []string) error {
 		}
 	}
 
-	lg.V(1).Info("Issuing quiesce command `quiesce:`")
+	for _, hostID := range hostsToBeQuiesced {
 
-	res, err := n.asConnInfo.asinfo.RequestInfo("quiesce:")
-	if err != nil {
-		return err
-	}
-	if strings.Contains(strings.ToLower(res["quiesce:"]), "error") {
-		return fmt.Errorf("issuing quiesce command failed: %v", res["quiesce:"])
-	}
+		n, err := c.findHost(hostID)
+		if err != nil {
+			return err
+		}
 
-	lg.V(1).Info("Fetching namespace name")
+		lg.V(1).Info("Issuing quiesce command `quiesce:`")
 
-	info, err := n.asConnInfo.asinfo.RequestInfo("namespaces")
-	if err != nil {
-		return err
-	}
+		res, err := n.asConnInfo.asinfo.RequestInfo("quiesce:")
+		if err != nil {
+			return err
+		}
+		if strings.Contains(strings.ToLower(res["quiesce:"]), "error") {
+			return fmt.Errorf("issuing quiesce command failed: %v", res["quiesce:"])
+		}
 
-	ns := ""
-	if len(info["namespaces"]) > 0 {
-		ns = strings.Split(info["namespaces"], ";")[0]
-	}
+		lg.V(1).Info("Fetching namespace name")
 
-	if len(ns) > 0 {
-		var passed bool
+		info, err := n.asConnInfo.asinfo.RequestInfo("namespaces")
+		if err != nil {
+			return err
+		}
 
-		for i := 0; i < 30; i++ {
-			lg.V(1).Info(
-				"Verifying execution of quiesce by using namespace", "ns", ns,
-			)
+		ns := ""
+		if len(info["namespaces"]) > 0 {
+			ns = strings.Split(info["namespaces"], ";")[0]
+		}
 
-			cmd = fmt.Sprintf("namespace/%s", ns)
-			info, err = c.infoCmd(hostID, cmd)
-			if err != nil {
-				return err
-			}
+		if len(ns) > 0 {
+			var passed bool
 
-			key := "pending_quiesce"
-			pendingQuiesce, ok := info[key]
-			if !ok {
-				return fmt.Errorf(
-					"field %s missing on node %s, "+
-						"namespace %s", key, hostID, ns,
-				)
-			}
-
-			if pendingQuiesce != "true" {
+			for i := 0; i < 30; i++ {
 				lg.V(1).Info(
-					"Verifying pending_quiesce failed on node, "+
-						"should be true",
-					"pending_quiesce", pendingQuiesce, "host", hostID, "ns", ns,
+					"Verifying execution of quiesce by using namespace", "ns", ns,
 				)
-				time.Sleep(2 * time.Second)
-				continue
-			}
 
-			passed = true
-			break
-		}
-		if !passed {
-			return fmt.Errorf(
-				"pending_quiesce verification failed on node %s, namespace %s",
-				hostID, ns,
-			)
+				cmd = fmt.Sprintf("namespace/%s", ns)
+				info, err = c.infoCmd(hostID, cmd)
+				if err != nil {
+					return err
+				}
+
+				key := "pending_quiesce"
+				pendingQuiesce, ok := info[key]
+				if !ok {
+					return fmt.Errorf(
+						"field %s missing on node %s, "+
+							"namespace %s", key, hostID, ns,
+					)
+				}
+
+				if pendingQuiesce != "true" {
+					lg.V(1).Info(
+						"Verifying pending_quiesce failed on node, "+
+							"should be true",
+						"pending_quiesce", pendingQuiesce, "host", hostID, "ns", ns,
+					)
+					time.Sleep(2 * time.Second)
+					continue
+				}
+
+				passed = true
+				break
+			}
+			if !passed {
+				return fmt.Errorf(
+					"pending_quiesce verification failed on node %s, namespace %s",
+					hostID, ns,
+				)
+			}
 		}
 	}
-
 	// TODO: skip recluster if the node is already effectively_quesced.
 	lg.V(1).Info("Issuing recluster command")
 
@@ -344,120 +350,139 @@ func (c *cluster) InfoQuiesce(hostID string, hostIDs []string) error {
 		return fmt.Errorf("failed to execute recluster command: no response from principle node")
 	}
 
-	if len(ns) > 0 {
-		var passed bool
+	for _, hostID := range hostsToBeQuiesced {
+		n, err := c.findHost(hostID)
+		if err != nil {
+			return err
+		}
+		
+		lg.V(1).Info("Fetching namespace name")
+
+		info, err := n.asConnInfo.asinfo.RequestInfo("namespaces")
+		if err != nil {
+			return err
+		}
+
+		ns := ""
+		if len(info["namespaces"]) > 0 {
+			ns = strings.Split(info["namespaces"], ";")[0]
+		}
+
+		if len(ns) > 0 {
+			var passed bool
+			for i := 0; i < 30; i++ {
+				lg.V(1).Info(
+					"Verifying execution of recluster by using namespace", "ns", ns,
+				)
+
+				cmd = fmt.Sprintf("namespace/%s", ns)
+				info, err = c.infoCmd(hostID, cmd)
+				if err != nil {
+					return err
+				}
+
+				key := "effective_is_quiesced"
+				effectiveIsQuiesced, ok := info[key]
+				if !ok {
+					return fmt.Errorf(
+						"field %s missing on node %s, "+
+							"namespace %s", key, hostID, ns,
+					)
+				}
+
+				if effectiveIsQuiesced != "true" {
+					lg.V(1).Info(
+						"Verifying effective_is_quiesced failed on node,"+
+							" should be true",
+						"effective_is_quiesced", effectiveIsQuiesced, "host",
+						hostID, "ns", ns,
+					)
+					time.Sleep(2 * time.Second)
+					continue
+				}
+
+				key = "nodes_quiesced"
+				nodesQuiescedStr, ok := info[key]
+				if !ok {
+					return fmt.Errorf(
+						"field %s missing on node %s, "+
+							"namespace %s", key, hostID, ns,
+					)
+				}
+
+				nodesQuiesced, err := strconv.Atoi(nodesQuiescedStr)
+				if err != nil {
+					return fmt.Errorf(
+						"failed to convert key %q to int: %v", key, err,
+					)
+				}
+
+				if nodesQuiesced <= 0 {
+					lg.V(1).Info(
+						"Verifying nodes_quiesced failed on node, "+
+							"should be >= 1",
+						"nodes_quiesced", nodesQuiesced, "host", hostID, "ns", ns,
+					)
+					time.Sleep(2 * time.Second)
+					continue
+				}
+
+				passed = true
+				break
+			}
+			if !passed {
+				return fmt.Errorf(
+					"effective_is_quiesced or nodes_quiesced verification failed on node %s, namespace %s",
+					hostID, ns,
+				)
+			}
+		}
+
+		// TODO: Check if we need to add proxy checks.
+		lg.V(1).Info("Verifying throughput on the node")
+
+		// client refresh interval is 1 second
+		// need to wait till client refreshes cluster and gets new partition table
+		sleepSeconds := 2
+		succeed := false
+
+		// testing for last 60 seconds transaction
+		// so retry loop for 30
 		for i := 0; i < 30; i++ {
-			lg.V(1).Info(
-				"Verifying execution of recluster by using namespace", "ns", ns,
-			)
+			lg.V(1).Info("Will try after time", "Seconds", sleepSeconds)
+			time.Sleep(time.Duration(sleepSeconds) * time.Second)
 
-			cmd = fmt.Sprintf("namespace/%s", ns)
-			info, err = c.infoCmd(hostID, cmd)
-			if err != nil {
-				return err
-			}
+			cmd = "throughput:back=10;duration=10;slice=10"
+			throughputStr, err := c.infoCmd(hostID, cmd)
 
-			key := "effective_is_quiesced"
-			effectiveIsQuiesced, ok := info[key]
-			if !ok {
-				return fmt.Errorf(
-					"field %s missing on node %s, "+
-						"namespace %s", key, hostID, ns,
-				)
-			}
+			// {test}-read:06:50:24-GMT,ops/sec;06:50:34,4864.8;{test}-write:06:50:24-GMT,ops/sec;06:50:34,4863.9;error-no-data-yet-or-back-too-small;error-no-data-yet-or-back-too-small;error-no-data-yet-or-back-too-small;error-no-data-yet-or-back-too-small;error-no-data-yet-or-back-too-small;error-no-data-yet-or-back-too-small
+			if err == nil {
+				allList := strings.Split(throughputStr[cmd], ";")
+				if len(allList) > 0 {
+					nodeInUse := false
 
-			if effectiveIsQuiesced != "true" {
-				lg.V(1).Info(
-					"Verifying effective_is_quiesced failed on node,"+
-						" should be true",
-					"effective_is_quiesced", effectiveIsQuiesced, "host",
-					hostID, "ns", ns,
-				)
-				time.Sleep(2 * time.Second)
-				continue
-			}
-
-			key = "nodes_quiesced"
-			nodesQuiescedStr, ok := info[key]
-			if !ok {
-				return fmt.Errorf(
-					"field %s missing on node %s, "+
-						"namespace %s", key, hostID, ns,
-				)
-			}
-
-			nodesQuiesced, err := strconv.Atoi(nodesQuiescedStr)
-			if err != nil {
-				return fmt.Errorf(
-					"failed to convert key %q to int: %v", key, err,
-				)
-			}
-
-			if nodesQuiesced <= 0 {
-				lg.V(1).Info(
-					"Verifying nodes_quiesced failed on node, "+
-						"should be >= 1",
-					"nodes_quiesced", nodesQuiesced, "host", hostID, "ns", ns,
-				)
-				time.Sleep(2 * time.Second)
-				continue
-			}
-
-			passed = true
-			break
-		}
-		if !passed {
-			return fmt.Errorf(
-				"effective_is_quiesced or nodes_quiesced verification failed on node %s, namespace %s",
-				hostID, ns,
-			)
-		}
-	}
-
-	// TODO: Check if we need to add proxy checks.
-	lg.V(1).Info("Verifying throughput on the node")
-
-	// client refresh interval is 1 second
-	// need to wait till client refreshes cluster and gets new partition table
-	sleepSeconds := 2
-	succeed := false
-
-	// testing for last 60 seconds transaction
-	// so retry loop for 30
-	for i := 0; i < 30; i++ {
-		lg.V(1).Info("Will try after time", "Seconds", sleepSeconds)
-		time.Sleep(time.Duration(sleepSeconds) * time.Second)
-
-		cmd = "throughput:back=10;duration=10;slice=10"
-		throughputStr, err := c.infoCmd(hostID, cmd)
-
-		// {test}-read:06:50:24-GMT,ops/sec;06:50:34,4864.8;{test}-write:06:50:24-GMT,ops/sec;06:50:34,4863.9;error-no-data-yet-or-back-too-small;error-no-data-yet-or-back-too-small;error-no-data-yet-or-back-too-small;error-no-data-yet-or-back-too-small;error-no-data-yet-or-back-too-small;error-no-data-yet-or-back-too-small
-		if err == nil {
-			allList := strings.Split(throughputStr[cmd], ";")
-			if len(allList) > 0 {
-				nodeInUse := false
-
-				for _, histInfo := range allList {
-					fields := strings.Split(histInfo, ",")
-					if len(fields) == 2 && fields[1] != "ops/sec" {
-						throughputVal, err := strconv.ParseFloat(fields[1], 64)
-						if err == nil && throughputVal > 0 {
-							nodeInUse = true
-							break
+					for _, histInfo := range allList {
+						fields := strings.Split(histInfo, ",")
+						if len(fields) == 2 && fields[1] != "ops/sec" {
+							throughputVal, err := strconv.ParseFloat(fields[1], 64)
+							if err == nil && throughputVal > 0 {
+								nodeInUse = true
+								break
+							}
 						}
 					}
-				}
 
-				if !nodeInUse {
-					succeed = true
-					break
+					if !nodeInUse {
+						succeed = true
+						break
+					}
 				}
 			}
 		}
-	}
 
-	if !succeed {
-		return fmt.Errorf("node %s still in use", hostID)
+		if !succeed {
+			return fmt.Errorf("node %s still in use", hostID)
+		}
 	}
 
 	lg.V(1).Info("Finished running InfoQuiesce")
