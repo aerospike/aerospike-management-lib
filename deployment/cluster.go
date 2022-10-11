@@ -176,7 +176,7 @@ func (c *cluster) IsClusterAndStable(hostIDs []string) (bool, error) {
 }
 
 // InfoQuiesce quiesce host.
-func (c *cluster) InfoQuiesce(hostsToBeQuiesced []string, hostIDs []string, removedNamespaces []string) error {
+func (c *cluster) InfoQuiesce(hostsToBeQuiesced []string, hostIDs []string, removedNamespaces []string, scBlockedHosts []string, scNamespaces []string) error {
 	lg := c.log.WithValues("nodes", hostsToBeQuiesced)
 
 	lg.V(1).Info("Running InfoQuiesce")
@@ -200,6 +200,21 @@ func (c *cluster) InfoQuiesce(hostsToBeQuiesced []string, hostIDs []string, remo
 		return err
 	}
 
+	removedNamespaceMap := make(map[string]bool)
+	for _, namespace := range removedNamespaces {
+		removedNamespaceMap[namespace] = true
+	}
+
+	scBlockedHostsMap := make(map[string]bool)
+	for _, blockedHost := range scBlockedHosts {
+		scBlockedHostsMap[blockedHost] = true
+	}
+
+	scNamespacesMap := make(map[string]bool)
+	for _, namespace := range scNamespaces {
+		scNamespacesMap[namespace] = true
+	}
+
 	for _, hostID := range hostsToBeQuiesced {
 		n, err := c.findHost(hostID)
 		if err != nil {
@@ -218,15 +233,14 @@ func (c *cluster) InfoQuiesce(hostsToBeQuiesced []string, hostIDs []string, remo
 
 		namespaces := nodesNamespaces[hostID]
 
-		removedNamespaceMap := make(map[string]bool)
-		for _, namespace := range removedNamespaces {
-			removedNamespaceMap[namespace] = true
-		}
-
 		for index := range namespaces {
 			var passed bool
 
 			if removedNamespaceMap[namespaces[index]] {
+				continue
+			}
+
+			if scBlockedHostsMap[hostID] && scNamespacesMap[namespaces[index]] {
 				continue
 			}
 
@@ -278,11 +292,6 @@ func (c *cluster) InfoQuiesce(hostsToBeQuiesced []string, hostIDs []string, remo
 	for _, hostID := range hostsToBeQuiesced {
 		namespaces := nodesNamespaces[hostID]
 
-		removedNamespaceMap := make(map[string]bool)
-		for _, namespace := range removedNamespaces {
-			removedNamespaceMap[namespace] = true
-		}
-
 		for index := range namespaces {
 			var passed bool
 
@@ -290,6 +299,10 @@ func (c *cluster) InfoQuiesce(hostsToBeQuiesced []string, hostIDs []string, remo
 				continue
 			}
 
+			if scBlockedHostsMap[hostID] && scNamespacesMap[namespaces[index]] {
+				continue
+			}
+			
 			for i := 0; i < 30; i++ {
 				lg.V(1).Info(
 					"Verifying execution of recluster by using namespace", "ns", namespaces[index],
