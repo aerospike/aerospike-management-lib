@@ -176,7 +176,7 @@ func (c *cluster) IsClusterAndStable(hostIDs []string) (bool, error) {
 }
 
 // InfoQuiesce quiesce host.
-func (c *cluster) InfoQuiesce(hostsToBeQuiesced []string, hostIDs []string, removedNamespaces []string, scBlockedHosts []string, scNamespaces []string) error {
+func (c *cluster) InfoQuiesce(hostsToBeQuiesced []string, hostIDs []string, removedNamespaces []string) error {
 	lg := c.log.WithValues("nodes", hostsToBeQuiesced)
 
 	lg.V(1).Info("Running InfoQuiesce")
@@ -205,16 +205,6 @@ func (c *cluster) InfoQuiesce(hostsToBeQuiesced []string, hostIDs []string, remo
 		removedNamespaceMap[namespace] = true
 	}
 
-	scBlockedHostsMap := make(map[string]bool)
-	for _, blockedHost := range scBlockedHosts {
-		scBlockedHostsMap[blockedHost] = true
-	}
-
-	scNamespacesMap := make(map[string]bool)
-	for _, namespace := range scNamespaces {
-		scNamespacesMap[namespace] = true
-	}
-
 	for _, hostID := range hostsToBeQuiesced {
 		n, err := c.findHost(hostID)
 		if err != nil {
@@ -236,11 +226,11 @@ func (c *cluster) InfoQuiesce(hostsToBeQuiesced []string, hostIDs []string, remo
 		for index := range namespaces {
 			var passed bool
 
-			if removedNamespaceMap[namespaces[index]] {
-				continue
+			skipInfoQuiesceCheck, err := c.skipInfoQuiesceCheck(n, namespaces[index], removedNamespaceMap)
+			if err != nil {
+				return err
 			}
-
-			if scBlockedHostsMap[hostID] && scNamespacesMap[namespaces[index]] {
+			if skipInfoQuiesceCheck {
 				continue
 			}
 
@@ -290,19 +280,24 @@ func (c *cluster) InfoQuiesce(hostsToBeQuiesced []string, hostIDs []string, remo
 	}
 
 	for _, hostID := range hostsToBeQuiesced {
+		n, err := c.findHost(hostID)
+		if err != nil {
+			return err
+		}
+
 		namespaces := nodesNamespaces[hostID]
 
 		for index := range namespaces {
 			var passed bool
 
-			if removedNamespaceMap[namespaces[index]] {
+			skipInfoQuiesceCheck, err := c.skipInfoQuiesceCheck(n, namespaces[index], removedNamespaceMap)
+			if err != nil {
+				return err
+			}
+			if skipInfoQuiesceCheck {
 				continue
 			}
 
-			if scBlockedHostsMap[hostID] && scNamespacesMap[namespaces[index]] {
-				continue
-			}
-			
 			for i := 0; i < 30; i++ {
 				lg.V(1).Info(
 					"Verifying execution of recluster by using namespace", "ns", namespaces[index],
@@ -421,6 +416,26 @@ func (c *cluster) InfoQuiesce(hostsToBeQuiesced []string, hostIDs []string, remo
 	lg.V(1).Info("Finished running InfoQuiesce")
 
 	return nil
+}
+
+func (c *cluster) skipInfoQuiesceCheck(host *host, ns string, removedNamespaceMap map[string]bool) (bool, error) {
+	if removedNamespaceMap[ns] {
+		return true, nil
+	}
+
+	isNodeInRoster, err := c.isNodeInRoster(host, ns)
+	if err != nil {
+		return false, err
+	}
+	isNamespaceSCEnabled, err := c.isNamespaceSCEnabled(host, ns)
+	if err != nil {
+		return false, err
+	}
+
+	if !isNodeInRoster && isNamespaceSCEnabled {
+		return true, nil
+	}
+	return false, nil
 }
 
 func (c *cluster) infoClusterStable(hostIDs []string) error {
@@ -690,4 +705,119 @@ func (c *cluster) findHost(hostID string) (*host, error) {
 		return nil, fmt.Errorf("failed to find host %s", hostID)
 	}
 	return n, nil
+}
+
+var (
+	//rosterKeyObservedNodes     = "observed_nodes"
+	rosterKeyRosterNodes = "roster"
+	//nsKeyUnavailablePartitions = "unavailable_partitions"
+	//nsKeyDeadPartitions        = "dead_partitions"
+	nsKeyStrongConsistency = "strong-consistency"
+)
+
+func (c *cluster) isNodeInRoster(host *host, ns string) (bool, error) {
+	lg := c.log.WithValues("node", host.id)
+
+	nodeID, err := c.getNodeID(host)
+	if err != nil {
+		return false, err
+	}
+
+	rosterNodesMap, err := c.getRoster(host, ns)
+	if err != nil {
+		return false, err
+	}
+	lg.Info("Check if node is in roster or not", "node", host.String(), "roster", rosterNodesMap)
+
+	rosterStr := rosterNodesMap[rosterKeyRosterNodes]
+	rosterList := strings.Split(rosterStr, ",")
+
+	for _, roster := range rosterList {
+		rosterNodeID := strings.Split(roster, "@")[0]
+		if nodeID == rosterNodeID {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func (c *cluster) getNodeID(host *host) (string, error) {
+	lg := c.log.WithValues("node", host.id)
+
+	cmd := "node"
+	res, err := host.asConnInfo.asinfo.RequestInfo(cmd)
+	if err != nil {
+		return "", err
+	}
+
+	lg.Info("Get nodeID for host", "host", host.String(), "cmd", cmd, "res", res)
+
+	return res[cmd], nil
+}
+
+func (c *cluster) getRoster(host *host, namespace string) (map[string]string, error) {
+	lg := c.log.WithValues("node", host.id)
+
+	cmd := fmt.Sprintf("roster:namespace=%s", namespace)
+	res, err := host.asConnInfo.asinfo.RequestInfo(cmd)
+	if err != nil {
+		return nil, err
+	}
+
+	cmdOutput := res[cmd]
+
+	lg.V(1).Info("Run info command", "host", host.String(), "cmd", cmd, "output", cmdOutput)
+
+	return ParseInfoIntoMap(cmdOutput, ":", "=")
+}
+
+func (c *cluster) isNamespaceSCEnabled(host *host, ns string) (bool, error) {
+	lg := c.log.WithValues("node", host.id)
+
+	cmd := fmt.Sprintf("get-config:context=namespace;id=%s", ns)
+
+	res, err := host.asConnInfo.asinfo.RequestInfo(cmd)
+	if err != nil {
+		return false, err
+	}
+
+	lg.Info("Check if namespace is SC namespace", "ns", ns, "nsStat", res)
+
+	configs, err := ParseInfoIntoMap(res[cmd], ";", "=")
+	if err != nil {
+		return false, err
+	}
+	scStr, ok := configs[nsKeyStrongConsistency]
+	if !ok {
+		return false, fmt.Errorf("strong-consistency config not found, config %v", res)
+	}
+	scBool, err := strconv.ParseBool(scStr)
+	if err != nil {
+		return false, err
+	}
+
+	return scBool, nil
+}
+
+// ParseInfoIntoMap parses info string into a map.
+// TODO adapted from management lib. Should be made public there.
+func ParseInfoIntoMap(str string, del string, sep string) (map[string]string, error) {
+	m := map[string]string{}
+	if str == "" {
+		return m, nil
+	}
+	items := strings.Split(str, del)
+	for _, item := range items {
+		if item == "" {
+			continue
+		}
+		kv := strings.Split(item, sep)
+		if len(kv) < 2 {
+			return nil, fmt.Errorf("error parsing info item %s", item)
+		}
+
+		m[kv[0]] = strings.Join(kv[1:], sep)
+	}
+
+	return m, nil
 }
