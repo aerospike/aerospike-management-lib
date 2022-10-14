@@ -211,14 +211,14 @@ func (c *cluster) InfoQuiesce(hostsToBeQuiesced []string, hostIDs []string, remo
 			return err
 		}
 
-		lg.V(1).Info("Issuing quiesce command `quiesce:`")
+		lg.V(1).Info("Running quiesce command `quiesce:`")
 
 		res, err := n.asConnInfo.asinfo.RequestInfo("quiesce:")
 		if err != nil {
 			return err
 		}
 		if strings.Contains(strings.ToLower(res["quiesce:"]), "error") {
-			return fmt.Errorf("issuing quiesce command failed: %v", res["quiesce:"])
+			return fmt.Errorf("running quiesce command failed: %v", res["quiesce:"])
 		}
 
 		namespaces := nodesNamespaces[hostID]
@@ -419,7 +419,10 @@ func (c *cluster) InfoQuiesce(hostsToBeQuiesced []string, hostIDs []string, remo
 }
 
 func (c *cluster) skipInfoQuiesceCheck(host *host, ns string, removedNamespaceMap map[string]bool) (bool, error) {
+	lg := c.log.WithValues("node", host.id, "namespace", ns)
+
 	if removedNamespaceMap[ns] {
+		lg.V(1).Info("Skip quiesce verification for given node and namespace. Namespace is getting removed")
 		return true, nil
 	}
 
@@ -433,6 +436,7 @@ func (c *cluster) skipInfoQuiesceCheck(host *host, ns string, removedNamespaceMa
 	}
 
 	if !isNodeInRoster && isNamespaceSCEnabled {
+		lg.V(1).Info("Skip quiesce verification for given node and namespace. Node is not in roster and namespace is sc enabled")
 		return true, nil
 	}
 	return false, nil
@@ -576,7 +580,7 @@ func (c *cluster) InfoQuiesceUndo(hostIDs []string) error {
 			return err
 		}
 
-		nodelg.V(-1).Info("Issuing undo quiesce command `quiesce-undo:`")
+		nodelg.V(-1).Info("Running undo quiesce command `quiesce-undo:`")
 
 		res, err := n.asConnInfo.asinfo.RequestInfo("quiesce-undo:")
 		if err != nil {
@@ -584,7 +588,7 @@ func (c *cluster) InfoQuiesceUndo(hostIDs []string) error {
 		}
 		if strings.Contains(strings.ToLower(res["quiesce-undo:"]), "error") {
 			return fmt.Errorf(
-				"issuing quiesce command failed: %v",
+				"running quiesce command failed: %v",
 				res["quiesce-undo:"],
 			)
 		}
@@ -597,7 +601,7 @@ func (c *cluster) InfoQuiesceUndo(hostIDs []string) error {
 func (c *cluster) infoRecluster(hostIDs []string) error {
 	lg := c.log.WithValues("nodes", hostIDs)
 
-	lg.V(1).Info("Issuing recluster command")
+	lg.V(1).Info("Running recluster command")
 
 	cmd := "recluster:"
 	infoResults, err := c.infoOnHosts(hostIDs, cmd)
@@ -617,7 +621,7 @@ func (c *cluster) infoRecluster(hostIDs []string) error {
 		return fmt.Errorf("failed to execute recluster command: no response from principle node")
 	}
 
-	lg.V(1).Info("Finished running InfoQuiesceUndo")
+	lg.V(1).Info("Finished running recluster")
 	return nil
 }
 
@@ -727,7 +731,7 @@ func (c *cluster) isNodeInRoster(host *host, ns string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	lg.Info("Check if node is in roster or not", "node", host.String(), "roster", rosterNodesMap)
+	lg.Info("Check if node is in roster or not", "nodeID", nodeID, "roster", rosterNodesMap)
 
 	rosterStr := rosterNodesMap[rosterKeyRosterNodes]
 	rosterList := strings.Split(rosterStr, ",")
@@ -781,8 +785,6 @@ func (c *cluster) isNamespaceSCEnabled(host *host, ns string) (bool, error) {
 		return false, err
 	}
 
-	lg.Info("Check if namespace is SC namespace", "ns", ns, "nsStat", res)
-
 	configs, err := ParseInfoIntoMap(res[cmd], ";", "=")
 	if err != nil {
 		return false, err
@@ -795,6 +797,7 @@ func (c *cluster) isNamespaceSCEnabled(host *host, ns string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
+	lg.Info("Check if namespace is SC namespace", "ns", ns, nsKeyStrongConsistency, scBool)
 
 	return scBool, nil
 }
