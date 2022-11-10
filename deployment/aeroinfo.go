@@ -24,11 +24,7 @@ func InfoQuiesce(log logr.Logger, policy *aero.ClientPolicy, allHosts []*HostCon
 		return fmt.Errorf("unable to create a cluster copy for running aeroinfo: %v", err)
 	}
 
-	var hostIDs []string
-	for _, selectedHost := range selectedHosts {
-		hostIDs = append(hostIDs, selectedHost.ID)
-	}
-	return c.InfoQuiesce(hostIDs, getHostIDsFromHostConns(allHosts), removedNamespaces)
+	return c.InfoQuiesce(getHostIDsFromHostConns(selectedHosts), getHostIDsFromHostConns(allHosts), removedNamespaces)
 }
 
 // InfoQuiesceUndo revert the effects of quiesce on the next recluster event
