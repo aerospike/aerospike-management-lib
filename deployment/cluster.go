@@ -262,7 +262,10 @@ func (c *cluster) InfoQuiesce(hostsToBeQuiesced []string, hostIDs []string, remo
 					time.Sleep(2 * time.Second)
 					continue
 				}
-
+				lg.V(1).Info(
+					"Verifying pending_quiesce passed on node",
+					"pending_quiesce", pendingQuiesce, "host", hostID, "ns", namespaces[index],
+				)
 				passed = true
 				break
 			}
@@ -354,7 +357,10 @@ func (c *cluster) InfoQuiesce(hostsToBeQuiesced []string, hostIDs []string, remo
 					time.Sleep(2 * time.Second)
 					continue
 				}
-
+				lg.V(1).Info(
+					"Verifying nodes_quiesced passed on node, ",
+					"nodes_quiesced", nodesQuiesced, "host", hostID, "ns", namespaces[index],
+				)
 				passed = true
 				break
 			}
