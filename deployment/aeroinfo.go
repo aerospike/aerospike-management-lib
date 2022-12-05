@@ -2,7 +2,6 @@ package deployment
 
 import (
 	"fmt"
-
 	aero "github.com/ashishshinde/aerospike-client-go/v6"
 	"github.com/go-logr/logr"
 )
@@ -19,16 +18,11 @@ func IsClusterAndStable(log logr.Logger, policy *aero.ClientPolicy, allHosts []*
 // InfoQuiesce quiesce hosts.
 func InfoQuiesce(log logr.Logger, policy *aero.ClientPolicy, allHosts []*HostConn, selectedHosts []*HostConn, removedNamespaces []string) error {
 	c, err := newCluster(log, policy, allHosts, selectedHosts, false, false)
-
 	if err != nil {
 		return fmt.Errorf("unable to create a cluster copy for running aeroinfo: %v", err)
 	}
 
-	var hostIDs []string
-	for _, selectedHost := range selectedHosts {
-		hostIDs = append(hostIDs, selectedHost.ID)
-	}
-	return c.InfoQuiesce(hostIDs, getHostIDsFromHostConns(allHosts), removedNamespaces)
+	return c.InfoQuiesce(getHostIDsFromHostConns(selectedHosts), getHostIDsFromHostConns(allHosts), removedNamespaces)
 }
 
 // InfoQuiesceUndo revert the effects of quiesce on the next recluster event

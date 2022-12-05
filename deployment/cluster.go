@@ -73,7 +73,7 @@ func newCluster(
 	return &c, nil
 }
 
-// close closes the aerospike client connections and the ssh connections.
+// close the aerospike client connections and the ssh connections.
 func (c *cluster) close() {
 	for _, nd := range c.allHosts {
 		if err := nd.Close(); err != nil {
@@ -124,7 +124,7 @@ func (c *cluster) IsClusterAndStable(hostIDs []string) (bool, error) {
 		}
 		if size != len(hostIDs) {
 			c.log.V(1).Info(
-				"Cluster size not equal", "infoSize", size, "runninSize",
+				"Cluster size not equal", "infoSize", size, "desiredSize",
 				len(hostIDs),
 			)
 			return false, nil
@@ -432,11 +432,11 @@ func (c *cluster) skipInfoQuiesceCheck(host *host, ns string, removedNamespaceMa
 		return true, nil
 	}
 
-	isNodeInRoster, err := c.isNodeInRoster(host, ns)
+	isNodeInRoster, err := isNodeInRoster(host, ns)
 	if err != nil {
 		return false, err
 	}
-	isNamespaceSCEnabled, err := c.isNamespaceSCEnabled(host, ns)
+	isNamespaceSCEnabled, err := isNamespaceSCEnabled(host, ns)
 	if err != nil {
 		return false, err
 	}
@@ -579,14 +579,14 @@ func (c *cluster) InfoQuiesceUndo(hostIDs []string) error {
 	)
 
 	for _, hostID := range quiescedNodes {
-		nodelg := c.log.WithValues("node", hostID)
+		nodeLg := c.log.WithValues("node", hostID)
 
 		n, err := c.findHost(hostID)
 		if err != nil {
 			return err
 		}
 
-		nodelg.V(-1).Info("Running undo quiesce command `quiesce-undo:`")
+		nodeLg.V(-1).Info("Running undo quiesce command `quiesce-undo:`")
 
 		res, err := n.asConnInfo.asinfo.RequestInfo("quiesce-undo:")
 		if err != nil {
@@ -715,118 +715,4 @@ func (c *cluster) findHost(hostID string) (*host, error) {
 		return nil, fmt.Errorf("failed to find host %s", hostID)
 	}
 	return n, nil
-}
-
-var (
-	//rosterKeyObservedNodes     = "observed_nodes"
-	rosterKeyRosterNodes = "roster"
-	//nsKeyUnavailablePartitions = "unavailable_partitions"
-	//nsKeyDeadPartitions        = "dead_partitions"
-	nsKeyStrongConsistency = "strong-consistency"
-)
-
-func (c *cluster) isNodeInRoster(host *host, ns string) (bool, error) {
-	lg := c.log.WithValues("node", host.id)
-
-	nodeID, err := c.getNodeID(host)
-	if err != nil {
-		return false, err
-	}
-
-	rosterNodesMap, err := c.getRoster(host, ns)
-	if err != nil {
-		return false, err
-	}
-	lg.Info("Check if node is in roster or not", "nodeID", nodeID, "roster", rosterNodesMap)
-
-	rosterStr := rosterNodesMap[rosterKeyRosterNodes]
-	rosterList := strings.Split(rosterStr, ",")
-
-	for _, roster := range rosterList {
-		rosterNodeID := strings.Split(roster, "@")[0]
-		if nodeID == rosterNodeID {
-			return true, nil
-		}
-	}
-	return false, nil
-}
-
-func (c *cluster) getNodeID(host *host) (string, error) {
-	lg := c.log.WithValues("node", host.id)
-
-	cmd := "node"
-	res, err := host.asConnInfo.asinfo.RequestInfo(cmd)
-	if err != nil {
-		return "", err
-	}
-
-	lg.Info("Get nodeID for host", "host", host.String(), "cmd", cmd, "res", res)
-
-	return res[cmd], nil
-}
-
-func (c *cluster) getRoster(host *host, namespace string) (map[string]string, error) {
-	lg := c.log.WithValues("node", host.id)
-
-	cmd := fmt.Sprintf("roster:namespace=%s", namespace)
-	res, err := host.asConnInfo.asinfo.RequestInfo(cmd)
-	if err != nil {
-		return nil, err
-	}
-
-	cmdOutput := res[cmd]
-
-	lg.V(1).Info("Run info command", "host", host.String(), "cmd", cmd, "output", cmdOutput)
-
-	return ParseInfoIntoMap(cmdOutput, ":", "=")
-}
-
-func (c *cluster) isNamespaceSCEnabled(host *host, ns string) (bool, error) {
-	lg := c.log.WithValues("node", host.id)
-
-	cmd := fmt.Sprintf("get-config:context=namespace;id=%s", ns)
-
-	res, err := host.asConnInfo.asinfo.RequestInfo(cmd)
-	if err != nil {
-		return false, err
-	}
-
-	configs, err := ParseInfoIntoMap(res[cmd], ";", "=")
-	if err != nil {
-		return false, err
-	}
-	scStr, ok := configs[nsKeyStrongConsistency]
-	if !ok {
-		return false, fmt.Errorf("strong-consistency config not found, config %v", res)
-	}
-	scBool, err := strconv.ParseBool(scStr)
-	if err != nil {
-		return false, err
-	}
-	lg.Info("Check if namespace is SC namespace", "ns", ns, nsKeyStrongConsistency, scBool)
-
-	return scBool, nil
-}
-
-// ParseInfoIntoMap parses info string into a map.
-// TODO adapted from management lib. Should be made public there.
-func ParseInfoIntoMap(str string, del string, sep string) (map[string]string, error) {
-	m := map[string]string{}
-	if str == "" {
-		return m, nil
-	}
-	items := strings.Split(str, del)
-	for _, item := range items {
-		if item == "" {
-			continue
-		}
-		kv := strings.Split(item, sep)
-		if len(kv) < 2 {
-			return nil, fmt.Errorf("error parsing info item %s", item)
-		}
-
-		m[kv[0]] = strings.Join(kv[1:], sep)
-	}
-
-	return m, nil
 }
