@@ -5,9 +5,10 @@ import (
 	"net"
 	"strconv"
 
+	"github.com/go-logr/logr"
+
 	"github.com/aerospike/aerospike-management-lib/info"
 	aero "github.com/ashishshinde/aerospike-client-go/v6"
-	"github.com/go-logr/logr"
 )
 
 // HostConn has all parameters to connect to an aerospike host and the machine.
@@ -22,6 +23,15 @@ type ASConn struct {
 	AerospikeHostName string // host name of the machine to connect through aerospike
 	AerospikePort     int    // aerospike port to connect to
 	AerospikeTLSName  string // tls name of the aerospike connection
+}
+
+// NewHostConn returns a new HostConn
+func NewHostConn(log logr.Logger, id string, asConn *ASConn) *HostConn {
+	return &HostConn{
+		Log:    log,
+		ID:     id,
+		ASConn: asConn,
+	}
 }
 
 // RunInfo runs info command on given host
@@ -66,15 +76,6 @@ func (asc *ASConn) TipHostname(
 	)
 	asc.Log.Info("TipHostname", "res", res)
 	return err
-}
-
-// NewHostConn returns a new HostConn
-func NewHostConn(log logr.Logger, id string, asConn *ASConn) *HostConn {
-	return &HostConn{
-		Log:    log,
-		ID:     id,
-		ASConn: asConn,
-	}
 }
 
 // ToHost returns a host object

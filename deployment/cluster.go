@@ -208,7 +208,7 @@ func (c *cluster) InfoQuiesce(hostsToBeQuiesced []string, hostIDs []string, remo
 
 		lg.V(1).Info("Issuing quiesce command `quiesce:`")
 
-		res, err := n.asConnInfo.asinfo.RequestInfo("quiesce:")
+		res, err := n.asConnInfo.asInfo.RequestInfo("quiesce:")
 		if err != nil {
 			return err
 		}
@@ -550,7 +550,7 @@ func (c *cluster) InfoQuiesceUndo(hostIDs []string) error {
 
 		nodelg.V(-1).Info("Issuing undo quiesce command `quiesce-undo:`")
 
-		res, err := n.asConnInfo.asinfo.RequestInfo("quiesce-undo:")
+		res, err := n.asConnInfo.asInfo.RequestInfo("quiesce-undo:")
 		if err != nil {
 			return err
 		}
@@ -603,7 +603,7 @@ func (c *cluster) infoCmd(hostID, cmd string) (map[string]string, error) {
 		return nil, err
 	}
 
-	info, err := n.asConnInfo.asinfo.RequestInfo(cmd)
+	info, err := n.asConnInfo.asInfo.RequestInfo(cmd)
 	lg.V(1).Info("Finished running InfoCmd", "err", err)
 
 	if err != nil {
@@ -669,6 +669,35 @@ func (c *cluster) infoCmdsOnHosts(hostIDCmdMap map[string]string) (
 		)
 	}
 	return infos, nil
+}
+
+func (c *cluster) setMigrateFillDelay(migrateFillDelay int, hosts []*HostConn) error {
+
+	log := c.log.WithValues("nodes", hosts)
+	log.V(1).Info("Running setMigrateFillDelay")
+
+	cmd := fmt.Sprintf("set-config:context=service;migrate-fill-delay=%d", migrateFillDelay)
+
+	infoResults, err := c.infoOnHosts(getHostIDsFromHostConns(hosts), cmd)
+	if err != nil {
+		return err
+	}
+
+	for id, info := range infoResults {
+
+		output, err := info.toString(cmd)
+		if err != nil {
+			return fmt.Errorf(
+				"failed to execute set-config migrate-fill-delay command on node %s: %v", id, err)
+		}
+
+		if strings.ToLower(output) != "ok" {
+			return fmt.Errorf("failed to execute set-config migrate-fill-delay"+
+				" command on node %s: %v", id, output)
+		}
+	}
+
+	return err
 }
 
 func (c *cluster) findHost(hostID string) (*host, error) {
