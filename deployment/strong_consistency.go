@@ -2,7 +2,6 @@ package deployment
 
 import (
 	"fmt"
-	"reflect"
 	"strconv"
 	"strings"
 
@@ -25,66 +24,73 @@ func GetAndSetRoster(hostConns []*HostConn, policy *as.ClientPolicy, rosterBlock
 
 	// TODO: Should we allow diff sc namespaces on different nodes. What if a sc ns is added dynamically?
 	// dynamic sc ns can be allowed but roster should be set only after all the nodes have sc ns
-	scNsList, err := getSCNamespaces(clHosts)
+	scNamespacesPerHost, err := getSCNamespaces(clHosts)
 	if err != nil {
 		return err
 	}
 
 	//r.Log.Info("Strong-consistency namespaces list", "namespaces", scNsList)
-
-	for _, scNs := range scNsList {
-		if err := validateClusterNsState(clHosts, scNs); err != nil {
-			return fmt.Errorf("cluster namespace state not good, can not set roster: %v", err)
-		}
-
-		// Setting roster is skipped if roster already set
-		rosterNodes, err := getRosterNodesForNs(clHosts, scNs)
-		if err != nil {
-			return err
-		}
-
-		// TODO: can sc namespaces be different in every rack..? in that case, observed_node will not be same for all
-		if !isObservedNodesValid(rosterNodes) {
-			return fmt.Errorf("roster observed_nodes not same for all the nodes: %v", rosterNodes)
-		}
-
-		err = setRosterForNs(clHosts, scNs, rosterNodes, rosterBlockList)
-		if err != nil {
-			return err
-		}
-
-		err = runRecluster(clHosts)
-		if err != nil {
-			return err
-		}
-
-		// TODO: validate cluster size with ns_cluster_sz
+	if err := validateSCClusterNsState(scNamespacesPerHost, nil); err != nil {
+		return fmt.Errorf("cluster namespace state not good, can not set roster: %v", err)
 	}
-	return nil
+
+	for clHost, nsList := range scNamespacesPerHost {
+		for _, scNs := range nsList {
+			rosterNodes, err := getRoster(clHost, scNs)
+			if err != nil {
+				return err
+			}
+
+			if err := setFilteredRosterNodes(clHost, scNs, rosterNodes, rosterBlockList); err != nil {
+				return err
+			}
+		}
+	}
+
+	return runRecluster(clHosts)
 }
 
-func ValidateClusterState(hostConns []*HostConn, policy *as.ClientPolicy) error {
+func setFilteredRosterNodes(clHost *host, scNs string, rosterNodes map[string]string, rosterBlockList []string) error {
+	observedNodes := rosterNodes[rosterKeyObservedNodes]
+
+	// Remove blocked node from observed_nodes
+	observedNodesList := strings.Split(observedNodes, ",")
+	var newObservedNodesList []string
+	for _, obn := range observedNodesList {
+		// nodeRoster := nodeID + "@" + rackID
+		obnNodeID := strings.Split(obn, "@")[0]
+		if !containsString(rosterBlockList, obnNodeID) {
+			newObservedNodesList = append(newObservedNodesList, obn)
+		}
+	}
+	newObservedNodes := strings.Join(newObservedNodesList, ",")
+
+	currentRoster := rosterNodes[rosterKeyRosterNodes]
+	if newObservedNodes == currentRoster {
+		// Setting roster is skipped if roster already set
+		//r.Log.Info("Roster already set for the node. Skipping", "node", clHost.String())
+		return nil
+	}
+
+	return setRoster(clHost, scNs, newObservedNodes)
+}
+
+func ValidateSCClusterState(hostConns []*HostConn, policy *as.ClientPolicy, removedNamespaces []string) error {
 	clHosts, err := getHostsFromHostConns(hostConns, policy)
 	if err != nil {
 		return err
 	}
 
-	scNsList, err := getSCNamespaces(clHosts)
+	scNamespacesPerHost, err := getSCNamespaces(clHosts)
 	if err != nil {
 		return err
 	}
 
-	for _, ns := range scNsList {
-		if err := validateClusterNsState(clHosts, ns); err != nil {
-			return err
-		}
-	}
-
-	return nil
+	return validateSCClusterNsState(scNamespacesPerHost, removedNamespaces)
 }
 
-func getSCNamespaces(clHosts []*host) ([]string, error) {
-	var scNsList []string
+func getSCNamespaces(clHosts []*host) (map[*host][]string, error) {
+	scNamespacesPerHost := map[*host][]string{}
 
 	for _, clHost := range clHosts {
 		namespaces, err := getNamespaces(clHost)
@@ -103,88 +109,83 @@ func getSCNamespaces(clHosts []*host) ([]string, error) {
 			}
 		}
 
-		if len(scNsList) == 0 {
-			scNsList = nsList
-		}
-		if !reflect.DeepEqual(scNsList, nsList) {
-			return nil, fmt.Errorf("SC namespaces list can not be different for nodes. list1 %v, list2 %v", scNsList, nsList)
-		}
+		scNamespacesPerHost[clHost] = nsList
 	}
-	return scNsList, nil
+	return scNamespacesPerHost, nil
 }
 
-func getRosterNodesForNs(clHosts []*host, ns string) (map[string]map[string]string, error) {
-	//r.Log.Info("Getting roster", "namespace", ns)
+//func getRosterNodesForNs(clHosts []*host, ns string) (map[string]map[string]string, error) {
+//	//r.Log.Info("Getting roster", "namespace", ns)
+//
+//	rosterNodes := map[string]map[string]string{}
+//
+//	for _, clHost := range clHosts {
+//		kvMap, err := getRoster(clHost, ns)
+//		if err != nil {
+//			return nil, err
+//		}
+//
+//		rosterNodes[clHost.String()] = kvMap
+//	}
+//
+//	//r.Log.V(1).Info("roster nodes in cluster", "roster_nodes", rosterNodes)
+//
+//	// return tempObNode, nil
+//	return rosterNodes, nil
+//}
 
-	rosterNodes := map[string]map[string]string{}
-
-	for _, clHost := range clHosts {
-		kvMap, err := getRoster(clHost, ns)
-		if err != nil {
-			return nil, err
-		}
-
-		rosterNodes[clHost.String()] = kvMap
-	}
-
-	//r.Log.V(1).Info("roster nodes in cluster", "roster_nodes", rosterNodes)
-
-	// return tempObNode, nil
-	return rosterNodes, nil
-}
-
-func isObservedNodesValid(rosterNodes map[string]map[string]string) bool {
-	var tempObNodes string
-
-	for _, rosterNodesMap := range rosterNodes {
-		observedNodes := rosterNodesMap[rosterKeyObservedNodes]
-		// Check if all nodes have same observed nodes list
-		if tempObNodes == "" {
-			tempObNodes = observedNodes
-			continue
-		}
-		if tempObNodes != observedNodes {
-			return false
-		}
-	}
-	return true
-}
-
-func setRosterForNs(clHosts []*host, ns string, rosterNodes map[string]map[string]string, rosterBlockList []string) error {
-	//r.Log.Info("Setting roster", "namespace", ns, "roster", rosterNodes)
-
-	for _, clHost := range clHosts {
-
-		observedNodes := rosterNodes[clHost.String()][rosterKeyObservedNodes]
-
-		// Remove blocked node from observed_nodes
-		observedNodesList := strings.Split(observedNodes, ",")
-		var newObservedNodesList []string
-
-		for _, obn := range observedNodesList {
-			// nodeRoster := nodeID + "@" + rackID
-			obnNodeID := strings.Split(obn, "@")[0]
-			if !containsString(rosterBlockList, obnNodeID) {
-				newObservedNodesList = append(newObservedNodesList, obn)
-			}
-		}
-
-		newObservedNodes := strings.Join(newObservedNodesList, ",")
-
-		currentRoster := rosterNodes[clHost.String()][rosterKeyRosterNodes]
-
-		if newObservedNodes == currentRoster {
-			//r.Log.Info("Roster already set for the node. Skipping", "node", clHost.String())
-			continue
-		}
-
-		if err := setRoster(clHost, ns, newObservedNodes); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
+//func isObservedNodesValid(rosterNodes map[string]map[string]string) bool {
+//	var tempObNodes string
+//
+//	for _, rosterNodesMap := range rosterNodes {
+//		observedNodes := rosterNodesMap[rosterKeyObservedNodes]
+//		// Check if all nodes have same observed nodes list
+//		if tempObNodes == "" {
+//			tempObNodes = observedNodes
+//			continue
+//		}
+//		if tempObNodes != observedNodes {
+//			return false
+//		}
+//	}
+//	return true
+//}
+//
+//func setRosterForNs(clHosts []*host, ns string, rosterNodes map[string]map[string]string, rosterBlockList []string) error {
+//	//r.Log.Info("Setting roster", "namespace", ns, "roster", rosterNodes)
+//
+//	for _, clHost := range clHosts {
+//
+//		observedNodes := rosterNodes[clHost.String()][rosterKeyObservedNodes]
+//
+//		// Remove blocked node from observed_nodes
+//		observedNodesList := strings.Split(observedNodes, ",")
+//		var newObservedNodesList []string
+//
+//		for _, obn := range observedNodesList {
+//			// nodeRoster := nodeID + "@" + rackID
+//			obnNodeID := strings.Split(obn, "@")[0]
+//			if !containsString(rosterBlockList, obnNodeID) {
+//				newObservedNodesList = append(newObservedNodesList, obn)
+//			}
+//		}
+//
+//		newObservedNodes := strings.Join(newObservedNodesList, ",")
+//
+//		currentRoster := rosterNodes[clHost.String()][rosterKeyRosterNodes]
+//
+//		if newObservedNodes == currentRoster {
+//			//r.Log.Info("Roster already set for the node. Skipping", "node", clHost.String())
+//			continue
+//		}
+//
+//		if err := setRoster(clHost, ns, newObservedNodes); err != nil {
+//			return err
+//		}
+//	}
+//
+//	return nil
+//}
 
 func runRecluster(clHosts []*host) error {
 	//r.Log.Info("Run recluster")
@@ -198,28 +199,35 @@ func runRecluster(clHosts []*host) error {
 	return nil
 }
 
-func validateClusterNsState(clHosts []*host, ns string) error {
+func validateSCClusterNsState(scNamespacesPerHost map[*host][]string, removedNamespaces []string) error {
 	//r.Log.Info("Validate Cluster namespace State. Looking for unavailable or dead partitions", "namespaces", ns)
 
-	for _, clHost := range clHosts {
+	for clHost, nsList := range scNamespacesPerHost {
+		for _, ns := range nsList {
 
-		kvMap, err := getNamespaceStats(clHost, ns)
-		if err != nil {
-			return err
-		}
+			// NS is getting removed from nodes. This may lead to unavailable partitions. Therefor skip the check for this NS
+			if containsString(removedNamespaces, ns) {
+				continue
+			}
 
-		// https://docs.aerospike.com/reference/metrics#unavailable_partitions
-		// This is the number of partitions that are unavailable when roster nodes are missing.
-		// Will turn into dead_partitions if still unavailable when all roster nodes are present.
-		// Some partitions would typically be unavailable under some cluster split situations or
-		// when removing more than replication-factor number of nodes from a strong-consistency enabled namespace
-		if kvMap[nsKeyUnavailablePartitions] != "0" {
-			return fmt.Errorf("cluster namespace %s has non-zero unavailable_partitions %v", ns, kvMap[nsKeyUnavailablePartitions])
-		}
+			kvMap, err := getNamespaceStats(clHost, ns)
+			if err != nil {
+				return err
+			}
 
-		// https://docs.aerospike.com/reference/metrics#dead_partitions
-		if kvMap[nsKeyDeadPartitions] != "0" {
-			return fmt.Errorf("cluster namespace %s has non-zero dead_partitions %v", ns, kvMap[nsKeyDeadPartitions])
+			// https://docs.aerospike.com/reference/metrics#unavailable_partitions
+			// This is the number of partitions that are unavailable when roster nodes are missing.
+			// Will turn into dead_partitions if still unavailable when all roster nodes are present.
+			// Some partitions would typically be unavailable under some cluster split situations or
+			// when removing more than replication-factor number of nodes from a strong-consistency enabled namespace
+			if kvMap[nsKeyUnavailablePartitions] != "0" {
+				return fmt.Errorf("cluster namespace %s has non-zero unavailable_partitions %v", ns, kvMap[nsKeyUnavailablePartitions])
+			}
+
+			// https://docs.aerospike.com/reference/metrics#dead_partitions
+			if kvMap[nsKeyDeadPartitions] != "0" {
+				return fmt.Errorf("cluster namespace %s has non-zero dead_partitions %v", ns, kvMap[nsKeyDeadPartitions])
+			}
 		}
 	}
 	return nil
