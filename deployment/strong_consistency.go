@@ -73,12 +73,12 @@ func setFilteredRosterNodes(clHost *host, scNs string, rosterNodes map[string]st
 		}
 	}
 	newObservedNodes := strings.Join(newObservedNodesList, ",")
-	clHost.log.Info("Remove rosterBlockList from observedNodes", "node", "observedNodes", observedNodes, "rosterBlockList", rosterBlockList)
+	clHost.log.Info("Remove rosterBlockList from observedNodes", "observedNodes", observedNodes, "rosterBlockList", rosterBlockList)
 
 	currentRoster := rosterNodes[rosterKeyRosterNodes]
 	if newObservedNodes == currentRoster {
 		// Setting roster is skipped if roster already set
-		clHost.log.Info("Roster already set for the node. Skipping", "node", "observedNodes", newObservedNodes, "roster", currentRoster)
+		clHost.log.Info("Roster already set for the node. Skipping", "observedNodes", newObservedNodes, "roster", currentRoster)
 		return nil
 	}
 
