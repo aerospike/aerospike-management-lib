@@ -2,6 +2,7 @@ package deployment
 
 import (
 	"fmt"
+	"github.com/go-logr/logr"
 	"strconv"
 	"strings"
 
@@ -16,25 +17,33 @@ var (
 	nsKeyStrongConsistency     = "strong-consistency"
 )
 
-func GetAndSetRoster(hostConns []*HostConn, policy *as.ClientPolicy, rosterBlockList []string) error {
+func GetAndSetRoster(log logr.Logger, hostConns []*HostConn, policy *as.ClientPolicy, rosterBlockList []string) error {
+	log.Info("Check if we need to Get and set roster for SC namespaces")
+
 	clHosts, err := getHostsFromHostConns(hostConns, policy)
 	if err != nil {
 		return err
 	}
 
-	// TODO: Should we allow diff sc namespaces on different nodes. What if a sc ns is added dynamically?
-	// dynamic sc ns can be allowed but roster should be set only after all the nodes have sc ns
-	scNamespacesPerHost, err := getSCNamespaces(clHosts)
+	scNamespacesPerHost, isClusterSCEnabled, err := getSCNamespaces(log, clHosts)
 	if err != nil {
 		return err
 	}
 
-	//r.Log.Info("Strong-consistency namespaces list", "namespaces", scNsList)
-	if err := validateSCClusterNsState(scNamespacesPerHost, nil); err != nil {
+	if !isClusterSCEnabled {
+		log.Info("No SC namespace found in the cluster")
+		return nil
+	}
+
+	if err := validateSCClusterNsState(log, scNamespacesPerHost, nil); err != nil {
 		return fmt.Errorf("cluster namespace state not good, can not set roster: %v", err)
 	}
 
 	for clHost, nsList := range scNamespacesPerHost {
+		if len(nsList) > 0 {
+			clHost.log.Info("Get and set roster", "namespaces", nsList)
+		}
+
 		for _, scNs := range nsList {
 			rosterNodes, err := getRoster(clHost, scNs)
 			if err != nil {
@@ -64,132 +73,66 @@ func setFilteredRosterNodes(clHost *host, scNs string, rosterNodes map[string]st
 		}
 	}
 	newObservedNodes := strings.Join(newObservedNodesList, ",")
+	clHost.log.Info("Remove rosterBlockList from observedNodes", "node", "observedNodes", observedNodes, "rosterBlockList", rosterBlockList)
 
 	currentRoster := rosterNodes[rosterKeyRosterNodes]
 	if newObservedNodes == currentRoster {
 		// Setting roster is skipped if roster already set
-		//r.Log.Info("Roster already set for the node. Skipping", "node", clHost.String())
+		clHost.log.Info("Roster already set for the node. Skipping", "node", "observedNodes", newObservedNodes, "roster", currentRoster)
 		return nil
 	}
 
 	return setRoster(clHost, scNs, newObservedNodes)
 }
 
-func ValidateSCClusterState(hostConns []*HostConn, policy *as.ClientPolicy, removedNamespaces []string) error {
+func ValidateSCClusterState(log logr.Logger, hostConns []*HostConn, policy *as.ClientPolicy, removedNamespaces []string) error {
 	clHosts, err := getHostsFromHostConns(hostConns, policy)
 	if err != nil {
 		return err
 	}
 
-	scNamespacesPerHost, err := getSCNamespaces(clHosts)
+	scNamespacesPerHost, isClusterSCEnabled, err := getSCNamespaces(log, clHosts)
 	if err != nil {
 		return err
 	}
 
-	return validateSCClusterNsState(scNamespacesPerHost, removedNamespaces)
+	if !isClusterSCEnabled {
+		log.Info("No SC namespace found in the cluster")
+		return nil
+	}
+	return validateSCClusterNsState(log, scNamespacesPerHost, removedNamespaces)
 }
 
-func getSCNamespaces(clHosts []*host) (map[*host][]string, error) {
-	scNamespacesPerHost := map[*host][]string{}
+func getSCNamespaces(log logr.Logger, clHosts []*host) (map[*host][]string, bool, error) {
+	var isClusterSCEnabled bool
 
-	for _, clHost := range clHosts {
-		namespaces, err := getNamespaces(clHost)
+	scNamespacesPerHost := map[*host][]string{}
+	for i := range clHosts {
+		namespaces, err := getNamespaces(clHosts[i])
 		if err != nil {
-			return nil, err
+			return nil, isClusterSCEnabled, err
 		}
 
 		var nsList []string
 		for _, ns := range namespaces {
-			isSC, err := isNamespaceSCEnabled(clHost, ns)
+			isSC, err := isNamespaceSCEnabled(clHosts[i], ns)
 			if err != nil {
-				return nil, err
+				return nil, isClusterSCEnabled, err
 			}
 			if isSC {
 				nsList = append(nsList, ns)
+				isClusterSCEnabled = true
 			}
 		}
 
-		scNamespacesPerHost[clHost] = nsList
+		scNamespacesPerHost[clHosts[i]] = nsList
 	}
-	return scNamespacesPerHost, nil
+	log.Info("Fetched SC namespaces for hosts", "namespace", scNamespacesPerHost)
+
+	return scNamespacesPerHost, isClusterSCEnabled, nil
 }
 
-//func getRosterNodesForNs(clHosts []*host, ns string) (map[string]map[string]string, error) {
-//	//r.Log.Info("Getting roster", "namespace", ns)
-//
-//	rosterNodes := map[string]map[string]string{}
-//
-//	for _, clHost := range clHosts {
-//		kvMap, err := getRoster(clHost, ns)
-//		if err != nil {
-//			return nil, err
-//		}
-//
-//		rosterNodes[clHost.String()] = kvMap
-//	}
-//
-//	//r.Log.V(1).Info("roster nodes in cluster", "roster_nodes", rosterNodes)
-//
-//	// return tempObNode, nil
-//	return rosterNodes, nil
-//}
-
-//func isObservedNodesValid(rosterNodes map[string]map[string]string) bool {
-//	var tempObNodes string
-//
-//	for _, rosterNodesMap := range rosterNodes {
-//		observedNodes := rosterNodesMap[rosterKeyObservedNodes]
-//		// Check if all nodes have same observed nodes list
-//		if tempObNodes == "" {
-//			tempObNodes = observedNodes
-//			continue
-//		}
-//		if tempObNodes != observedNodes {
-//			return false
-//		}
-//	}
-//	return true
-//}
-//
-//func setRosterForNs(clHosts []*host, ns string, rosterNodes map[string]map[string]string, rosterBlockList []string) error {
-//	//r.Log.Info("Setting roster", "namespace", ns, "roster", rosterNodes)
-//
-//	for _, clHost := range clHosts {
-//
-//		observedNodes := rosterNodes[clHost.String()][rosterKeyObservedNodes]
-//
-//		// Remove blocked node from observed_nodes
-//		observedNodesList := strings.Split(observedNodes, ",")
-//		var newObservedNodesList []string
-//
-//		for _, obn := range observedNodesList {
-//			// nodeRoster := nodeID + "@" + rackID
-//			obnNodeID := strings.Split(obn, "@")[0]
-//			if !containsString(rosterBlockList, obnNodeID) {
-//				newObservedNodesList = append(newObservedNodesList, obn)
-//			}
-//		}
-//
-//		newObservedNodes := strings.Join(newObservedNodesList, ",")
-//
-//		currentRoster := rosterNodes[clHost.String()][rosterKeyRosterNodes]
-//
-//		if newObservedNodes == currentRoster {
-//			//r.Log.Info("Roster already set for the node. Skipping", "node", clHost.String())
-//			continue
-//		}
-//
-//		if err := setRoster(clHost, ns, newObservedNodes); err != nil {
-//			return err
-//		}
-//	}
-//
-//	return nil
-//}
-
 func runRecluster(clHosts []*host) error {
-	//r.Log.Info("Run recluster")
-
 	for _, clHost := range clHosts {
 		if err := recluster(clHost); err != nil {
 			return err
@@ -199,8 +142,8 @@ func runRecluster(clHosts []*host) error {
 	return nil
 }
 
-func validateSCClusterNsState(scNamespacesPerHost map[*host][]string, removedNamespaces []string) error {
-	//r.Log.Info("Validate Cluster namespace State. Looking for unavailable or dead partitions", "namespaces", ns)
+func validateSCClusterNsState(log logr.Logger, scNamespacesPerHost map[*host][]string, removedNamespaces []string) error {
+	log.Info("Validate SC enabled Cluster namespace State. Looking for unavailable or dead partitions", "namespaces", scNamespacesPerHost)
 
 	for clHost, nsList := range scNamespacesPerHost {
 		for _, ns := range nsList {
@@ -254,7 +197,7 @@ func isNamespaceSCEnabled(clHost *host, ns string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	//r.Log.Info("Check if namespace is SC namespace", "ns", ns, nsKeyStrongConsistency, scBool)
+	clHost.log.Info("Check if namespace is SC enabled", "ns", ns, nsKeyStrongConsistency, scBool)
 
 	return scBool, nil
 }
@@ -270,7 +213,7 @@ func recluster(clHost *host) error {
 
 	cmdOutput := res[cmd]
 
-	//r.Log.V(1).Info("Run info command", "host", clHost.String(), "cmd", cmd, "output", cmdOutput)
+	clHost.log.V(1).Info("Run info command", "host", clHost.String(), "cmd", cmd, "output", cmdOutput)
 
 	if strings.ToLower(cmdOutput) != "ok" && strings.ToLower(cmdOutput) != "ignored-by-non-principal" {
 		return fmt.Errorf("failed to run `%s` for cluster, %v", cmd, cmdOutput)
@@ -287,7 +230,7 @@ func getNamespaceStats(clHost *host, namespace string) (map[string]string, error
 
 	cmdOutput := res[cmd]
 
-	//r.Log.V(1).Info("Run info command", "host", clHost.String(), "cmd", cmd)
+	clHost.log.V(1).Info("Run info command", "host", clHost.String(), "cmd", cmd)
 
 	return ParseInfoIntoMap(cmdOutput, ";", "=")
 }
@@ -301,7 +244,7 @@ func setRoster(clHost *host, namespace, observedNodes string) error {
 
 	cmdOutput := res[cmd]
 
-	//r.Log.V(1).Info("Run info command", "host", clHost.String(), "cmd", cmd, "output", cmdOutput)
+	clHost.log.V(1).Info("Run info command", "host", clHost.String(), "cmd", cmd, "output", cmdOutput)
 
 	if strings.ToLower(cmdOutput) != "ok" {
 		return fmt.Errorf("failed to set roster for namespace %s, %v", namespace, cmdOutput)
@@ -316,10 +259,9 @@ func getRoster(clHost *host, namespace string) (map[string]string, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	cmdOutput := res[cmd]
 
-	//r.Log.V(1).Info("Run info command", "host", clHost.String(), "cmd", cmd, "output", cmdOutput)
+	clHost.log.V(1).Info("Run info command", "host", clHost.String(), "cmd", cmd, "output", cmdOutput)
 
 	return ParseInfoIntoMap(cmdOutput, ":", "=")
 }
@@ -330,9 +272,12 @@ func getNamespaces(clHost *host) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
+	cmdOutput := res[cmd]
 
-	if len(res[cmd]) > 0 {
-		return strings.Split(res[cmd], ";"), nil
+	clHost.log.V(1).Info("Run info command", "host", clHost.String(), "cmd", cmd, "output", cmdOutput)
+
+	if len(cmdOutput) > 0 {
+		return strings.Split(cmdOutput, ";"), nil
 	}
 	return nil, nil
 }
@@ -350,8 +295,6 @@ func containsString(list []string, ele string) bool {
 //----------------------------------------------------------------
 
 func isNodeInRoster(clHost *host, ns string) (bool, error) {
-	//lg := c.log.WithValues("node", clHost.String())
-
 	nodeID, err := getNodeID(clHost)
 	if err != nil {
 		return false, err
@@ -361,7 +304,8 @@ func isNodeInRoster(clHost *host, ns string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	//lg.Info("Check if node is in roster or not", "nodeID", nodeID, "roster", rosterNodesMap)
+
+	clHost.log.Info("Check if node is in roster or not", "nodeID", nodeID, "roster", rosterNodesMap)
 
 	rosterStr := rosterNodesMap[rosterKeyRosterNodes]
 	rosterList := strings.Split(rosterStr, ",")
@@ -376,60 +320,14 @@ func isNodeInRoster(clHost *host, ns string) (bool, error) {
 }
 
 func getNodeID(clHost *host) (string, error) {
-	//lg := c.log.WithValues("node", clHost.String())
-
 	cmd := "node"
 	res, err := clHost.asConnInfo.asinfo.RequestInfo(cmd)
 	if err != nil {
 		return "", err
 	}
 
-	//lg.Info("Get nodeID for host", "host", clHost.String(), "cmd", cmd, "res", res)
-
 	return res[cmd], nil
 }
-
-//func  getRoster(policy *as.ClientPolicy, clHost *host, namespace string) (map[string]string, error) {
-//	//lg := c.log.WithValues("node", clHost.String())
-//
-//	cmd := fmt.Sprintf("roster:namespace=%s", namespace)
-//	res, err := clHost.asConnInfo.asinfo.RequestInfo(cmd)
-//	if err != nil {
-//		return nil, err
-//	}
-//
-//	cmdOutput := res[cmd]
-//
-//	//lg.V(1).Info("Run info command", "host", clHost.String(), "cmd", cmd, "output", cmdOutput)
-//
-//	return ParseInfoIntoMap(cmdOutput, ":", "=")
-//}
-
-//func isNamespaceSCEnabled(policy *as.ClientPolicy, clHost *host, ns string) (bool, error) {
-//	//lg := c.log.WithValues("node", clHost.String())
-//
-//	cmd := fmt.Sprintf("get-config:context=namespace;id=%s", ns)
-//	res, err := clHost.asConnInfo.asinfo.RequestInfo(cmd)
-//	if err != nil {
-//		return false, err
-//	}
-//
-//	configs, err := ParseInfoIntoMap(res[cmd], ";", "=")
-//	if err != nil {
-//		return false, err
-//	}
-//	scStr, ok := configs[nsKeyStrongConsistency]
-//	if !ok {
-//		return false, fmt.Errorf("strong-consistency config not found, config %v", res)
-//	}
-//	scBool, err := strconv.ParseBool(scStr)
-//	if err != nil {
-//		return false, err
-//	}
-//	//lg.Info("Check if namespace is SC namespace", "ns", ns, nsKeyStrongConsistency, scBool)
-//
-//	return scBool, nil
-//}
 
 // ParseInfoIntoMap parses info string into a map.
 // TODO adapted from management lib. Should be made public there.
