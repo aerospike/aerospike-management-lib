@@ -25,7 +25,7 @@ func GetAndSetRoster(log logr.Logger, hostConns []*HostConn, policy *as.ClientPo
 		return err
 	}
 
-	scNamespacesPerHost, isClusterSCEnabled, err := getSCNamespaces(log, clHosts)
+	scNamespacesPerHost, isClusterSCEnabled, err := getSCNamespaces(clHosts)
 	if err != nil {
 		return err
 	}
@@ -91,7 +91,7 @@ func ValidateSCClusterState(log logr.Logger, hostConns []*HostConn, policy *as.C
 		return err
 	}
 
-	scNamespacesPerHost, isClusterSCEnabled, err := getSCNamespaces(log, clHosts)
+	scNamespacesPerHost, isClusterSCEnabled, err := getSCNamespaces(clHosts)
 	if err != nil {
 		return err
 	}
@@ -103,7 +103,7 @@ func ValidateSCClusterState(log logr.Logger, hostConns []*HostConn, policy *as.C
 	return validateSCClusterNsState(log, scNamespacesPerHost, removedNamespaces)
 }
 
-func getSCNamespaces(log logr.Logger, clHosts []*host) (map[*host][]string, bool, error) {
+func getSCNamespaces(clHosts []*host) (map[*host][]string, bool, error) {
 	var isClusterSCEnabled bool
 
 	scNamespacesPerHost := map[*host][]string{}
@@ -126,8 +126,8 @@ func getSCNamespaces(log logr.Logger, clHosts []*host) (map[*host][]string, bool
 		}
 
 		scNamespacesPerHost[clHosts[i]] = nsList
+		clHosts[i].log.Info("Fetched SC namespaces for host", "namespace", nsList)
 	}
-	log.Info("Fetched SC namespaces for hosts", "namespace", scNamespacesPerHost)
 
 	return scNamespacesPerHost, isClusterSCEnabled, nil
 }
@@ -143,9 +143,9 @@ func runRecluster(clHosts []*host) error {
 }
 
 func validateSCClusterNsState(log logr.Logger, scNamespacesPerHost map[*host][]string, removedNamespaces []string) error {
-	log.Info("Validate SC enabled Cluster namespace State. Looking for unavailable or dead partitions", "namespaces", scNamespacesPerHost)
-
 	for clHost, nsList := range scNamespacesPerHost {
+		clHost.log.Info("Validate SC enabled Cluster namespace State. Looking for unavailable or dead partitions", "namespaces", nsList)
+
 		for _, ns := range nsList {
 
 			// NS is getting removed from nodes. This may lead to unavailable partitions. Therefor skip the check for this NS
@@ -213,7 +213,7 @@ func recluster(clHost *host) error {
 
 	cmdOutput := res[cmd]
 
-	clHost.log.V(1).Info("Run info command", "host", clHost.String(), "cmd", cmd, "output", cmdOutput)
+	clHost.log.V(1).Info("Run info command", "cmd", cmd, "output", cmdOutput)
 
 	if strings.ToLower(cmdOutput) != "ok" && strings.ToLower(cmdOutput) != "ignored-by-non-principal" {
 		return fmt.Errorf("failed to run `%s` for cluster, %v", cmd, cmdOutput)
@@ -230,7 +230,7 @@ func getNamespaceStats(clHost *host, namespace string) (map[string]string, error
 
 	cmdOutput := res[cmd]
 
-	clHost.log.V(1).Info("Run info command", "host", clHost.String(), "cmd", cmd)
+	clHost.log.V(1).Info("Run info command", "cmd", cmd)
 
 	return ParseInfoIntoMap(cmdOutput, ";", "=")
 }
@@ -244,7 +244,7 @@ func setRoster(clHost *host, namespace, observedNodes string) error {
 
 	cmdOutput := res[cmd]
 
-	clHost.log.V(1).Info("Run info command", "host", clHost.String(), "cmd", cmd, "output", cmdOutput)
+	clHost.log.V(1).Info("Run info command", "cmd", cmd, "output", cmdOutput)
 
 	if strings.ToLower(cmdOutput) != "ok" {
 		return fmt.Errorf("failed to set roster for namespace %s, %v", namespace, cmdOutput)
@@ -261,7 +261,7 @@ func getRoster(clHost *host, namespace string) (map[string]string, error) {
 	}
 	cmdOutput := res[cmd]
 
-	clHost.log.V(1).Info("Run info command", "host", clHost.String(), "cmd", cmd, "output", cmdOutput)
+	clHost.log.V(1).Info("Run info command", "cmd", cmd, "output", cmdOutput)
 
 	return ParseInfoIntoMap(cmdOutput, ":", "=")
 }
@@ -274,7 +274,7 @@ func getNamespaces(clHost *host) ([]string, error) {
 	}
 	cmdOutput := res[cmd]
 
-	clHost.log.V(1).Info("Run info command", "host", clHost.String(), "cmd", cmd, "output", cmdOutput)
+	clHost.log.V(1).Info("Run info command", "cmd", cmd, "output", cmdOutput)
 
 	if len(cmdOutput) > 0 {
 		return strings.Split(cmdOutput, ";"), nil

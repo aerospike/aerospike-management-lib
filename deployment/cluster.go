@@ -633,16 +633,14 @@ func (c *cluster) infoRecluster(hostIDs []string) error {
 
 // infoCmd runs info cmd on the host
 func (c *cluster) infoCmd(hostID, cmd string) (map[string]string, error) {
-	lg := c.log.WithValues("node", hostID, "cmd", cmd)
-	lg.V(1).Info("Running aerospike InfoCmd")
-
 	n, err := c.findHost(hostID)
 	if err != nil {
 		return nil, err
 	}
 
+	n.log.V(1).Info("Running aerospike InfoCmd")
 	info, err := n.asConnInfo.asinfo.RequestInfo(cmd)
-	lg.V(1).Info("Finished running InfoCmd", "err", err)
+	n.log.V(1).Info("Finished running InfoCmd", "err", err)
 
 	if err != nil {
 		return nil, err
