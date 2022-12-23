@@ -17,6 +17,14 @@ var (
 	nsKeyStrongConsistency     = "strong-consistency"
 )
 
+func SetRosterForNamespace(hostConn *HostConn, policy *as.ClientPolicy, namespace string, observedNodes string) error {
+	clHost, err := hostConn.toHost(policy)
+	if err != nil {
+		return err
+	}
+	return setRoster(clHost, namespace, observedNodes)
+}
+
 func GetAndSetRoster(log logr.Logger, hostConns []*HostConn, policy *as.ClientPolicy, rosterBlockList []string, removedNamespaces []string) error {
 	log.Info("Check if we need to Get and set roster for SC namespaces")
 
