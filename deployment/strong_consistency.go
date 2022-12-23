@@ -17,14 +17,6 @@ var (
 	nsKeyStrongConsistency     = "strong-consistency"
 )
 
-func SetRosterForNamespace(hostConn *HostConn, policy *as.ClientPolicy, namespace string, observedNodes string) error {
-	clHost, err := hostConn.toHost(policy)
-	if err != nil {
-		return err
-	}
-	return setRoster(clHost, namespace, observedNodes)
-}
-
 func GetAndSetRoster(log logr.Logger, hostConns []*HostConn, policy *as.ClientPolicy, rosterBlockList []string, removedNamespaces []string) error {
 	log.Info("Check if we need to Get and set roster for SC namespaces")
 
@@ -44,8 +36,6 @@ func GetAndSetRoster(log logr.Logger, hostConns []*HostConn, policy *as.ClientPo
 	}
 
 	// Removed namespaces should not be validated, as it will fail when namespace will be available in nodes fewer than replication-factor
-	// Roster should be set for removed namespaces so that if a removed namespace is added back,
-	// the roster for that namespace should have correct value
 	if err := validateSCClusterNsState(log, scNamespacesPerHost, removedNamespaces); err != nil {
 		return fmt.Errorf("cluster namespace state not good, can not set roster: %v", err)
 	}
