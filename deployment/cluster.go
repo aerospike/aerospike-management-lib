@@ -73,7 +73,7 @@ func newCluster(
 	return &c, nil
 }
 
-// close the aerospike client connections and the ssh connections.
+// close closes the aerospike client connections and the ssh connections.
 func (c *cluster) close() {
 	for _, nd := range c.allHosts {
 		if err := nd.Close(); err != nil {
@@ -124,7 +124,7 @@ func (c *cluster) IsClusterAndStable(hostIDs []string) (bool, error) {
 		}
 		if size != len(hostIDs) {
 			c.log.V(1).Info(
-				"Cluster size not equal", "infoSize", size, "desiredSize",
+				"Cluster size not equal", "infoSize", size, "runninSize",
 				len(hostIDs),
 			)
 			return false, nil
@@ -200,37 +200,33 @@ func (c *cluster) InfoQuiesce(hostsToBeQuiesced []string, hostIDs []string, remo
 		return err
 	}
 
-	removedNamespaceMap := make(map[string]bool)
-	for _, namespace := range removedNamespaces {
-		removedNamespaceMap[namespace] = true
-	}
-
 	for _, hostID := range hostsToBeQuiesced {
 		n, err := c.findHost(hostID)
 		if err != nil {
 			return err
 		}
 
-		lg.V(1).Info("Running quiesce command `quiesce:`")
+		lg.V(1).Info("Issuing quiesce command `quiesce:`")
 
 		res, err := n.asConnInfo.asinfo.RequestInfo("quiesce:")
 		if err != nil {
 			return err
 		}
 		if strings.Contains(strings.ToLower(res["quiesce:"]), "error") {
-			return fmt.Errorf("running quiesce command failed: %v", res["quiesce:"])
+			return fmt.Errorf("issuing quiesce command failed: %v", res["quiesce:"])
 		}
 
 		namespaces := nodesNamespaces[hostID]
 
+		removedNamespaceMap := make(map[string]bool)
+		for _, namespace := range removedNamespaces {
+			removedNamespaceMap[namespace] = true
+		}
+
 		for index := range namespaces {
 			var passed bool
 
-			skipInfoQuiesceCheck, err := c.skipInfoQuiesceCheck(n, namespaces[index], removedNamespaceMap)
-			if err != nil {
-				return err
-			}
-			if skipInfoQuiesceCheck {
+			if removedNamespaceMap[namespaces[index]] {
 				continue
 			}
 
@@ -262,10 +258,7 @@ func (c *cluster) InfoQuiesce(hostsToBeQuiesced []string, hostIDs []string, remo
 					time.Sleep(2 * time.Second)
 					continue
 				}
-				lg.V(1).Info(
-					"Verifying pending_quiesce passed on node",
-					"pending_quiesce", pendingQuiesce, "host", hostID, "ns", namespaces[index],
-				)
+
 				passed = true
 				break
 			}
@@ -283,21 +276,17 @@ func (c *cluster) InfoQuiesce(hostsToBeQuiesced []string, hostIDs []string, remo
 	}
 
 	for _, hostID := range hostsToBeQuiesced {
-		n, err := c.findHost(hostID)
-		if err != nil {
-			return err
-		}
-
 		namespaces := nodesNamespaces[hostID]
+
+		removedNamespaceMap := make(map[string]bool)
+		for _, namespace := range removedNamespaces {
+			removedNamespaceMap[namespace] = true
+		}
 
 		for index := range namespaces {
 			var passed bool
 
-			skipInfoQuiesceCheck, err := c.skipInfoQuiesceCheck(n, namespaces[index], removedNamespaceMap)
-			if err != nil {
-				return err
-			}
-			if skipInfoQuiesceCheck {
+			if removedNamespaceMap[namespaces[index]] {
 				continue
 			}
 
@@ -357,10 +346,7 @@ func (c *cluster) InfoQuiesce(hostsToBeQuiesced []string, hostIDs []string, remo
 					time.Sleep(2 * time.Second)
 					continue
 				}
-				lg.V(1).Info(
-					"Verifying nodes_quiesced passed on node, ",
-					"nodes_quiesced", nodesQuiesced, "host", hostID, "ns", namespaces[index],
-				)
+
 				passed = true
 				break
 			}
@@ -422,30 +408,6 @@ func (c *cluster) InfoQuiesce(hostsToBeQuiesced []string, hostIDs []string, remo
 	lg.V(1).Info("Finished running InfoQuiesce")
 
 	return nil
-}
-
-func (c *cluster) skipInfoQuiesceCheck(host *host, ns string, removedNamespaceMap map[string]bool) (bool, error) {
-	lg := c.log.WithValues("node", host.id, "namespace", ns)
-
-	if removedNamespaceMap[ns] {
-		lg.V(1).Info("Skip quiesce verification for given node and namespace. Namespace is getting removed")
-		return true, nil
-	}
-
-	isNodeInRoster, err := isNodeInRoster(host, ns)
-	if err != nil {
-		return false, err
-	}
-	isNamespaceSCEnabled, err := isNamespaceSCEnabled(host, ns)
-	if err != nil {
-		return false, err
-	}
-
-	if !isNodeInRoster && isNamespaceSCEnabled {
-		lg.V(1).Info("Skip quiesce verification for given node and namespace. Node is not in roster and namespace is sc enabled")
-		return true, nil
-	}
-	return false, nil
 }
 
 func (c *cluster) infoClusterStable(hostIDs []string) error {
@@ -579,14 +541,14 @@ func (c *cluster) InfoQuiesceUndo(hostIDs []string) error {
 	)
 
 	for _, hostID := range quiescedNodes {
-		nodeLg := c.log.WithValues("node", hostID)
+		nodelg := c.log.WithValues("node", hostID)
 
 		n, err := c.findHost(hostID)
 		if err != nil {
 			return err
 		}
 
-		nodeLg.V(-1).Info("Running undo quiesce command `quiesce-undo:`")
+		nodelg.V(-1).Info("Issuing undo quiesce command `quiesce-undo:`")
 
 		res, err := n.asConnInfo.asinfo.RequestInfo("quiesce-undo:")
 		if err != nil {
@@ -594,7 +556,7 @@ func (c *cluster) InfoQuiesceUndo(hostIDs []string) error {
 		}
 		if strings.Contains(strings.ToLower(res["quiesce-undo:"]), "error") {
 			return fmt.Errorf(
-				"running quiesce command failed: %v",
+				"issuing quiesce command failed: %v",
 				res["quiesce-undo:"],
 			)
 		}
@@ -607,7 +569,7 @@ func (c *cluster) InfoQuiesceUndo(hostIDs []string) error {
 func (c *cluster) infoRecluster(hostIDs []string) error {
 	lg := c.log.WithValues("nodes", hostIDs)
 
-	lg.V(1).Info("Running recluster command")
+	lg.V(1).Info("Issuing recluster command")
 
 	cmd := "recluster:"
 	infoResults, err := c.infoOnHosts(hostIDs, cmd)
@@ -627,20 +589,22 @@ func (c *cluster) infoRecluster(hostIDs []string) error {
 		return fmt.Errorf("failed to execute recluster command: no response from principle node")
 	}
 
-	lg.V(1).Info("Finished running recluster")
+	lg.V(1).Info("Finished running InfoQuiesceUndo")
 	return nil
 }
 
 // infoCmd runs info cmd on the host
 func (c *cluster) infoCmd(hostID, cmd string) (map[string]string, error) {
+	lg := c.log.WithValues("node", hostID, "cmd", cmd)
+	lg.V(1).Info("Running aerospike InfoCmd")
+
 	n, err := c.findHost(hostID)
 	if err != nil {
 		return nil, err
 	}
 
-	n.log.V(1).Info("Running aerospike InfoCmd")
 	info, err := n.asConnInfo.asinfo.RequestInfo(cmd)
-	n.log.V(1).Info("Finished running InfoCmd", "err", err)
+	lg.V(1).Info("Finished running InfoCmd", "err", err)
 
 	if err != nil {
 		return nil, err

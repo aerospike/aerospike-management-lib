@@ -21,7 +21,6 @@ func InfoQuiesce(log logr.Logger, policy *aero.ClientPolicy, allHosts []*HostCon
 	if err != nil {
 		return fmt.Errorf("unable to create a cluster copy for running aeroinfo: %v", err)
 	}
-
 	return c.InfoQuiesce(getHostIDsFromHostConns(selectedHosts), getHostIDsFromHostConns(allHosts), removedNamespaces)
 }
 
@@ -31,6 +30,5 @@ func InfoQuiesceUndo(log logr.Logger, policy *aero.ClientPolicy, allHosts []*Hos
 	if err != nil {
 		return fmt.Errorf("unable to create a cluster copy for running aeroinfo: %v", err)
 	}
-
 	return c.InfoQuiesceUndo(getHostIDsFromHostConns(allHosts))
 }
