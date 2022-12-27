@@ -697,6 +697,8 @@ func (c *cluster) setMigrateFillDelay(migrateFillDelay int, hosts []*HostConn) e
 		}
 	}
 
+	log.V(1).Info("Finished running setMigrateFillDelay")
+
 	return err
 }
 

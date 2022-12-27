@@ -37,7 +37,7 @@ func InfoQuiesceUndo(log logr.Logger, policy *aero.ClientPolicy, allHosts []*Hos
 	return c.InfoQuiesceUndo(getHostIDsFromHostConns(allHosts))
 }
 
-// SetMigrateFillDelay sets the given migrate-fill-delay on the all the given cluster nodes
+// SetMigrateFillDelay sets the given migrate-fill-delay on all the given cluster nodes
 func SetMigrateFillDelay(log logr.Logger, policy *aero.ClientPolicy, allHosts []*HostConn, migrateFillDelay float64) error {
 	c, err := newCluster(log, policy, allHosts, allHosts, false, false)
 	if err != nil {
