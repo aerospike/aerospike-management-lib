@@ -17,7 +17,7 @@ func IsClusterAndStable(log logr.Logger, policy *aero.ClientPolicy, allHosts []*
 }
 
 // InfoQuiesce quiesce hosts.
-func InfoQuiesce(log logr.Logger, policy *aero.ClientPolicy, allHosts []*HostConn, selectedHosts []*HostConn, removedNamespaces []string) error {
+func InfoQuiesce(log logr.Logger, policy *aero.ClientPolicy, allHosts, selectedHosts []*HostConn, removedNamespaces []string) error {
 	c, err := newCluster(log, policy, allHosts, selectedHosts, false, false)
 
 	if err != nil {

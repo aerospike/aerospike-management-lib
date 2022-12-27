@@ -77,7 +77,7 @@ func (s Stats) FindKeysPath(del string, keys ...string) map[string][]string {
 	return paths
 }
 
-func (s Stats) FindKeyPath(del string, key string) []string {
+func (s Stats) FindKeyPath(del, key string) []string {
 	var pathList []string
 	if del == "" {
 		del = "/"
@@ -197,7 +197,7 @@ func (s Stats) TryFloat(
 }
 
 // TryString Value should be an int64 or a convertible string; otherwise
-//defValue is returned
+// defValue is returned
 // this function never panics
 func (s Stats) TryString(
 	name string, defValue string, aliases ...string,
@@ -268,20 +268,20 @@ func (s Stats) Flatten(sep string) Stats {
 			}
 			//FIXME:
 		case []interface{}:
-			for _, list_elem := range v {
-				switch list_elem := list_elem.(type) {
+			for _, listElem := range v {
+				switch listElem := listElem.(type) {
 				case string:
 					res[k] = v
 				default:
-					for k2, v2 := range list_elem.(Stats).Flatten(sep) {
-						res[k+sep+"["+list_elem.(Stats)["name"].(string)+"]"+sep+k2] = v2
+					for k2, v2 := range listElem.(Stats).Flatten(sep) {
+						res[k+sep+"["+listElem.(Stats)["name"].(string)+"]"+sep+k2] = v2
 					}
 				}
 			}
 		case []Stats:
-			for _, list_elem := range v {
-				for k2, v2 := range list_elem.Flatten(sep) {
-					res[k+sep+"["+list_elem["name"].(string)+"]"+sep+k2] = v2
+			for _, listElem := range v {
+				for k2, v2 := range listElem.Flatten(sep) {
+					res[k+sep+"["+listElem["name"].(string)+"]"+sep+k2] = v2
 				}
 			}
 		default:
@@ -545,19 +545,26 @@ func addValues(v1, v2 interface{}) interface{} {
 	v1Valf, v1f := v1.(float64)
 	v2Valf, v2f := v2.(float64)
 
-	if v1i && v2i {
+	switch {
+	case v1i && v2i:
 		return v1Vali + v2Vali
-	} else if v1f && v2f {
+
+	case v1f && v2f:
 		return v1Valf + v2Valf
-	} else if v1i && v2f {
+
+	case v1i && v2f:
 		return float64(v1Vali) + v2Valf
-	} else if v1f && v2i {
+
+	case v1f && v2i:
 		return v1Valf + float64(v2Vali)
-	} else if v2 == nil && (v1i || v1f) {
+
+	case v2 == nil && (v1i || v1f):
 		return v1
-	} else if v1 == nil && (v2i || v2f) {
+
+	case v1 == nil && (v2i || v2f):
 		return v2
 	}
+
 	return nil
 }
 
@@ -584,10 +591,8 @@ func (s Stats) DeepClone() Stats {
 		switch v := v.(type) {
 		case string:
 			result[k] = v
-			break
 		default:
 			result[k] = v.(Stats).DeepClone()
-			break
 		}
 	}
 	return result
@@ -618,40 +623,35 @@ func ToStatsDeep(input Stats) Stats {
 	}
 
 	for k, v := range input {
-		switch v.(type) {
+		switch v := v.(type) {
 		case Stats:
-			m, _ := v.(Stats)
-			result[k] = ToStatsDeep(m)
+			result[k] = ToStatsDeep(v)
 		case map[string]interface{}:
-			m, _ := v.(map[string]interface{})
-			result[k] = ToStatsDeep(m)
+			result[k] = ToStatsDeep(v)
 		case []Stats:
-			l, _ := v.([]Stats)
-			list := make([]Stats, 0, len(l))
-			for _, i := range l {
+			list := make([]Stats, 0, len(v))
+			for _, i := range v {
 				list = append(list, ToStatsDeep(i))
 			}
 			result[k] = list
 		case []map[string]interface{}:
-			l, _ := v.([]map[string]interface{})
-			list := make([]Stats, 0, len(l))
-			for _, i := range l {
+			list := make([]Stats, 0, len(v))
+			for _, i := range v {
 				list = append(list, ToStatsDeep(i))
 			}
 			result[k] = list
 		case []interface{}:
-			l, _ := v.([]interface{})
-			list := make([]interface{}, 0, len(l))
-			for _, i := range l {
-				switch i.(type) {
+			list := make([]interface{}, 0, len(v))
+
+			for _, i := range v {
+				switch i := i.(type) {
 				case Stats:
-					list = append(list, ToStatsDeep(i.(Stats)))
+					list = append(list, ToStatsDeep(i))
 				case map[string]interface{}:
-					list = append(list, ToStatsDeep(i.(map[string]interface{})))
+					list = append(list, ToStatsDeep(i))
 				default:
 					list = append(list, i)
 				}
-
 			}
 			result[k] = list
 		default:
@@ -663,7 +663,7 @@ func ToStatsDeep(input Stats) Stats {
 }
 
 // DeepCopy Make a deep copy from src into dst. src, dst both should be pointer
-func DeepCopy(dst interface{}, src interface{}) {
+func DeepCopy(dst, src interface{}) {
 	err := reprint.FromTo(src, dst)
 	if err != nil {
 		panic(fmt.Sprintf("error while deepCopy interfaces: %v", err))

@@ -40,14 +40,11 @@ func toList(conf Conf) []Conf {
 	for k := range conf {
 		v := conf[k]
 		switch v := v.(type) {
-
 		case Conf:
 			v["name"] = k
 			confList = append(confList, v)
 		case []Conf:
-			for _, c := range v {
-				confList = append(confList, c)
-			}
+			confList = append(confList, v...)
 		default:
 			continue
 		}
@@ -58,9 +55,6 @@ func toList(conf Conf) []Conf {
 func processSection(
 	log logr.Logger, tok []string, scanner *bufio.Scanner, conf Conf,
 ) error {
-
-	var err error
-
 	cfgName := tok[0]
 	// Unnamed Sections are simply processed as Map except special sections like logging
 	if len(tok) == 2 {
@@ -89,7 +83,7 @@ func processSection(
 	}
 
 	tempConf := make(Conf)
-	if err = processSection(log, tok[1:], scanner, tempConf); err != nil {
+	if err := processSection(log, tok[1:], scanner, tempConf); err != nil {
 		return err
 	}
 
@@ -108,7 +102,7 @@ func processSection(
 	return nil
 }
 
-func addToStrList(conf Conf, cfgName string, val string) {
+func addToStrList(conf Conf, cfgName, val string) {
 	if _, ok := conf[cfgName]; !ok {
 		conf[cfgName] = make([]string, 0)
 	}
@@ -129,10 +123,8 @@ func writeConf(log logr.Logger, tok []string, conf Conf) {
 		conf[cfgName], _ = humanizeFn(tok[1])
 		return
 	}
-
 	// Special Case handling
 	switch cfgName {
-
 	case "context":
 		conf[tok[1]] = tok[2]
 
@@ -170,9 +162,7 @@ func writeConf(log logr.Logger, tok []string, conf Conf) {
 }
 
 func process(log logr.Logger, scanner *bufio.Scanner, conf Conf) (Conf, error) {
-
 	for scanner.Scan() {
-
 		line := parseLine(scanner.Text())
 		if line == "" {
 			continue
@@ -192,7 +182,7 @@ func process(log logr.Logger, scanner *bufio.Scanner, conf Conf) (Conf, error) {
 		// Except end of section there should
 		// be atleast 2 tokens
 		if len(tok) < 2 {
-			// if enable benchmark presense is
+			// if enable benchmark presence is
 			// enable
 			if isSpecialBoolField(tok[0]) {
 				conf[tok[0]] = true

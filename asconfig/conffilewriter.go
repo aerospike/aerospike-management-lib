@@ -27,7 +27,7 @@ func beginSection(
 ) {
 	buf.WriteString(
 		"\n" + indentString(indent) + strings.Join(
-			name[:], " ",
+			name, " ",
 		) + " {\n",
 	)
 }
@@ -105,8 +105,7 @@ func writeSpecialListSection(
 	indent int,
 ) {
 	section = SingularOf(section)
-	switch section {
-	case "logging":
+	if section == "logging" {
 		writeLogSection(log, buf, section, confList, indent)
 		return
 	}
@@ -116,7 +115,7 @@ func writeListSection(
 	log logr.Logger, buf *bytes.Buffer, section string, conf Conf, indent int,
 ) {
 	name, ok := conf["name"].(string)
-	if !ok || len(name) == 0 {
+	if !ok || name == "" {
 		return
 	}
 
@@ -154,7 +153,6 @@ func writeSection(
 	default:
 		writeSimpleSection(log, buf, section, m, indent)
 	}
-
 }
 
 func writeListField(
@@ -163,9 +161,8 @@ func writeListField(
 	key = SingularOf(key)
 	if sep != "" {
 		buf.WriteString(
-			indentString(indent) + key + "    " + strings.Replace(
-				value, sep, " ", -1,
-			) + "\n",
+			indentString(indent) + key + "    " + strings.ReplaceAll(
+				value, sep, " ") + "\n",
 		)
 	} else {
 		buf.WriteString(indentString(indent) + key + "    " + value + "\n")
@@ -176,8 +173,7 @@ func writeSpecialBoolField(buf *bytes.Buffer, key string, indent int) {
 	buf.WriteString(indentString(indent) + key + "\n")
 }
 
-func writeField(buf *bytes.Buffer, key string, value string, indent int) {
-
+func writeField(buf *bytes.Buffer, key, value string, indent int) {
 	switch {
 	case isFormField(key):
 		return
@@ -199,7 +195,6 @@ func writeKeys(
 	log logr.Logger, buf *bytes.Buffer, keys *[]string, conf Conf,
 	isSimple bool, indent int,
 ) {
-
 	for _, k := range *keys {
 		v := conf[k]
 		if v == nil {
@@ -227,7 +222,6 @@ func writeKeys(
 				for _, str := range v {
 					writeListField(buf, k, str, indent, sep)
 				}
-
 			}
 
 		case []interface{}:
@@ -290,7 +284,6 @@ func writeKeys(
 				"Unknown config value type",
 				"type", reflect.TypeOf(v), "key", k, "value", v,
 			)
-
 		}
 	}
 }
@@ -299,7 +292,6 @@ func writeDotConf(
 	log logr.Logger, buf *bytes.Buffer, conf Conf, indent int,
 	onlyKeys *[]string,
 ) {
-
 	var keys = onlyKeys
 
 	// Asthetics, print conf in sorted manner in config

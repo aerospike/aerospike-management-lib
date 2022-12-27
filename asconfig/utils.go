@@ -36,13 +36,13 @@ var portRegex = regexp.MustCompile("port")
 type humanize func(string) (uint64, error)
 
 func deHumanizeTime(val string) (uint64, error) {
-	if len(val) == 0 {
+	if val == "" {
 		return 0, nil
 	}
 
 	endswith := val[len(val)-1]
 
-	multiplier := uint64(1)
+	var multiplier uint64
 
 	switch endswith {
 	case 's', 'S':
@@ -61,18 +61,18 @@ func deHumanizeTime(val string) (uint64, error) {
 	if err != nil {
 		return n, err
 	}
-	n = n * multiplier
+	n *= multiplier
 	return n, nil
 }
 
 func deHumanizeSize(val string) (uint64, error) {
-	if len(val) == 0 {
+	if val == "" {
 		return 0, nil
 	}
 
 	endswith := val[len(val)-1]
 
-	multiplier := uint64(1)
+	var multiplier uint64
 
 	switch endswith {
 	case 'K', 'k':
@@ -93,7 +93,7 @@ func deHumanizeSize(val string) (uint64, error) {
 	if err != nil {
 		return n, err
 	}
-	n = n * multiplier
+	n *= multiplier
 	return n, nil
 }
 
@@ -161,10 +161,11 @@ func expandConfList(log logr.Logger, input Conf) Conf {
 				if found {
 					input[k] = confList
 				}
-
-			} else {
-				v = expandConfList(log, v)
 			}
+			// TODO: Confirm this removal
+			// else {
+			//	v = expandConfList(log, v)
+			// }
 		}
 	}
 	return input
@@ -177,7 +178,7 @@ func replaceUnderscore(conf Conf) Conf {
 
 	updatedConf := make(Conf, len(conf))
 	for k, v := range conf {
-		newK := strings.Replace(k, "_", "-", -1)
+		newK := strings.ReplaceAll(k, "_", "-")
 		val, ok := v.(Conf)
 		if ok {
 			updatedConf[newK] = replaceUnderscore(val)
@@ -207,7 +208,7 @@ func toAsConfigContext(context string) string {
 		context,
 		fmt.Sprintf("$1.%c$3%c", sectionNameStartChar, sectionNameEndChar),
 	)
-	asConfigCtx = strings.Replace(asConfigCtx, "/", sep, -1)
+	asConfigCtx = strings.ReplaceAll(asConfigCtx, "/", sep)
 	return asConfigCtx
 }
 
@@ -227,7 +228,7 @@ func getRawName(name string) string {
 
 // getContainedName returns config name and true if key is part of the passed in
 // context, otherwise empty string and false
-func getContainedName(log logr.Logger, fullKey string, context string) (
+func getContainedName(log logr.Logger, fullKey, context string) (
 	string, bool,
 ) {
 	ctx := toAsConfigContext(context)
@@ -326,7 +327,7 @@ func flattenConfList(log logr.Logger, input []Conf, sep string) Conf {
 
 		// create key for this item as {name}
 		// while expanding we are ignoring sep inside {...}
-		// still its not complete solution, it fails if user has section names with imbalance paranthesis
+		// still its not complete solution, it fails if user has section names with imbalance parenthesis
 		// for ex. namespace name -> test}.abcd
 		// but this solution will work for most of the cases and reduce most of the failure scenarios
 		name = string(sectionNameStartChar) + name + string(sectionNameEndChar)
@@ -365,7 +366,7 @@ func flattenConf(log logr.Logger, input Conf, sep string) Conf {
 	return res
 }
 
-func baseKey(k string, sep string) (string, []string) {
+func baseKey(k, sep string) (string, []string) {
 	s := strings.Split(k, sep)
 	return s[len(s)-1], s
 }
@@ -373,9 +374,9 @@ func baseKey(k string, sep string) (string, []string) {
 // Conf is of following values types.
 // basicValue : int64, boolean, string
 // List : list of string
-//      : empty list of interface{} uninitialized list
-func isValueDiff(log logr.Logger, v1 interface{}, v2 interface{}) bool {
-
+//
+//	: empty list of interface{} uninitialized list
+func isValueDiff(log logr.Logger, v1, v2 interface{}) bool {
 	if reflect.TypeOf(v1) != reflect.TypeOf(v2) {
 		return true
 	}
@@ -417,7 +418,8 @@ func isValueDiff(log logr.Logger, v1 interface{}, v2 interface{}) bool {
 }
 
 // diff find diff between two configs;
-//      diff = c1 - c2
+//
+//	diff = c1 - c2
 //
 // Generally used to compare config from two different nodes. This ignores
 // node specific information like address, device, interface etc..
@@ -425,7 +427,6 @@ func diff(
 	log logr.Logger, c1, c2 Conf,
 	isFlat, c2IsDefault, ignoreInternalFields bool,
 ) Conf {
-
 	// Flatten if not flattened already.
 	if !isFlat {
 		c1 = flattenConf(log, c1, sep)
@@ -437,7 +438,6 @@ func diff(
 	// For all keys in C1 if it does not exist in C2
 	// or if type or value is different add/update it
 	for k, v1 := range c1 {
-
 		// Ignore the node specific details
 		bN, _ := baseKey(k, sep)
 		if !c2IsDefault && (isNodeSpecificContext(k) || isNodeSpecificField(bN)) {
@@ -498,7 +498,8 @@ func diff(
 }
 
 // confDiff find diff between two configs;
-//      diff = c1 - c2
+//
+//	diff = c1 - c2
 func confDiff(
 	log logr.Logger, c1 Conf, c2 Conf, isFlat, ignoreInternalFields bool,
 ) map[string]interface{} {
@@ -508,7 +509,8 @@ func confDiff(
 // defaultDiff returns the values different from the default.
 // This ignores the node specific value. i
 // For all Keys conf
-//    diff = flatConf - flatDefConf
+//
+//	diff = flatConf - flatDefConf
 func defaultDiff(
 	log logr.Logger, flatConf Conf, flatDefConf Conf,
 ) map[string]interface{} {
@@ -538,7 +540,6 @@ func changeKey(key string) string {
 func getSystemProperty(log logr.Logger, c Conf, key string) (
 	stype sysproptype, value []string,
 ) {
-
 	baseKey, _ := baseKey(key, sep)
 	baseKey = SingularOf(baseKey)
 	value = make([]string, 0)
@@ -555,7 +556,6 @@ func getSystemProperty(log logr.Logger, c Conf, key string) (
 	}()
 
 	switch baseKey {
-
 	// device <deviceName>:<shadowDeviceName>
 	case "device":
 		for _, d := range c[key].([]interface{}) {
@@ -579,9 +579,7 @@ func getSystemProperty(log logr.Logger, c Conf, key string) (
 			}
 			return FSPATH, value
 		case []string:
-			for _, f := range v {
-				value = append(value, f)
-			}
+			value = append(value, v...)
 			return FSPATH, value
 		}
 		return NONE, value
@@ -601,9 +599,7 @@ func getSystemProperty(log logr.Logger, c Conf, key string) (
 			}
 			return NETADDR, value
 		case []string:
-			for _, f := range v {
-				value = append(value, f)
-			}
+			value = append(value, v...)
 			return NETADDR, value
 		}
 		return NONE, value
@@ -675,7 +671,6 @@ func isInternalField(key string) bool {
 }
 
 func isListSection(section string) bool {
-
 	section, _ = baseKey(section, sep)
 	section = SingularOf(section)
 	switch section {
@@ -689,7 +684,6 @@ func isListSection(section string) bool {
 // section without name but should consider as list
 // for ex. logging
 func isSpecialListSection(section string) bool {
-
 	section, _ = baseKey(section, sep)
 	section = SingularOf(section)
 	switch section {
@@ -705,7 +699,6 @@ func isSpecialListSection(section string) bool {
 // virtue of it generated from the config form. Forms are the
 // JSON schema for nice form layout in UI.
 func isFormField(key string) bool {
-
 	key, _ = baseKey(key, sep)
 	// "name" is id for named sections
 	// "storage-engine-type" is type of storage engine.
@@ -719,8 +712,7 @@ func isFormField(key string) bool {
 
 // isEmptyField return true if value is either NULL or "". Also,
 // for the cases where port number is 0
-func isEmptyField(key string, value string) bool {
-
+func isEmptyField(key, value string) bool {
 	// "name" is id for named sections
 	// "storage-engine-type" is type of storage engine.
 	switch {
@@ -786,7 +778,7 @@ func isNodeSpecificField(key string) bool {
 // isNodeSpecificContext returns true if the passed key
 // in aerospike config is from Node specific context like logging.
 func isNodeSpecificContext(key string) bool {
-	if len(key) == 0 || strings.Contains(key, "logging.") {
+	if key == "" || strings.Contains(key, "logging.") {
 		return true
 	}
 	return false
@@ -807,7 +799,7 @@ func isSizeOrTime(key string) (bool, humanize) {
 }
 
 func isStorageEngineKey(key string) bool {
-	if len(key) == 0 {
+	if key == "" {
 		return false
 	}
 	if key == "storage-engine" || strings.HasPrefix(key, "storage-engine.") {
@@ -826,7 +818,6 @@ func addStorageEngineConfig(
 	storageKey := "storage-engine"
 
 	switch v := v.(type) {
-
 	case map[string]interface{}:
 		conf[storageKey] = toConf(log, v)
 	case lib.Stats:
@@ -909,7 +900,6 @@ func toConf(log logr.Logger, input map[string]interface{}) Conf {
 			} else {
 				v1 := v[0]
 				switch v1.(type) {
-
 				case string:
 					temp := make([]string, len(v))
 					for i, s := range v {
@@ -923,7 +913,6 @@ func toConf(log logr.Logger, input map[string]interface{}) Conf {
 				case map[string]interface{}, lib.Stats:
 					temp := make([]Conf, len(v))
 					for i, m := range v {
-
 						m1, ok := m.(map[string]interface{})
 						if !ok {
 							m1, ok = m.(lib.Stats)
@@ -957,12 +946,11 @@ func toConf(log logr.Logger, input map[string]interface{}) Conf {
 		case bool:
 			if isSpecialStringField(k) {
 				if ok, _ := isListField(k); ok {
-					if k == "tls-authenticate-client" && v == false {
+					if k == "tls-authenticate-client" && !v {
 						result[k] = strconv.FormatBool(v)
 					} else {
 						result[k] = []string{strconv.FormatBool(v)}
 					}
-
 				} else {
 					result[k] = strconv.FormatBool(v)
 				}
@@ -1013,7 +1001,6 @@ func getCfgValue(log logr.Logger, diffKeys []string, flatConf Conf) []CfgValue {
 func getContextAndName(log logr.Logger, key, _ string) (string, string) {
 	keys := splitKey(log, key, sep)
 	if len(keys) == 1 {
-		//panic
 		return "", ""
 	}
 
@@ -1034,7 +1021,7 @@ func getContextAndName(log logr.Logger, key, _ string) (string, string) {
 // else if version1 < version2 returns -1
 // else returns 1
 func CompareVersions(version1, version2 string) (int, error) {
-	if len(version1) == 0 || len(version2) == 0 {
+	if version1 == "" || version2 == "" {
 		return 0, fmt.Errorf("wrong versions to compare")
 	}
 
@@ -1092,7 +1079,7 @@ func CompareVersions(version1, version2 string) (int, error) {
 // else if version1 < version2 returns -1
 // else returns 1
 func CompareVersionsIgnoreRevision(version1, version2 string) (int, error) {
-	if len(version1) == 0 || len(version2) == 0 {
+	if version1 == "" || version2 == "" {
 		return 0, fmt.Errorf("wrong versions to compare")
 	}
 

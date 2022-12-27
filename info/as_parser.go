@@ -93,13 +93,13 @@ const (
 	_ConfigLogIDs         = "log_ids"
 )
 
-//var asCmds = []string{"statistics", "configs", "metadata", "latency", "throughput", "hist-dump", "udf-list", "udf-get"}
+// var asCmds = []string{"statistics", "configs", "metadata", "latency", "throughput", "hist-dump", "udf-list", "udf-get"}
 
 var asCmds = []string{
 	"statistics", "configs", "metadata", "latency", "throughput",
 }
 
-var networkTLSNameRe = regexp.MustCompile("^tls\\[([0-9]+)].name$")
+var networkTLSNameRe = regexp.MustCompile(`^tls\[(\d+)].name$`)
 
 // AsInfo provides info calls on an aerospike cluster.
 type AsInfo struct {
@@ -111,7 +111,6 @@ type AsInfo struct {
 }
 
 func NewAsInfo(log logr.Logger, h *aero.Host, cp *aero.ClientPolicy) *AsInfo {
-
 	logger := log.WithValues("node", h)
 	return &AsInfo{
 		host:   h,
@@ -193,8 +192,7 @@ func (info *AsInfo) doInfo(commands ...string) (map[string]string, error) {
 		info.log.V(1).Info("Secure connection created for aerospike info")
 	}
 
-	var deadline time.Time
-	deadline = time.Now().Add(asTimeout)
+	deadline := time.Now().Add(asTimeout)
 	if err := info.conn.SetTimeout(deadline, asTimeout); err != nil {
 		return nil, err
 	}
@@ -227,14 +225,13 @@ func (info *AsInfo) Close() error {
 	return nil
 }
 
-//*******************************************************************************************
+// *******************************************************************************************
 // Public API to get parsed data
-//*******************************************************************************************
+// *******************************************************************************************
 
 // GetAsInfo function fetch and parse data for given commands from given host
 // Input: cmdList - Options [statistics, configs, metadata, latency, throughput]
 func (info *AsInfo) GetAsInfo(cmdList ...string) (NodeAsStats, error) {
-
 	// These info will be used for creating other info commands
 	//  _STAT_NS_NAMES, _STAT_DC_NAMES, _STAT_SINDEX, _STAT_LOG_IDS
 	m, err := info.getCoreInfo()
@@ -252,7 +249,6 @@ func (info *AsInfo) GetAsInfo(cmdList ...string) (NodeAsStats, error) {
 // GetAsConfig function fetch and parse config data for given context from given host
 // Input: cmdList - Options [service, network, namespace, xdr, dc, security, logging]
 func (info *AsInfo) GetAsConfig(contextList ...string) (lib.Stats, error) {
-
 	// These info will be used for creating other info commands
 	//  _STAT_NS_NAMES, _STAT_DC_NAMES, _STAT_SINDEX, _STAT_LOG_IDS
 	m, err := info.getCoreInfo()
@@ -363,9 +359,9 @@ func ParseSetNames(m map[string]string, ns string) []string {
 	return setNames(m[_STAT_SET], ns)
 }
 
-//*******************************************************************************************
+// *******************************************************************************************
 // create raw cmd list
-//*******************************************************************************************
+// *******************************************************************************************
 
 func (info *AsInfo) getCoreInfo() (map[string]string, error) {
 	m, err := info.RequestInfo(
@@ -592,9 +588,9 @@ func setNames(str, ns string) []string {
 	return setNames
 }
 
-//*******************************************************************************************
+// *******************************************************************************************
 // execute raw cmds
-//*******************************************************************************************
+// *******************************************************************************************
 
 func (info *AsInfo) execute(
 	log logr.Logger, rawCmdList []string, m map[string]string,
@@ -614,9 +610,9 @@ func (info *AsInfo) execute(
 	return parsedMap, nil
 }
 
-//*******************************************************************************************
+// *******************************************************************************************
 // parse raw cmd results
-//*******************************************************************************************
+// *******************************************************************************************
 
 func parseCmdResults(
 	log logr.Logger, rawMap map[string]string, cmdList ...string,
@@ -682,11 +678,11 @@ func updateExtraMetadata(m lib.Stats) {
 	}
 }
 
-//***************************************************************************
+// ***************************************************************************
 // parse statistics
+// ***************************************************************************
 
 func parseStatInfo(rawMap map[string]string) lib.Stats {
-
 	statMap := make(lib.Stats)
 
 	statMap["service"] = parseBasicInfo(rawMap[_STAT])
@@ -770,12 +766,10 @@ func parseStatBinsInfo(res string) lib.Stats {
 	return stats
 }
 
-//***************************************************************************
+// ***************************************************************************
 // parse configs
-//
 
 func parseConfigInfo(rawMap map[string]string) lib.Stats {
-
 	configMap := make(lib.Stats)
 
 	sc := parseBasicConfigInfo(rawMap[_CONFIG_SERVICE], "=")
@@ -892,7 +886,7 @@ func parseAllDcConfig(rawMap map[string]string, cmd string) lib.Stats {
 	return dcConfigMap
 }
 
-func parseBasicConfigInfo(res string, sep string) lib.Stats {
+func parseBasicConfigInfo(res, sep string) lib.Stats {
 	// Parse
 	conf := parseIntoMap(res, ";", sep)
 	return conf
@@ -903,9 +897,9 @@ func parseConfigRacksInfo(res string) []lib.Stats {
 	return ml
 }
 
-//***************************************************************************
+// ***************************************************************************
 // parse metadata
-//
+// ***************************************************************************
 
 func parseMetadataInfo(rawMap map[string]string) lib.Stats {
 	metaMap := make(lib.Stats)
@@ -938,16 +932,12 @@ func parseListTypeMetaInfo(rawMap map[string]string, cmd string) []string {
 	return l
 }
 
-//***************************************************************************
+// ***************************************************************************
 // parse latency and throughput
-//
 func parseThroughputInfo(rawStr string) lib.Stats {
-
 	ip := lib.NewInfoParser(rawStr)
 
-	//typical format is {test}-read:15:43:18-GMT,ops/sec;15:43:28,0.0;
-	//nodeStats := map[string]float64{}
-	//res := map[string]map[string]float64{}
+	// typical format is {test}-read:15:43:18-GMT,ops/sec;15:43:28,0.0;
 	nodeStats := lib.Stats{}
 	res := map[string]lib.Stats{}
 	for {
@@ -962,7 +952,7 @@ func parseThroughputInfo(rawStr string) lib.Stats {
 		if err != nil {
 			break
 		}
-		if err := ip.Expect("-"); err != nil {
+		if err = ip.Expect("-"); err != nil {
 			break
 		}
 		op, err := ip.ReadUntil(':')
@@ -970,11 +960,11 @@ func parseThroughputInfo(rawStr string) lib.Stats {
 			break
 		}
 		// first timestamp
-		if _, err := ip.ReadUntil(','); err != nil {
+		if _, err = ip.ReadUntil(','); err != nil {
 			break
 		}
 		// ops/sec
-		if _, err := ip.ReadUntil(';'); err != nil {
+		if _, err = ip.ReadUntil(';'); err != nil {
 			break
 		}
 		// second timestamp
@@ -1022,9 +1012,8 @@ func parseThroughputInfo(rawStr string) lib.Stats {
 }
 
 // TODO: check diff lat bucket in agg
-//typical format is {test}-read:10:17:37-GMT,ops/sec,>1ms,>8ms,>64ms;10:17:47,29648.2,3.44,0.08,0.00;
+// typical format is {test}-read:10:17:37-GMT,ops/sec,>1ms,>8ms,>64ms;10:17:47,29648.2,3.44,0.08,0.00;
 func parseLatencyInfo(log logr.Logger, rawStr string) lib.Stats {
-
 	ip := lib.NewInfoParser(rawStr)
 	nodeStats := make(map[string]lib.Stats)
 	res := make(map[string]lib.Stats)
@@ -1041,7 +1030,7 @@ func parseLatencyInfo(log logr.Logger, rawStr string) lib.Stats {
 		if err != nil {
 			break
 		}
-		if err := ip.Expect("-"); err != nil {
+		if err = ip.Expect("-"); err != nil {
 			break
 		}
 		op, err := ip.ReadUntil(':')
@@ -1052,7 +1041,7 @@ func parseLatencyInfo(log logr.Logger, rawStr string) lib.Stats {
 		if err != nil {
 			break
 		}
-		if _, err := ip.ReadUntil(','); err != nil {
+		if _, err = ip.ReadUntil(','); err != nil {
 			break
 		}
 		bucketsStr, err := ip.ReadUntil(';')
@@ -1096,7 +1085,6 @@ func parseLatencyInfo(log logr.Logger, rawStr string) lib.Stats {
 			"buckets":    buckets,
 			"valBuckets": valBucketsFloat,
 			"timestamp":  timestamp,
-			//"timestamp_unix": time.Now().Unix(),
 		}
 		topct(stats)
 
@@ -1207,9 +1195,8 @@ func topct(stat lib.Stats) {
 func _cloneLatency(m lib.Stats) lib.Stats {
 	vb, _ := m["valBuckets"].([]float64)
 	valBuckets := make([]float64, len(vb))
-	for i, v := range vb {
-		valBuckets[i] = v
-	}
+
+	copy(valBuckets, vb)
 
 	c := lib.Stats{
 		"tps":            m["tps"],
@@ -1223,9 +1210,8 @@ func _cloneLatency(m lib.Stats) lib.Stats {
 	return c
 }
 
-//***************************************************************************
+// ***************************************************************************
 // utils
-//
 func parseNsKeys(rawMap lib.Stats) lib.Stats {
 	newMap := make(lib.Stats)
 	for k, v := range rawMap {
@@ -1237,7 +1223,7 @@ func parseNsKeys(rawMap lib.Stats) lib.Stats {
 	return newMap
 }
 
-func parseIntoMap(str string, del string, sep string) lib.Stats {
+func parseIntoMap(str, del, sep string) lib.Stats {
 	if str == "" {
 		return nil
 	}
@@ -1248,17 +1234,14 @@ func parseIntoMap(str string, del string, sep string) lib.Stats {
 			continue
 		}
 		kv := strings.Split(item, sep)
-		//m[kv[0]] = kv[1]
 		m[kv[0]] = getParsedValue(kv[1])
 	}
-	//return m.ToParsedValues()
 	return m
 }
 
 // Type should be map[string]interface{} otherwise same map is returned.
 // info_parser needs parsed values
 func getParsedValue(val interface{}) interface{} {
-
 	valStr, ok := val.(string)
 	if !ok {
 		return val
@@ -1293,7 +1276,7 @@ func parseIntoListOfMap(
 	return strListMap
 }
 
-func parseIntoDcMap(str string, del string, sep string) lib.Stats {
+func parseIntoDcMap(str, del, sep string) lib.Stats {
 	if str == "" {
 		return nil
 	}
@@ -1301,10 +1284,9 @@ func parseIntoDcMap(str string, del string, sep string) lib.Stats {
 	items := strings.Split(str, del)
 	newItems := make([]string, len(items))
 	nIdx := 0
-	//fmt.Println(str)
 	for _, item := range items {
 		if item == "" {
-			newItems[nIdx-1] = newItems[nIdx-1] + del
+			newItems[nIdx-1] += del
 			continue
 		}
 		if !strings.Contains(item, "=") {

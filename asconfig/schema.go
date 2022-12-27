@@ -3,7 +3,7 @@ package asconfig
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -29,7 +29,7 @@ func Init(log logr.Logger, schemaDir string) error {
 	log.V(1).Info("Config schema dir", "dir", schemaDir)
 	schemas = make(map[string]string)
 
-	fileInfo, err := ioutil.ReadDir(schemaDir)
+	fileInfo, err := os.ReadDir(schemaDir)
 	if err != nil {
 		return err
 	}
@@ -44,7 +44,7 @@ func Init(log logr.Logger, schemaDir string) error {
 			continue
 		}
 
-		schema, err := ioutil.ReadFile(filepath.Join(schemaDir, file.Name()))
+		schema, err := os.ReadFile(filepath.Join(schemaDir, file.Name()))
 		if err != nil {
 			return fmt.Errorf("wrong config schema file %s: %v", file.Name(), err)
 		}
@@ -68,7 +68,7 @@ func InitFromMap(log logr.Logger, schemaMap map[string]string) {
 }
 
 func versionFormat(filename string) string {
-	if len(filename) == 0 {
+	if filename == "" {
 		return ""
 	}
 
@@ -79,7 +79,7 @@ func versionFormat(filename string) string {
 		name = strings.Join(fields[:len(fields)-1], ".")
 	}
 
-	return strings.Replace(name, "_", ".", -1)
+	return strings.ReplaceAll(name, "_", ".")
 }
 
 // isSupportedVersion returns true if server version supported by ACC
@@ -126,7 +126,6 @@ func baseVersion(ver string) (string, error) {
 // getDynamic return the map of values which are dynamic
 // values.
 func getDynamic(ver string) (map[string]bool, error) {
-
 	flatSchema, err := getFlatSchema(ver)
 	if err != nil {
 		return nil, err
@@ -153,7 +152,6 @@ func getDynamic(ver string) (map[string]bool, error) {
 // getDefault return the map of values which are dynamic
 // values.
 func getDefault(ver string) (map[string]interface{}, error) {
-
 	flatSchema, err := getFlatSchema(ver)
 	if err != nil {
 		return nil, err
@@ -166,11 +164,6 @@ func getDefault(ver string) (map[string]interface{}, error) {
 		case defRegex.MatchString(k):
 			key := removeJSONSpecKeywords(k)
 			key = defRegex.ReplaceAllString(key, "${1}")
-			// if storageRegex.MatchString(key) {
-			// 	// NOTE Skip .*storage-engine:memory in default
-			// 	continue
-			// }
-
 			defMap[key] = eval(v)
 		}
 	}
@@ -191,7 +184,6 @@ func flattenSchema(input map[string]interface{}, sep string) map[string]interfac
 			if len(v) == 0 {
 				res[k] = v
 			} else {
-
 				for i, v2 := range v {
 					switch v2 := v2.(type) {
 					case map[string]interface{}:
@@ -216,7 +208,7 @@ func flattenSchema(input map[string]interface{}, sep string) map[string]interfac
 					res[k] = val
 				}
 			} else {
-				res[k], err = v.Float64()
+				res[k], _ = v.Float64()
 			}
 
 		default:
@@ -228,10 +220,10 @@ func flattenSchema(input map[string]interface{}, sep string) map[string]interfac
 
 func removeJSONSpecKeywords(key string) string {
 	// Cleanup json schema strings
-	key = strings.Replace(key, "items", "_", -1)
-	key = strings.Replace(key, "properties.", "", -1)
-	key = strings.Replace(key, ".oneOf.1", "", -1)
-	key = strings.Replace(key, ".oneOf.0", "", -1)
+	key = strings.ReplaceAll(key, "items", "_")
+	key = strings.ReplaceAll(key, "properties.", "")
+	key = strings.ReplaceAll(key, ".oneOf.1", "")
+	key = strings.ReplaceAll(key, ".oneOf.0", "")
 	return key
 }
 
@@ -279,7 +271,7 @@ func isPre315(ver string) bool {
 	return gt
 }
 
-func gtEqVersion(v1 string, v2 string) bool {
+func gtEqVersion(v1, v2 string) bool {
 	// TODO string.Split is allocation can it be avoided
 	s1 := strings.Split(v1, sep)
 	s2 := strings.Split(v2, sep)
