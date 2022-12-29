@@ -38,11 +38,11 @@ func InfoQuiesceUndo(log logr.Logger, policy *aero.ClientPolicy, allHosts []*Hos
 }
 
 // SetMigrateFillDelay sets the given migrate-fill-delay on all the given cluster nodes
-func SetMigrateFillDelay(log logr.Logger, policy *aero.ClientPolicy, allHosts []*HostConn, migrateFillDelay float64) error {
+func SetMigrateFillDelay(log logr.Logger, policy *aero.ClientPolicy, allHosts []*HostConn, migrateFillDelay int) error {
 	c, err := newCluster(log, policy, allHosts, allHosts, false, false)
 	if err != nil {
 		return fmt.Errorf("unable to create a cluster copy for running aeroinfo: %v", err)
 	}
 
-	return c.setMigrateFillDelay(int(migrateFillDelay), allHosts)
+	return c.setMigrateFillDelay(migrateFillDelay, allHosts)
 }
