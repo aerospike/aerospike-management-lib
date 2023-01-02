@@ -124,7 +124,7 @@ func (c *cluster) IsClusterAndStable(hostIDs []string) (bool, error) {
 		}
 		if size != len(hostIDs) {
 			c.log.V(1).Info(
-				"Cluster size not equal", "infoSize", size, "runninSize",
+				"Cluster size not equal", "infoSize", size, "runningSize",
 				len(hostIDs),
 			)
 			return false, nil
@@ -589,7 +589,7 @@ func (c *cluster) infoRecluster(hostIDs []string) error {
 		return fmt.Errorf("failed to execute recluster command: no response from principle node")
 	}
 
-	lg.V(1).Info("Finished running InfoQuiesceUndo")
+	lg.V(1).Info("Finished running Recluster")
 	return nil
 }
 

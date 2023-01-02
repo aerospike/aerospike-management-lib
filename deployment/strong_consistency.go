@@ -18,8 +18,7 @@ var (
 )
 
 func GetAndSetRoster(log logr.Logger, hostConns []*HostConn, policy *as.ClientPolicy, rosterBlockList []string, removedNamespaces []string) error {
-	log.Info("Check if we need to Get and set roster for SC namespaces")
-
+	log.Info("Check if we need to Get and Set roster for SC namespaces")
 	clHosts, err := getHostsFromHostConns(hostConns, policy)
 	if err != nil {
 		return err
@@ -36,10 +35,11 @@ func GetAndSetRoster(log logr.Logger, hostConns []*HostConn, policy *as.ClientPo
 	}
 
 	// Removed namespaces should not be validated, as it will fail when namespace will be available in nodes fewer than replication-factor
-	if err := validateSCClusterNsState(log, scNamespacesPerHost, removedNamespaces); err != nil {
+	if err := validateSCClusterNsState(scNamespacesPerHost, removedNamespaces); err != nil {
 		return fmt.Errorf("cluster namespace state not good, can not set roster: %v", err)
 	}
 
+	var runReclusterFlag bool
 	for clHost, nsList := range scNamespacesPerHost {
 		if len(nsList) > 0 {
 			clHost.log.Info("Get and set roster", "namespaces", nsList)
@@ -51,16 +51,24 @@ func GetAndSetRoster(log logr.Logger, hostConns []*HostConn, policy *as.ClientPo
 				return err
 			}
 
-			if err := setFilteredRosterNodes(clHost, scNs, rosterNodes, rosterBlockList); err != nil {
+			isSettingRoster, err := setFilteredRosterNodes(clHost, scNs, rosterNodes, rosterBlockList)
+			if err != nil {
 				return err
+			}
+			if isSettingRoster {
+				runReclusterFlag = true
 			}
 		}
 	}
-
-	return runRecluster(clHosts)
+	if runReclusterFlag {
+		return runRecluster(clHosts)
+	}
+	return nil
 }
 
-func setFilteredRosterNodes(clHost *host, scNs string, rosterNodes map[string]string, rosterBlockList []string) error {
+// setFilteredRosterNodes removes the rosterBlockList from observed nodes and sets the roster if needed.
+// It also returns true if roster is being set and returns false if roster is already set.
+func setFilteredRosterNodes(clHost *host, scNs string, rosterNodes map[string]string, rosterBlockList []string) (bool, error) {
 	observedNodes := rosterNodes[rosterKeyObservedNodes]
 
 	// Remove blocked node from observed_nodes
@@ -78,12 +86,12 @@ func setFilteredRosterNodes(clHost *host, scNs string, rosterNodes map[string]st
 
 	currentRoster := rosterNodes[rosterKeyRosterNodes]
 	if newObservedNodes == currentRoster {
-		// Setting roster is skipped if roster already set
-		clHost.log.Info("Roster already set for the node. Skipping", "observedNodes", newObservedNodes, "roster", currentRoster)
-		return nil
+		// Setting roster is skipped if roster is already set
+		clHost.log.Info("Roster is already set for the node. Skipping", "observedNodes", newObservedNodes, "roster", currentRoster)
+		return false, nil
 	}
 
-	return setRoster(clHost, scNs, newObservedNodes)
+	return true, setRoster(clHost, scNs, newObservedNodes)
 }
 
 func ValidateSCClusterState(log logr.Logger, hostConns []*HostConn, policy *as.ClientPolicy, removedNamespaces []string) error {
@@ -101,7 +109,7 @@ func ValidateSCClusterState(log logr.Logger, hostConns []*HostConn, policy *as.C
 		log.Info("No SC namespace found in the cluster")
 		return nil
 	}
-	return validateSCClusterNsState(log, scNamespacesPerHost, removedNamespaces)
+	return validateSCClusterNsState(scNamespacesPerHost, removedNamespaces)
 }
 
 func getSCNamespaces(clHosts []*host) (map[*host][]string, bool, error) {
@@ -143,7 +151,7 @@ func runRecluster(clHosts []*host) error {
 	return nil
 }
 
-func validateSCClusterNsState(log logr.Logger, scNamespacesPerHost map[*host][]string, removedNamespaces []string) error {
+func validateSCClusterNsState(scNamespacesPerHost map[*host][]string, removedNamespaces []string) error {
 	for clHost, nsList := range scNamespacesPerHost {
 		clHost.log.Info("Validate SC enabled Cluster namespace State. Looking for unavailable or dead partitions", "namespaces", nsList)
 
@@ -202,8 +210,6 @@ func isNamespaceSCEnabled(clHost *host, ns string) (bool, error) {
 
 	return scBool, nil
 }
-
-// Info calls
 
 func recluster(clHost *host) error {
 	cmd := "recluster:"
@@ -277,7 +283,7 @@ func getNamespaces(clHost *host) ([]string, error) {
 
 	clHost.log.V(1).Info("Run info command", "cmd", cmd, "output", cmdOutput)
 
-	if len(cmdOutput) > 0 {
+	if cmdOutput != "" {
 		return strings.Split(cmdOutput, ";"), nil
 	}
 	return nil, nil
@@ -293,45 +299,7 @@ func containsString(list []string, ele string) bool {
 	return false
 }
 
-//----------------------------------------------------------------
-
-func isNodeInRoster(clHost *host, ns string) (bool, error) {
-	nodeID, err := getNodeID(clHost)
-	if err != nil {
-		return false, err
-	}
-
-	rosterNodesMap, err := getRoster(clHost, ns)
-	if err != nil {
-		return false, err
-	}
-
-	clHost.log.Info("Check if node is in roster or not", "nodeID", nodeID, "roster", rosterNodesMap)
-
-	rosterStr := rosterNodesMap[rosterKeyRosterNodes]
-	rosterList := strings.Split(rosterStr, ",")
-
-	for _, roster := range rosterList {
-		rosterNodeID := strings.Split(roster, "@")[0]
-		if nodeID == rosterNodeID {
-			return true, nil
-		}
-	}
-	return false, nil
-}
-
-func getNodeID(clHost *host) (string, error) {
-	cmd := "node"
-	res, err := clHost.asConnInfo.asinfo.RequestInfo(cmd)
-	if err != nil {
-		return "", err
-	}
-
-	return res[cmd], nil
-}
-
 // ParseInfoIntoMap parses info string into a map.
-// TODO adapted from management lib. Should be made public there.
 func ParseInfoIntoMap(str string, del string, sep string) (map[string]string, error) {
 	m := map[string]string{}
 	if str == "" {
