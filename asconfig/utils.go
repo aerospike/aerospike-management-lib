@@ -161,11 +161,9 @@ func expandConfList(log logr.Logger, input Conf) Conf {
 				if found {
 					input[k] = confList
 				}
+			} else {
+				input[k] = expandConfList(log, v)
 			}
-			// TODO: Confirm this removal
-			// else {
-			//	v = expandConfList(log, v)
-			// }
 		}
 	}
 	return input
