@@ -2,6 +2,7 @@ package deployment
 
 import (
 	"fmt"
+
 	"github.com/aerospike/aerospike-management-lib/info"
 	aero "github.com/ashishshinde/aerospike-client-go/v6"
 	"github.com/go-logr/logr"

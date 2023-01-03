@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"testing"
 
 	lib "github.com/aerospike/aerospike-management-lib"
@@ -20,10 +20,8 @@ var err error
 var AsInfo *info.AsInfo
 
 func BenchmarkAsParser__map(b *testing.B) {
-
 	b.ReportAllocs()
 	b.ResetTimer()
-	//b.N = 9000
 	for i := 0; i < b.N; i++ {
 		ParsedData, err = AsInfo.GetAsInfo()
 		if err != nil {
@@ -35,7 +33,6 @@ func BenchmarkAsParser__map(b *testing.B) {
 }
 
 func TestMain(m *testing.M) {
-
 	AsInfo, err = NewAsInfo()
 	if err != nil {
 		fmt.Println(err)
@@ -70,8 +67,6 @@ func writeToFile(m interface{}, filename string) error {
 	enc.SetEscapeHTML(false)
 	enc.SetIndent("", "    ")
 	_ = enc.Encode(m)
-	err := ioutil.WriteFile(filename, buf.Bytes(), 0644)
+	err := os.WriteFile(filename, buf.Bytes(), 0644)
 	return err
 }
-
-//SUD {{<nil> 0 [] [] []} sud [0xae59b0] 0xae5950 <nil>  [] 0s} {sud123 WithPasswordSudoMode}

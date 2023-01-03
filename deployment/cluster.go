@@ -26,8 +26,9 @@ func getHosts(policy *aero.ClientPolicy, conns []*HostConn) (
 	map[string]*host, error,
 ) {
 	var err error
-	hosts := make(map[string]*host)
 	var nd *host
+
+	hosts := make(map[string]*host)
 
 	for _, conn := range conns {
 		nd, err = conn.toHost(policy)
@@ -176,7 +177,7 @@ func (c *cluster) IsClusterAndStable(hostIDs []string) (bool, error) {
 }
 
 // InfoQuiesce quiesce host.
-func (c *cluster) InfoQuiesce(hostsToBeQuiesced []string, hostIDs []string, removedNamespaces []string) error {
+func (c *cluster) InfoQuiesce(hostsToBeQuiesced, hostIDs, removedNamespaces []string) error {
 	lg := c.log.WithValues("nodes", hostsToBeQuiesced)
 
 	lg.V(1).Info("Running InfoQuiesce")
@@ -440,7 +441,7 @@ func (c *cluster) infoClusterStable(hostIDs []string) error {
 			)
 		}
 
-		if len(clusterKey) == 0 {
+		if clusterKey == "" {
 			clusterKey = ck
 			continue
 		}

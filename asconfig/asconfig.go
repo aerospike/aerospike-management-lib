@@ -12,7 +12,6 @@ type AsConfig struct {
 }
 
 func New(log logr.Logger, version string, bconf *Conf) *AsConfig {
-
 	return &AsConfig{
 		version:  version,
 		baseConf: bconf,
