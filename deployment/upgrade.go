@@ -63,7 +63,8 @@ func checkUpgradeJump(fromVersion, toVersion string) error {
 		r1, _ := asconfig.CompareVersionsIgnoreRevision(fromVersion, jumpVer)
 		r2, _ := asconfig.CompareVersionsIgnoreRevision(toVersion, jumpVer)
 		if (r1 < 0 && r2 > 0) || (r2 < 0 && r1 > 0) {
-			return fmt.Errorf("version change not allowed from %s to %s - jump required to version %s", fromVersion, toVersion, jumpVer)
+			return fmt.Errorf("version change not allowed from %s to %s - jump required to version %s",
+				fromVersion, toVersion, jumpVer)
 		}
 	}
 

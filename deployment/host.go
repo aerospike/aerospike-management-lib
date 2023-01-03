@@ -2,6 +2,7 @@ package deployment
 
 import (
 	"fmt"
+
 	"github.com/aerospike/aerospike-management-lib/info"
 	aero "github.com/ashishshinde/aerospike-client-go/v6"
 	"github.com/go-logr/logr"
@@ -28,11 +29,11 @@ func newHost(
 	id string, aerospikePolicy *aero.ClientPolicy, asConn *ASConn,
 ) (*host, error) {
 	nd := host{
-		id:  id,
-		log: asConn.Log,
+		id: id,
 	}
 
 	if asConn != nil {
+		nd.log = asConn.Log
 		nd.asConnInfo = newASConn(aerospikePolicy, asConn)
 	}
 
