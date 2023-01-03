@@ -299,6 +299,41 @@ func containsString(list []string, ele string) bool {
 	return false
 }
 
+func isNodeInRoster(clHost *host, ns string) (bool, error) {
+	nodeID, err := getNodeID(clHost)
+	if err != nil {
+		return false, err
+	}
+
+	rosterNodesMap, err := getRoster(clHost, ns)
+	if err != nil {
+		return false, err
+	}
+
+	clHost.log.Info("Check if node is in roster or not", "nodeID", nodeID, "roster", rosterNodesMap)
+
+	rosterStr := rosterNodesMap[rosterKeyRosterNodes]
+	rosterList := strings.Split(rosterStr, ",")
+
+	for _, roster := range rosterList {
+		rosterNodeID := strings.Split(roster, "@")[0]
+		if nodeID == rosterNodeID {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func getNodeID(clHost *host) (string, error) {
+	cmd := "node"
+	res, err := clHost.asConnInfo.asinfo.RequestInfo(cmd)
+	if err != nil {
+		return "", err
+	}
+
+	return res[cmd], nil
+}
+
 // ParseInfoIntoMap parses info string into a map.
 func ParseInfoIntoMap(str string, del string, sep string) (map[string]string, error) {
 	m := map[string]string{}
