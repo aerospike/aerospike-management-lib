@@ -17,7 +17,7 @@ var (
 	nsKeyStrongConsistency     = "strong-consistency"
 )
 
-func GetAndSetRoster(log logr.Logger, hostConns []*HostConn, policy *as.ClientPolicy, rosterBlockList []string, removedNamespaces []string) error {
+func GetAndSetRoster(log logr.Logger, hostConns []*HostConn, policy *as.ClientPolicy, rosterNodeBlockList []string, removedNamespaces []string) error {
 	log.Info("Check if we need to Get and Set roster for SC namespaces")
 	clHosts, err := getHostsFromHostConns(hostConns, policy)
 	if err != nil {
@@ -51,7 +51,7 @@ func GetAndSetRoster(log logr.Logger, hostConns []*HostConn, policy *as.ClientPo
 				return err
 			}
 
-			isSettingRoster, err := setFilteredRosterNodes(clHost, scNs, rosterNodes, rosterBlockList)
+			isSettingRoster, err := setFilteredRosterNodes(clHost, scNs, rosterNodes, rosterNodeBlockList)
 			if err != nil {
 				return err
 			}
@@ -66,9 +66,9 @@ func GetAndSetRoster(log logr.Logger, hostConns []*HostConn, policy *as.ClientPo
 	return nil
 }
 
-// setFilteredRosterNodes removes the rosterBlockList from observed nodes and sets the roster if needed.
+// setFilteredRosterNodes removes the rosterNodeBlockList from observed nodes and sets the roster if needed.
 // It also returns true if roster is being set and returns false if roster is already set.
-func setFilteredRosterNodes(clHost *host, scNs string, rosterNodes map[string]string, rosterBlockList []string) (bool, error) {
+func setFilteredRosterNodes(clHost *host, scNs string, rosterNodes map[string]string, rosterNodeBlockList []string) (bool, error) {
 	observedNodes := rosterNodes[rosterKeyObservedNodes]
 
 	// Remove blocked node from observed_nodes
@@ -77,12 +77,12 @@ func setFilteredRosterNodes(clHost *host, scNs string, rosterNodes map[string]st
 	for _, obn := range observedNodesList {
 		// nodeRoster := nodeID + "@" + rackID
 		obnNodeID := strings.Split(obn, "@")[0]
-		if !containsString(rosterBlockList, obnNodeID) {
+		if !containsString(rosterNodeBlockList, obnNodeID) {
 			newObservedNodesList = append(newObservedNodesList, obn)
 		}
 	}
 	newObservedNodes := strings.Join(newObservedNodesList, ",")
-	clHost.log.Info("Remove rosterBlockList from observedNodes", "observedNodes", observedNodes, "rosterBlockList", rosterBlockList)
+	clHost.log.Info("Remove rosterNodeBlockList from observedNodes", "observedNodes", observedNodes, "rosterNodeBlockList", rosterNodeBlockList)
 
 	currentRoster := rosterNodes[rosterKeyRosterNodes]
 	if newObservedNodes == currentRoster {
