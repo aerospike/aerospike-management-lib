@@ -21,7 +21,7 @@ type asConnInfo struct {
 	aerospikeHostName string
 	aerospikePort     int
 	aerospikePolicy   *aero.ClientPolicy
-	asinfo            *info.AsInfo
+	asInfo            *info.AsInfo
 }
 
 // newHost creates an aerospike host.
@@ -34,25 +34,25 @@ func newHost(
 
 	if asConn != nil {
 		nd.log = asConn.Log
-		nd.asConnInfo = newASConn(aerospikePolicy, asConn)
+		nd.asConnInfo = newASConnInfo(aerospikePolicy, asConn)
 	}
 
 	return &nd, nil
 }
 
-func newASConn(aerospikePolicy *aero.ClientPolicy, asConn *ASConn) *asConnInfo {
+func newASConnInfo(aerospikePolicy *aero.ClientPolicy, asConn *ASConn) *asConnInfo {
 	h := aero.Host{
 		Name:    asConn.AerospikeHostName,
 		Port:    asConn.AerospikePort,
 		TLSName: asConn.AerospikeTLSName,
 	}
-	asinfo := info.NewAsInfo(asConn.Log, &h, aerospikePolicy)
+	asInfo := info.NewAsInfo(asConn.Log, &h, aerospikePolicy)
 
 	return &asConnInfo{
 		aerospikeHostName: asConn.AerospikeHostName,
 		aerospikePort:     asConn.AerospikePort,
 		aerospikePolicy:   aerospikePolicy,
-		asinfo:            asinfo,
+		asInfo:            asInfo,
 	}
 }
 
@@ -63,8 +63,8 @@ func (n *host) String() string {
 // Close closes all the open connections of the host.
 func (n *host) Close() error {
 	var err error
-	if n.asConnInfo.asinfo != nil {
-		if e := n.asConnInfo.asinfo.Close(); e != nil {
+	if n.asConnInfo.asInfo != nil {
+		if e := n.asConnInfo.asInfo.Close(); e != nil {
 			err = e
 		}
 	}

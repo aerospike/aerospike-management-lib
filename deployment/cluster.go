@@ -214,7 +214,7 @@ func (c *cluster) InfoQuiesce(hostsToBeQuiesced, hostIDs, removedNamespaces []st
 
 		lg.V(1).Info("Running quiesce command `quiesce:`")
 
-		res, err := n.asConnInfo.asinfo.RequestInfo("quiesce:")
+		res, err := n.asConnInfo.asInfo.RequestInfo("quiesce:")
 		if err != nil {
 			return err
 		}
@@ -231,6 +231,7 @@ func (c *cluster) InfoQuiesce(hostsToBeQuiesced, hostIDs, removedNamespaces []st
 			if err != nil {
 				return err
 			}
+
 			if skipInfoQuiesceCheck {
 				continue
 			}
@@ -263,6 +264,7 @@ func (c *cluster) InfoQuiesce(hostsToBeQuiesced, hostIDs, removedNamespaces []st
 					time.Sleep(2 * time.Second)
 					continue
 				}
+
 				lg.V(1).Info(
 					"Verifying pending_quiesce passed on node",
 					"pending_quiesce", pendingQuiesce, "host", hostID, "ns", namespaces[index],
@@ -298,6 +300,7 @@ func (c *cluster) InfoQuiesce(hostsToBeQuiesced, hostIDs, removedNamespaces []st
 			if err != nil {
 				return err
 			}
+
 			if skipInfoQuiesceCheck {
 				continue
 			}
@@ -358,10 +361,11 @@ func (c *cluster) InfoQuiesce(hostsToBeQuiesced, hostIDs, removedNamespaces []st
 					time.Sleep(2 * time.Second)
 					continue
 				}
+
 				lg.V(1).Info(
 					"Verifying nodes_quiesced passed on node, ",
-					"nodes_quiesced", nodesQuiesced, "host", hostID, "ns", namespaces[index],
-				)
+					"nodes_quiesced", nodesQuiesced, "host", hostID, "ns", namespaces[index])
+
 				passed = true
 				break
 			}
@@ -437,15 +441,18 @@ func (c *cluster) skipInfoQuiesceCheck(host *host, ns string, removedNamespaceMa
 	if err != nil {
 		return false, err
 	}
+
 	isNamespaceSCEnabled, err := isNamespaceSCEnabled(host, ns)
 	if err != nil {
 		return false, err
 	}
 
 	if !isNodeInRoster && isNamespaceSCEnabled {
-		lg.V(1).Info("Skip quiesce verification for given node and namespace. Node is not in roster and namespace is sc enabled")
+		lg.V(1).Info("Skip quiesce verification for given node and " +
+			"namespace. Node is not in roster and namespace is sc enabled")
 		return true, nil
 	}
+
 	return false, nil
 }
 
@@ -589,7 +596,7 @@ func (c *cluster) InfoQuiesceUndo(hostIDs []string) error {
 
 		nodeLg.V(-1).Info("Running undo quiesce command `quiesce-undo:`")
 
-		res, err := n.asConnInfo.asinfo.RequestInfo("quiesce-undo:")
+		res, err := n.asConnInfo.asInfo.RequestInfo("quiesce-undo:")
 		if err != nil {
 			return err
 		}
@@ -640,7 +647,7 @@ func (c *cluster) infoCmd(hostID, cmd string) (map[string]string, error) {
 	}
 
 	n.log.V(1).Info("Running aerospike InfoCmd")
-	info, err := n.asConnInfo.asinfo.RequestInfo(cmd)
+	info, err := n.asConnInfo.asInfo.RequestInfo(cmd)
 	n.log.V(1).Info("Finished running InfoCmd", "err", err)
 
 	if err != nil {
@@ -706,6 +713,37 @@ func (c *cluster) infoCmdsOnHosts(hostIDCmdMap map[string]string) (
 		)
 	}
 	return infos, nil
+}
+
+func (c *cluster) setMigrateFillDelay(migrateFillDelay int, hosts []*HostConn) error {
+
+	log := c.log.WithValues("nodes", hosts)
+	log.V(1).Info("Running setMigrateFillDelay")
+
+	cmd := fmt.Sprintf("set-config:context=service;migrate-fill-delay=%d", migrateFillDelay)
+
+	infoResults, err := c.infoOnHosts(getHostIDsFromHostConns(hosts), cmd)
+	if err != nil {
+		return err
+	}
+
+	for id, info := range infoResults {
+
+		output, err := info.toString(cmd)
+		if err != nil {
+			return fmt.Errorf(
+				"failed to execute set-config migrate-fill-delay command on node %s: %v", id, err)
+		}
+
+		if strings.ToLower(output) != "ok" {
+			return fmt.Errorf("failed to execute set-config migrate-fill-delay"+
+				" command on node %s: %v", id, output)
+		}
+	}
+
+	log.V(1).Info("Finished running setMigrateFillDelay")
+
+	return err
 }
 
 func (c *cluster) findHost(hostID string) (*host, error) {
