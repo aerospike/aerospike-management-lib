@@ -2,6 +2,7 @@ package deployment
 
 import (
 	"fmt"
+	as "github.com/ashishshinde/aerospike-client-go/v6"
 	"strconv"
 	"strings"
 )
@@ -66,10 +67,22 @@ func parseInfo(info map[string]string) map[string]string {
 	return m
 }
 
-func getHostIDsFromHostConns(allHosts []*HostConn) []string {
+func getHostIDsFromHostConns(hostConns []*HostConn) []string {
 	var hostIDs []string
-	for _, hc := range allHosts {
+	for _, hc := range hostConns {
 		hostIDs = append(hostIDs, hc.ID)
 	}
 	return hostIDs
+}
+
+func getHostsFromHostConns(hostConns []*HostConn, policy *as.ClientPolicy) ([]*host, error) {
+	var hosts []*host
+	for i := range hostConns {
+		host, err := hostConns[i].toHost(policy)
+		if err != nil {
+			return nil, err
+		}
+		hosts = append(hosts, host)
+	}
+	return hosts, nil
 }
