@@ -244,7 +244,7 @@ func recluster(clHost *host) error {
 
 	clHost.log.V(1).Info("Run info command", "cmd", cmd, "output", cmdOutput)
 
-	if strings.EqualFold(cmdOutput, "ok") && !strings.EqualFold(cmdOutput, "ignored-by-non-principal") {
+	if !strings.EqualFold(cmdOutput, "ok") && !strings.EqualFold(cmdOutput, "ignored-by-non-principal") {
 		return fmt.Errorf("failed to run `%s` for cluster, %v", cmd, cmdOutput)
 	}
 

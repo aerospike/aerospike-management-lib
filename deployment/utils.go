@@ -20,6 +20,7 @@ func (ir infoResult) toInt(key string) (int, error) {
 	if err != nil {
 		return 0, fmt.Errorf("failed to convert key %q to int: %v", key, err)
 	}
+
 	return n, nil
 }
 
@@ -28,6 +29,7 @@ func (ir infoResult) toString(key string) (string, error) {
 	if !ok {
 		return "", fmt.Errorf("field %s missing", key)
 	}
+
 	return val, nil
 }
 
@@ -41,12 +43,14 @@ func (ir infoResult) toBool(key string) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("failed to convert key %q to bool: %v", key, err)
 	}
+
 	return b, nil
 }
 
 // parseInfo parses the output of an info command
 func parseInfo(info map[string]string) map[string]string {
 	m := make(map[string]string)
+
 	for k, v := range info {
 		if strings.Contains(v, ";") {
 			all := strings.Split(v, ";")
@@ -65,14 +69,17 @@ func parseInfo(info map[string]string) map[string]string {
 			m[k] = v
 		}
 	}
+
 	return m
 }
 
 func getHostIDsFromHostConns(hostConns []*HostConn) []string {
 	var hostIDs []string
+
 	for _, hc := range hostConns {
 		hostIDs = append(hostIDs, hc.ID)
 	}
+
 	return hostIDs
 }
 
@@ -85,7 +92,7 @@ func getHostsFromHostConns(hostConns []*HostConn, policy *as.ClientPolicy) ([]*h
 			return nil, err
 		}
 
-		hosts = append(hosts, host)
+		hosts[i] = host
 	}
 
 	return hosts, nil
