@@ -43,3 +43,13 @@ func SetMigrateFillDelay(log logr.Logger, policy *aero.ClientPolicy, allHosts []
 
 	return c.setMigrateFillDelay(migrateFillDelay, allHosts)
 }
+
+// GetClusterNamespaces gets the cluster namespaces
+func GetClusterNamespaces(log logr.Logger, policy *aero.ClientPolicy, allHosts []*HostConn) (map[string][]string, error) {
+	c, err := newCluster(log, policy, allHosts, allHosts, false, false)
+	if err != nil {
+		return nil, fmt.Errorf("unable to create a cluster copy for running aeroinfo: %v", err)
+	}
+
+	return c.getClusterNamespaces(getHostIDsFromHostConns(allHosts))
+}
