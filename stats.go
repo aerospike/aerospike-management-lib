@@ -9,8 +9,8 @@ import (
 	"github.com/qdm12/reprint"
 )
 
-const NOT_SUPPORTED = "N/S"
-const NOT_AVAILABLE = "N/A"
+const NotSupported = "N/S"
+const NotAvailable = "N/A"
 
 type Stats map[string]interface{}
 
@@ -21,19 +21,23 @@ func NewStats() Stats {
 
 func ToStats(inMap interface{}) Stats {
 	outMap := Stats{}
-	if m, ok := inMap.(map[string]Stats); ok {
-		for k, v := range m {
+
+	switch val := inMap.(type) {
+	case map[string]Stats:
+		for k, v := range val {
 			outMap[k] = v
 		}
-	} else if m, ok := inMap.(map[string]map[string]Stats); ok {
-		for k1, mv1 := range m {
+	case map[string]map[string]Stats:
+		for k1, mv1 := range val {
 			outMv := Stats{}
 			for k2, v2 := range mv1 {
 				outMv[k2] = v2
 			}
+
 			outMap[k1] = outMv
 		}
 	}
+
 	return outMap
 }
 
@@ -62,26 +66,32 @@ func (s Stats) Len() int {
 
 func (s Stats) Clone() Stats {
 	res := make(Stats, len(s))
+
 	for k, v := range s {
 		res[k] = v
 	}
+
 	return res
 }
 
 func (s Stats) FindKeysPath(del string, keys ...string) map[string][]string {
 	paths := map[string][]string{}
+
 	for _, key := range keys {
 		l := s.FindKeyPath(del, key)
 		paths[key] = l
 	}
+
 	return paths
 }
 
 func (s Stats) FindKeyPath(del, key string) []string {
 	var pathList []string
+
 	if del == "" {
 		del = "/"
 	}
+
 	for skey, sval := range s {
 		if key == skey {
 			pathList = append(pathList, key)
@@ -93,6 +103,7 @@ func (s Stats) FindKeyPath(del, key string) []string {
 			}
 		}
 	}
+
 	return pathList
 }
 
@@ -108,6 +119,7 @@ func (s Stats) AggregateStats(other Stats) {
 
 func (s Stats) ToStringValues() map[string]interface{} {
 	res := make(map[string]interface{}, len(s))
+
 	for k, v := range s {
 		sv, err := ToString(v)
 		if err != nil {
@@ -116,6 +128,7 @@ func (s Stats) ToStringValues() map[string]interface{} {
 			res[k] = v
 		}
 	}
+
 	return res
 }
 
@@ -140,11 +153,12 @@ func (s Stats) ExistsGet(name string) (interface{}, bool) {
 
 func (s Stats) GetMulti(names ...string) Stats {
 	res := make(Stats, len(names))
+
 	for _, name := range names {
 		if val, exists := s[name]; exists {
 			res[name] = val
 		} else {
-			res[name] = NOT_AVAILABLE
+			res[name] = NotAvailable
 		}
 	}
 
@@ -165,10 +179,12 @@ func (s Stats) TryInt(name string, defValue int64, aliases ...string) int64 {
 		if value, ok := field.(int64); ok {
 			return value
 		}
+
 		if value, ok := field.(float64); ok {
 			return int64(value)
 		}
 	}
+
 	return defValue
 }
 
@@ -189,10 +205,12 @@ func (s Stats) TryFloat(
 		if value, ok := field.(float64); ok {
 			return value
 		}
+
 		if value, ok := field.(int64); ok {
 			return float64(value)
 		}
 	}
+
 	return defValue
 }
 
@@ -208,6 +226,7 @@ func (s Stats) TryString(
 			return value
 		}
 	}
+
 	return defValue
 }
 
@@ -221,6 +240,7 @@ func (s Stats) TryStringP(
 		s := field.(string)
 		return &s
 	}
+
 	return &defValue
 }
 
@@ -231,6 +251,7 @@ func (s Stats) TryList(name string, aliases ...string) []string {
 			return value
 		}
 	}
+
 	return nil
 }
 
@@ -241,6 +262,7 @@ func (s Stats) TryStats(name string, aliases ...string) Stats {
 			return value
 		}
 	}
+
 	return nil
 }
 
@@ -251,11 +273,13 @@ func (s Stats) TryStatsList(name string, aliases ...string) []Stats {
 			return value
 		}
 	}
+
 	return nil
 }
 
 func (s Stats) Flatten(sep string) Stats {
 	res := make(Stats, len(s))
+
 	for k, v := range s {
 		switch v := v.(type) {
 		case map[string]interface{}:
@@ -303,6 +327,7 @@ func (s Stats) ToParsedValues() map[string]interface{} {
 			res[k] = val
 			continue
 		}
+
 		if value, err := strconv.ParseInt(valStr, 10, 64); err == nil {
 			res[k] = value
 		} else if value, err := strconv.ParseFloat(valStr, 64); err == nil {
@@ -336,6 +361,7 @@ func (s Stats) GetInnerVal(keys ...string) Stats {
 			return nil
 		}
 	}
+
 	return temp
 }
 
@@ -377,6 +403,7 @@ func (s *SyncStats) Exists(name string) bool {
 	defer s.mutex.RUnlock()
 
 	_, exists := s._Stats[name]
+
 	return exists
 }
 
@@ -505,11 +532,9 @@ func (by StatsBy) SortReverse(fieldName string, statsList []Stats) {
 
 // statsSorter joins a StatsBy function and a slice of statsList to be sorted.
 type statsSorter struct {
+	by        func(fieldName string, p1, p2 Stats) bool // Closure used in the Less method.
 	fieldName string
 	statsList []Stats
-	by        func(
-		fieldName string, p1, p2 Stats,
-	) bool // Closure used in the Less method.
 }
 
 // Len is part of sort.Interface.
@@ -535,6 +560,7 @@ func addValues(v1, v2 interface{}) interface{} {
 			res := Stats{}
 			res.AggregateStats(v1S)
 			res.AggregateStats(v2S)
+
 			return res
 		}
 	}
@@ -580,12 +606,14 @@ func (s Stats) GetRaw(keys ...string) interface{} {
 			return d[k]
 		}
 	}
+
 	return d
 }
 
 // DeepClone CopyMap(map)
 func (s Stats) DeepClone() Stats {
 	var result = make(Stats)
+
 	for k := range s {
 		v := s[k]
 		switch v := v.(type) {
@@ -595,6 +623,7 @@ func (s Stats) DeepClone() Stats {
 			result[k] = v.(Stats).DeepClone()
 		}
 	}
+
 	return result
 }
 
@@ -633,12 +662,14 @@ func ToStatsDeep(input Stats) Stats {
 			for _, i := range v {
 				list = append(list, ToStatsDeep(i))
 			}
+
 			result[k] = list
 		case []map[string]interface{}:
 			list := make([]Stats, 0, len(v))
 			for _, i := range v {
 				list = append(list, ToStatsDeep(i))
 			}
+
 			result[k] = list
 		case []interface{}:
 			list := make([]interface{}, 0, len(v))
@@ -653,7 +684,9 @@ func ToStatsDeep(input Stats) Stats {
 					list = append(list, i)
 				}
 			}
+
 			result[k] = list
+
 		default:
 			result[k] = v
 		}

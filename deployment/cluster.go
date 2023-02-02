@@ -7,17 +7,17 @@ import (
 	"sync"
 	"time"
 
-	aero "github.com/ashishshinde/aerospike-client-go/v6"
 	"github.com/go-logr/logr"
+
+	aero "github.com/ashishshinde/aerospike-client-go/v6"
 )
+
+const trueString = "true"
 
 // cluster represents an aerospike cluster
 type cluster struct {
 	allHosts      map[string]*host // all cluster hosts
 	selectedHosts map[string]*host // hosts on which script will work
-
-	aerospikeHasTLS      bool // whether aerospike server requires tls authentication
-	useServicesAlternate bool // whether aerospike connection uses alternate addresses
 
 	log logr.Logger
 }
@@ -25,8 +25,10 @@ type cluster struct {
 func getHosts(policy *aero.ClientPolicy, conns []*HostConn) (
 	map[string]*host, error,
 ) {
-	var err error
-	var nd *host
+	var (
+		err error
+		nd  *host
+	)
 
 	hosts := make(map[string]*host)
 
@@ -34,43 +36,44 @@ func getHosts(policy *aero.ClientPolicy, conns []*HostConn) (
 		nd, err = conn.toHost(policy)
 		if err != nil {
 			err = fmt.Errorf(
-				"failed to create info/conn object for running"+
-					" deployment script for host %s: %v",
-				conn.ASConn.AerospikeHostName, err,
-			)
+				"failed to create info/conn object for running deployment script for host %s: %v",
+				conn.ASConn.AerospikeHostName, err)
+
 			break
 		}
+
 		hosts[nd.id] = nd
 	}
+
 	if err != nil {
 		for _, n := range hosts {
 			_ = n.Close()
 		}
+
 		return nil, err
 	}
+
 	return hosts, nil
 }
 
 // NewCluster returns a new cluster for the hosts
-func newCluster(
-	log logr.Logger, policy *aero.ClientPolicy, allConns []*HostConn,
-	operableConns []*HostConn, aerospikeHasTLS, useServicesAlternate bool,
-) (*cluster, error) {
+func newCluster(log logr.Logger, policy *aero.ClientPolicy, allConns, operableConns []*HostConn) (*cluster, error) {
 	allHosts, err := getHosts(policy, allConns)
 	if err != nil {
 		return nil, err
 	}
+
 	selectedHosts, err := getHosts(policy, operableConns)
 	if err != nil {
 		return nil, err
 	}
+
 	c := cluster{
-		allHosts:             allHosts,
-		selectedHosts:        selectedHosts,
-		aerospikeHasTLS:      aerospikeHasTLS,
-		useServicesAlternate: useServicesAlternate,
-		log:                  log,
+		allHosts:      allHosts,
+		selectedHosts: selectedHosts,
+		log:           log,
 	}
+
 	return &c, nil
 }
 
@@ -83,6 +86,7 @@ func (c *cluster) close() {
 			)
 		}
 	}
+
 	for _, nd := range c.selectedHosts {
 		if err := nd.Close(); err != nil {
 			c.log.V(1).Info(
@@ -106,7 +110,9 @@ func (c *cluster) IsClusterAndStable(hostIDs []string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
+
 	clusterKeys := make(map[string]bool) // set of all cluster keys
+
 	for id, info := range stats {
 		key, err := info.toString("cluster_key")
 		if err != nil {
@@ -123,19 +129,23 @@ func (c *cluster) IsClusterAndStable(hostIDs []string) (bool, error) {
 				"failed to fetch cluster_size on host %s: %v", id, err,
 			)
 		}
+
 		if size != len(hostIDs) {
 			c.log.V(1).Info(
 				"Cluster size not equal", "infoSize", size, "desiredSize",
 				len(hostIDs),
 			)
+
 			return false, nil
 		}
+
 		allowed, err := info.toBool("migrate_allowed")
 		if err != nil {
 			return false, fmt.Errorf(
 				"failed to fetch migrate_allowed on host %s: %v", id, err,
 			)
 		}
+
 		if !allowed {
 			c.log.V(1).Info("Cluster not stable, migration not allowed")
 			return false, nil
@@ -147,6 +157,7 @@ func (c *cluster) IsClusterAndStable(hostIDs []string) (bool, error) {
 				"failed to fetch cluster_integrity on host %s: %v", id, err,
 			)
 		}
+
 		if !integrity {
 			c.log.V(1).Info("Cluster not stable, cluster integrity false")
 			return false, nil
@@ -159,11 +170,13 @@ func (c *cluster) IsClusterAndStable(hostIDs []string) (bool, error) {
 				id, err,
 			)
 		}
+
 		if remaining > 0 {
 			c.log.V(1).Info(
 				"Cluster not stable, migrate partitions remaining",
 				"remaining", remaining,
 			)
+
 			return false, nil
 		}
 	}
@@ -173,6 +186,7 @@ func (c *cluster) IsClusterAndStable(hostIDs []string) (bool, error) {
 	}
 
 	lg.V(1).Info("Finished running IsClusterAndStable")
+
 	return true, nil
 }
 
@@ -183,11 +197,8 @@ func (c *cluster) InfoQuiesce(hostsToBeQuiesced, hostIDs, removedNamespaces []st
 	lg.V(1).Info("Running InfoQuiesce")
 
 	if len(hostIDs) < 2 {
-		lg.V(1).Info(
-			fmt.Sprintf(
-				"Skipping quiesce: cluster size %d", len(hostIDs),
-			),
-		)
+		lg.V(1).Info(fmt.Sprintf("Skipping quiesce: cluster size %d", len(hostIDs)))
+
 		return nil
 	}
 
@@ -196,6 +207,7 @@ func (c *cluster) InfoQuiesce(hostsToBeQuiesced, hostIDs, removedNamespaces []st
 	}
 
 	lg.V(1).Info("Fetching namespace names")
+
 	nodesNamespaces, err := c.getClusterNamespaces(hostsToBeQuiesced)
 	if err != nil {
 		return err
@@ -218,6 +230,7 @@ func (c *cluster) InfoQuiesce(hostsToBeQuiesced, hostIDs, removedNamespaces []st
 		if err != nil {
 			return err
 		}
+
 		if strings.Contains(strings.ToLower(res["quiesce:"]), "error") {
 			return fmt.Errorf("running quiesce command failed: %v", res["quiesce:"])
 		}
@@ -242,11 +255,14 @@ func (c *cluster) InfoQuiesce(hostsToBeQuiesced, hostIDs, removedNamespaces []st
 				)
 
 				cmd := fmt.Sprintf("namespace/%s", namespaces[index])
+
 				info, err := c.infoCmd(hostID, cmd)
 				if err != nil {
 					return err
 				}
+
 				key := "pending_quiesce"
+
 				pendingQuiesce, ok := info[key]
 				if !ok {
 					return fmt.Errorf(
@@ -255,13 +271,14 @@ func (c *cluster) InfoQuiesce(hostsToBeQuiesced, hostIDs, removedNamespaces []st
 					)
 				}
 
-				if pendingQuiesce != "true" {
+				if pendingQuiesce != trueString {
 					lg.V(1).Info(
 						"Verifying pending_quiesce failed on node, "+
 							"should be true",
 						"pending_quiesce", pendingQuiesce, "host", hostID, "ns", namespaces[index],
 					)
 					time.Sleep(2 * time.Second)
+
 					continue
 				}
 
@@ -269,9 +286,12 @@ func (c *cluster) InfoQuiesce(hostsToBeQuiesced, hostIDs, removedNamespaces []st
 					"Verifying pending_quiesce passed on node",
 					"pending_quiesce", pendingQuiesce, "host", hostID, "ns", namespaces[index],
 				)
+
 				passed = true
+
 				break
 			}
+
 			if !passed {
 				return fmt.Errorf(
 					"pending_quiesce verification failed on node %s, namespace %s",
@@ -311,12 +331,14 @@ func (c *cluster) InfoQuiesce(hostsToBeQuiesced, hostIDs, removedNamespaces []st
 				)
 
 				cmd := fmt.Sprintf("namespace/%s", namespaces[index])
+
 				info, err := c.infoCmd(hostID, cmd)
 				if err != nil {
 					return err
 				}
 
 				key := "effective_is_quiesced"
+
 				effectiveIsQuiesced, ok := info[key]
 				if !ok {
 					return fmt.Errorf(
@@ -325,7 +347,7 @@ func (c *cluster) InfoQuiesce(hostsToBeQuiesced, hostIDs, removedNamespaces []st
 					)
 				}
 
-				if effectiveIsQuiesced != "true" {
+				if effectiveIsQuiesced != trueString {
 					lg.V(1).Info(
 						"Verifying effective_is_quiesced failed on node,"+
 							" should be true",
@@ -333,10 +355,12 @@ func (c *cluster) InfoQuiesce(hostsToBeQuiesced, hostIDs, removedNamespaces []st
 						hostID, "ns", namespaces[index],
 					)
 					time.Sleep(2 * time.Second)
+
 					continue
 				}
 
 				key = "nodes_quiesced"
+
 				nodesQuiescedStr, ok := info[key]
 				if !ok {
 					return fmt.Errorf(
@@ -359,6 +383,7 @@ func (c *cluster) InfoQuiesce(hostsToBeQuiesced, hostIDs, removedNamespaces []st
 						"nodes_quiesced", nodesQuiesced, "host", hostID, "ns", namespaces[index],
 					)
 					time.Sleep(2 * time.Second)
+
 					continue
 				}
 
@@ -367,8 +392,10 @@ func (c *cluster) InfoQuiesce(hostsToBeQuiesced, hostIDs, removedNamespaces []st
 					"nodes_quiesced", nodesQuiesced, "host", hostID, "ns", namespaces[index])
 
 				passed = true
+
 				break
 			}
+
 			if !passed {
 				return fmt.Errorf(
 					"effective_is_quiesced or nodes_quiesced verification failed on node %s, namespace %s",
@@ -464,12 +491,14 @@ func (c *cluster) infoClusterStable(hostIDs []string) error {
 	cmd := fmt.Sprintf(
 		"cluster-stable:size=%d;ignore-migrations=no", len(hostIDs),
 	)
+
 	infoResults, err := c.infoOnHosts(hostIDs, cmd)
 	if err != nil {
 		return err
 	}
 
 	clusterKey := ""
+
 	for id, info := range infoResults {
 		ck, err := info.toString(cmd)
 		if err != nil {
@@ -495,6 +524,7 @@ func (c *cluster) infoClusterStable(hostIDs []string) error {
 			return fmt.Errorf("node %s not part of the cluster", id)
 		}
 	}
+
 	return nil
 }
 
@@ -529,7 +559,7 @@ func (c *cluster) getQuiescedNodes(hostIDs []string) ([]string, error) {
 			)
 		}
 
-		if nodesQuiesced == "true" {
+		if nodesQuiesced == trueString {
 			quiescedNodes = append(quiescedNodes, hostID)
 		}
 	}
@@ -541,12 +571,14 @@ func (c *cluster) getClusterNamespaces(hostIDs []string) (
 	map[string][]string, error,
 ) {
 	cmd := "namespaces"
+
 	infoResults, err := c.infoOnHosts(hostIDs, cmd)
 	if err != nil {
 		return nil, err
 	}
 
 	namespaces := map[string][]string{}
+
 	for hostID, info := range infoResults {
 		if len(info["namespaces"]) > 0 {
 			namespaces[hostID] = strings.Split(info["namespaces"], ";")
@@ -600,13 +632,14 @@ func (c *cluster) InfoQuiesceUndo(hostIDs []string) error {
 		if err != nil {
 			return err
 		}
+
+		// TODO: Do we need to check any stats to verify undo?
 		if strings.Contains(strings.ToLower(res["quiesce-undo:"]), "error") {
 			return fmt.Errorf(
 				"running quiesce command failed: %v",
 				res["quiesce-undo:"],
 			)
 		}
-		// TODO: Do we need to check any stats to verify undo?
 	}
 
 	return c.infoRecluster(hostIDs)
@@ -618,12 +651,14 @@ func (c *cluster) infoRecluster(hostIDs []string) error {
 	lg.V(1).Info("Running recluster command")
 
 	cmd := "recluster:"
+
 	infoResults, err := c.infoOnHosts(hostIDs, cmd)
 	if err != nil {
 		return err
 	}
 
 	found := false
+
 	for _, info := range infoResults {
 		r, _ := info.toString(cmd)
 		if r == "ok" {
@@ -631,11 +666,13 @@ func (c *cluster) infoRecluster(hostIDs []string) error {
 			break
 		}
 	}
+
 	if !found {
 		return fmt.Errorf("failed to execute recluster command: no response from principle node")
 	}
 
 	lg.V(1).Info("Finished running recluster")
+
 	return nil
 }
 
@@ -653,6 +690,7 @@ func (c *cluster) infoCmd(hostID, cmd string) (map[string]string, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	return parseInfo(info), nil
 }
 
@@ -662,19 +700,26 @@ func (c *cluster) infoOnHosts(
 ) (map[string]infoResult, error) {
 	infos := make(map[string]infoResult) // host id to info output
 
-	var mut sync.Mutex
-	var wg sync.WaitGroup
+	var (
+		mut sync.Mutex
+		wg  sync.WaitGroup
+	)
+
 	wg.Add(len(hostIDs))
+
 	for _, id := range hostIDs {
 		go func(hostID string, wg *sync.WaitGroup) {
 			defer wg.Done()
+
 			if info, err := c.infoCmd(hostID, cmd); err == nil {
 				mut.Lock()
 				defer mut.Unlock()
+
 				infos[hostID] = info
 			}
 		}(id, &wg)
 	}
+
 	wg.Wait()
 
 	if len(infos) != len(hostIDs) {
@@ -683,6 +728,7 @@ func (c *cluster) infoOnHosts(
 			hostIDs,
 		)
 	}
+
 	return infos, nil
 }
 
@@ -692,19 +738,26 @@ func (c *cluster) infoCmdsOnHosts(hostIDCmdMap map[string]string) (
 ) {
 	infos := make(map[string]infoResult) // host id to info output
 
-	var mut sync.Mutex
-	var wg sync.WaitGroup
+	var (
+		mut sync.Mutex
+		wg  sync.WaitGroup
+	)
+
 	wg.Add(len(hostIDCmdMap))
+
 	for hostID, cmd := range hostIDCmdMap {
 		go func(hostID string, cmd string, wg *sync.WaitGroup) {
 			defer wg.Done()
+
 			if info, err := c.infoCmd(hostID, cmd); err == nil {
 				mut.Lock()
 				defer mut.Unlock()
+
 				infos[hostID] = info
 			}
 		}(hostID, cmd, &wg)
 	}
+
 	wg.Wait()
 
 	if len(infos) != len(hostIDCmdMap) {
@@ -712,30 +765,29 @@ func (c *cluster) infoCmdsOnHosts(hostIDCmdMap map[string]string) (
 			"failed to fetch aerospike info for all hosts %v", hostIDCmdMap,
 		)
 	}
+
 	return infos, nil
 }
 
 func (c *cluster) setMigrateFillDelay(migrateFillDelay int, hosts []*HostConn) error {
-
 	log := c.log.WithValues("nodes", hosts)
 	log.V(1).Info("Running setMigrateFillDelay")
 
 	cmd := fmt.Sprintf("set-config:context=service;migrate-fill-delay=%d", migrateFillDelay)
 
-	infoResults, err := c.infoOnHosts(getHostIDsFromHostConns(hosts), cmd)
-	if err != nil {
-		return err
+	infoResults, iErr := c.infoOnHosts(getHostIDsFromHostConns(hosts), cmd)
+	if iErr != nil {
+		return iErr
 	}
 
 	for id, info := range infoResults {
-
 		output, err := info.toString(cmd)
 		if err != nil {
 			return fmt.Errorf(
 				"failed to execute set-config migrate-fill-delay command on node %s: %v", id, err)
 		}
 
-		if strings.ToLower(output) != "ok" {
+		if !strings.EqualFold(output, "ok") {
 			return fmt.Errorf("failed to execute set-config migrate-fill-delay"+
 				" command on node %s: %v", id, output)
 		}
@@ -743,7 +795,7 @@ func (c *cluster) setMigrateFillDelay(migrateFillDelay int, hosts []*HostConn) e
 
 	log.V(1).Info("Finished running setMigrateFillDelay")
 
-	return err
+	return nil
 }
 
 func (c *cluster) findHost(hostID string) (*host, error) {
@@ -751,5 +803,6 @@ func (c *cluster) findHost(hostID string) (*host, error) {
 	if !ok {
 		return nil, fmt.Errorf("failed to find host %s", hostID)
 	}
+
 	return n, nil
 }

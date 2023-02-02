@@ -27,6 +27,7 @@ var dynRegex = regexp.MustCompile("(.*).dynamic$")
 // schemaDir is the path to directory having the aerospike config schemas.
 func Init(log logr.Logger, schemaDir string) error {
 	log.V(1).Info("Config schema dir", "dir", schemaDir)
+
 	schemas = make(map[string]string)
 
 	fileInfo, err := os.ReadDir(schemaDir)
@@ -50,6 +51,7 @@ func Init(log logr.Logger, schemaDir string) error {
 		}
 
 		schemas[versionFormat(file.Name())] = string(schema)
+
 		log.V(1).Info("Config schema added", "version", versionFormat(file.Name()))
 	}
 
@@ -61,8 +63,10 @@ func Init(log logr.Logger, schemaDir string) error {
 // Map value format -> string of json schema
 func InitFromMap(log logr.Logger, schemaMap map[string]string) {
 	schemas = make(map[string]string)
+
 	for name, schema := range schemaMap {
 		log.V(1).Info("Config schema added", "version", name)
+
 		schemas[name] = schema
 	}
 }
@@ -120,6 +124,7 @@ func baseVersion(ver string) (string, error) {
 	if baseVersion == "" {
 		return baseVersion, fmt.Errorf("invalid version")
 	}
+
 	return baseVersion, nil
 }
 
@@ -134,10 +139,10 @@ func getDynamic(ver string) (map[string]bool, error) {
 	dynMap := make(map[string]bool)
 
 	for k, v := range flatSchema {
-		switch {
-		case dynRegex.MatchString(k):
+		if dynRegex.MatchString(k) {
 			key := removeJSONSpecKeywords(k)
 			key = dynRegex.ReplaceAllString(key, "${1}")
+
 			if dyn, ok := v.(bool); ok {
 				dynMap[key] = dyn
 			} else {
@@ -160,8 +165,7 @@ func getDefault(ver string) (map[string]interface{}, error) {
 	defMap := make(map[string]interface{})
 
 	for k, v := range flatSchema {
-		switch {
-		case defRegex.MatchString(k):
+		if defRegex.MatchString(k) {
 			key := removeJSONSpecKeywords(k)
 			key = defRegex.ReplaceAllString(key, "${1}")
 			defMap[key] = eval(v)
@@ -173,6 +177,7 @@ func getDefault(ver string) (map[string]interface{}, error) {
 
 func flattenSchema(input map[string]interface{}, sep string) map[string]interface{} {
 	res := make(map[string]interface{}, len(input))
+
 	for k, v := range input {
 		switch v := v.(type) {
 		case map[string]interface{}:
@@ -190,6 +195,7 @@ func flattenSchema(input map[string]interface{}, sep string) map[string]interfac
 						for k3, v3 := range flattenSchema(v2, sep) {
 							res[k+sep+fmt.Sprintf("%d", i)+sep+k3] = v3
 						}
+
 					default:
 						res[k] = v
 					}
@@ -215,6 +221,7 @@ func flattenSchema(input map[string]interface{}, sep string) map[string]interfac
 			res[k] = v
 		}
 	}
+
 	return res
 }
 
@@ -224,6 +231,7 @@ func removeJSONSpecKeywords(key string) string {
 	key = strings.ReplaceAll(key, "properties.", "")
 	key = strings.ReplaceAll(key, ".oneOf.1", "")
 	key = strings.ReplaceAll(key, ".oneOf.0", "")
+
 	return key
 }
 
@@ -235,6 +243,7 @@ func eval(v interface{}) interface{} {
 		for i := range v {
 			strList = append(strList, v[i].(string))
 		}
+
 		return strList
 	default:
 		return v
@@ -250,25 +259,12 @@ func getFlatSchema(ver string) (map[string]interface{}, error) {
 	schema := make(map[string]interface{})
 	d := json.NewDecoder(strings.NewReader(schemaJSON))
 	d.UseNumber()
+
 	if err := d.Decode(&schema); err != nil {
 		return nil, err
 	}
 
 	return flattenSchema(schema, sep), nil
-}
-
-func isPost315(ver string) bool {
-	return gtEqVersion(ver, "3.15.0.0")
-}
-
-func isPre315(ver string) bool {
-	ver, err := baseVersion(ver)
-	if err != nil {
-		// FIXME
-	}
-
-	gt := gtEqVersion("3.14.0.0", ver)
-	return gt
 }
 
 func gtEqVersion(v1, v2 string) bool {
@@ -279,9 +275,11 @@ func gtEqVersion(v1, v2 string) bool {
 	for len(s1) > len(s2) {
 		s2 = append(s2, "0")
 	}
+
 	for len(s2) > len(s1) {
 		s1 = append(s1, "0")
 	}
+
 	loop := len(s1)
 
 	for i := 0; i < loop; i++ {

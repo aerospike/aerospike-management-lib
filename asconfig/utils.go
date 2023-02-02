@@ -15,8 +15,9 @@ import (
 	"strconv"
 	"strings"
 
-	lib "github.com/aerospike/aerospike-management-lib"
 	"github.com/go-logr/logr"
+
+	lib "github.com/aerospike/aerospike-management-lib"
 )
 
 type sysproptype string
@@ -47,12 +48,16 @@ func deHumanizeTime(val string) (uint64, error) {
 	switch endswith {
 	case 's', 'S':
 		multiplier = 1
+
 	case 'm', 'M':
 		multiplier = 60
+
 	case 'h', 'H':
 		multiplier = 60 * 60
+
 	case 'd', 'D':
 		multiplier = 24 * 60 * 60
+
 	default:
 		return strconv.ParseUint(val, 10, 64)
 	}
@@ -61,7 +66,9 @@ func deHumanizeTime(val string) (uint64, error) {
 	if err != nil {
 		return n, err
 	}
+
 	n *= multiplier
+
 	return n, nil
 }
 
@@ -77,14 +84,19 @@ func deHumanizeSize(val string) (uint64, error) {
 	switch endswith {
 	case 'K', 'k':
 		multiplier = 1024
+
 	case 'M', 'm':
 		multiplier = 1024 * 1024
+
 	case 'G', 'g':
 		multiplier = 1024 * 1024 * 1024
+
 	case 'T', 't':
 		multiplier = 1024 * 1024 * 1024 * 1024
+
 	case 'P', 'p':
 		multiplier = 1024 * 1024 * 1024 * 1024 * 1024
+
 	default:
 		return strconv.ParseUint(val, 10, 64)
 	}
@@ -93,7 +105,9 @@ func deHumanizeSize(val string) (uint64, error) {
 	if err != nil {
 		return n, err
 	}
+
 	n *= multiplier
+
 	return n, nil
 }
 
@@ -111,14 +125,17 @@ func expandConf(log logr.Logger, input *Conf, sep string) Conf {
 // it does not check for list sections
 func expandConfMap(log logr.Logger, input *Conf, sep string) Conf {
 	m := make(Conf)
+
 	for k, v := range *input {
 		switch v := v.(type) {
 		case Conf:
 			m[k] = expandConfMap(log, &v, sep)
+
 		default:
 			expandKey(log, m, splitKey(log, k, sep), v)
 		}
 	}
+
 	return m
 }
 
@@ -131,6 +148,7 @@ func expandConfList(log logr.Logger, input Conf) Conf {
 				// expected list section
 				confList := make([]Conf, len(v))
 				found := false
+
 				for k2, v2 := range v {
 					v2Conf, ok := v2.(Conf)
 					if !ok {
@@ -138,16 +156,15 @@ func expandConfList(log logr.Logger, input Conf) Conf {
 							"Wrong value type for list section",
 							"section", k, "key", k2, "key", reflect.TypeOf(v2),
 						)
+
 						continue
 					}
 
 					// fetch index stored by flattenConf
 					index, ok := v2Conf["index"].(int)
 					if !ok {
-						log.V(-1).Info(
-							"Index not available", "section", k,
-							"key", k2,
-						)
+						log.V(-1).Info("Index not available", "section", k, "key", k2)
+
 						continue
 					}
 
@@ -155,6 +172,7 @@ func expandConfList(log logr.Logger, input Conf) Conf {
 
 					// index is flattenConf generated field, delete it
 					delete(confList[index], "index")
+
 					found = true
 				}
 
@@ -166,6 +184,7 @@ func expandConfList(log logr.Logger, input Conf) Conf {
 			}
 		}
 	}
+
 	return input
 }
 
@@ -175,8 +194,10 @@ func replaceUnderscore(conf Conf) Conf {
 	}
 
 	updatedConf := make(Conf, len(conf))
+
 	for k, v := range conf {
 		newK := strings.ReplaceAll(k, "_", "-")
+
 		val, ok := v.(Conf)
 		if ok {
 			updatedConf[newK] = replaceUnderscore(val)
@@ -184,6 +205,7 @@ func replaceUnderscore(conf Conf) Conf {
 			updatedConf[newK] = v
 		}
 	}
+
 	return updatedConf
 }
 
@@ -199,6 +221,7 @@ func toAsConfigContext(context string) string {
 			context,
 			fmt.Sprintf("$1.%c$3%c", sectionNameStartChar, sectionNameEndChar),
 		)
+
 		return asConfigCtx
 	}
 
@@ -207,6 +230,7 @@ func toAsConfigContext(context string) string {
 		fmt.Sprintf("$1.%c$3%c", sectionNameStartChar, sectionNameEndChar),
 	)
 	asConfigCtx = strings.ReplaceAll(asConfigCtx, "/", sep)
+
 	return asConfigCtx
 }
 
@@ -243,6 +267,7 @@ func getContainedName(log logr.Logger, fullKey, context string) (
 
 		return fKs[len(fKs)-1], true
 	}
+
 	return "", false
 }
 
@@ -260,11 +285,13 @@ func splitKey(log logr.Logger, key, sep string) []string {
 		if c == sepRunes[0] && openBracket == 0 {
 			return true
 		}
+
 		if c == sectionNameStartChar {
 			openBracket++
 		} else if c == sectionNameEndChar {
 			openBracket--
 		}
+
 		return false
 	}
 
@@ -280,14 +307,18 @@ func expandKey(
 
 	m := input
 	i := 0
+
 	for _, k := range keys {
 		m = processKey(log, k, keys, m)
 		i++
+
 		if i == len(keys)-1 {
 			break
 		}
 	}
+
 	m[keys[len(keys)-1]] = val
+
 	return true
 }
 
@@ -297,12 +328,14 @@ func processKey(log logr.Logger, k string, keys []string, m Conf) Conf {
 			log.Info("Recovered", "key", k, "keys", keys, "err", r)
 		}
 	}()
+
 	if v, ok := m[k]; ok {
 		m = v.(Conf)
 	} else {
 		m[k] = make(Conf)
 		m = m[k].(Conf)
 	}
+
 	return m
 }
 
@@ -314,12 +347,14 @@ func flattenConfList(log logr.Logger, input []Conf, sep string) Conf {
 		if len(v) == 0 {
 			continue
 		}
+
 		name, ok := v["name"].(string)
 		if !ok {
 			log.V(-1).Info(
 				"FlattenConfList not possible for ListSection" +
 					" without name",
 			)
+
 			continue
 		}
 
@@ -343,19 +378,23 @@ func flattenConfList(log logr.Logger, input []Conf, sep string) Conf {
 // flattenConf flatten Conf by creating new key by using sep
 func flattenConf(log logr.Logger, input Conf, sep string) Conf {
 	res := make(Conf, len(input))
+
 	for k, v := range input {
 		switch v := v.(type) {
 		case Conf:
 			if len(v) == 0 {
 				res[k] = v
 			}
+
 			for k2, v2 := range flattenConf(log, v, sep) {
 				res[k+sep+k2] = v2
 			}
+
 		case []Conf:
 			for k2, v2 := range flattenConfList(log, v, sep) {
 				res[k+sep+k2] = v2
 			}
+
 		default:
 			res[k] = v
 		}
@@ -364,9 +403,9 @@ func flattenConf(log logr.Logger, input Conf, sep string) Conf {
 	return res
 }
 
-func baseKey(k, sep string) (string, []string) {
+func baseKey(k, sep string) (baseKey string) {
 	s := strings.Split(k, sep)
-	return s[len(s)-1], s
+	return s[len(s)-1]
 }
 
 // Conf is of following values types.
@@ -387,31 +426,36 @@ func isValueDiff(log logr.Logger, v1, v2 interface{}) bool {
 		return true
 	}
 
-	switch v2.(type) {
+	switch val2 := v2.(type) {
 	case []string:
 		sort.Strings(v1.([]string))
-		sort.Strings(v2.([]string))
+		sort.Strings(val2)
+
 		if !reflect.DeepEqual(v1, v2) {
 			return true
 		}
 
 	case string:
-		if isEmptyField("", v1.(string)) && isEmptyField("", v2.(string)) {
+		if isEmptyField("", v1.(string)) && isEmptyField("", val2) {
 			return false
 		}
+
 		return v1 != v2
 
 	case bool, int, uint64, int64, float64:
 		if v1 != v2 {
 			return true
 		}
+
 	default:
 		log.V(1).Info(
 			"Unhandled value type in config diff", "type",
 			reflect.TypeOf(v2),
 		)
+
 		return true
 	}
+
 	return false
 }
 
@@ -437,7 +481,7 @@ func diff(
 	// or if type or value is different add/update it
 	for k, v1 := range c1 {
 		// Ignore the node specific details
-		bN, _ := baseKey(k, sep)
+		bN := baseKey(k, sep)
 		if !c2IsDefault && (isNodeSpecificContext(k) || isNodeSpecificField(bN)) {
 			// If we need diff with defaults then we need to consider all fields
 			// otherwise ignore nodespcific details
@@ -473,7 +517,9 @@ func diff(
 				// TODO: How to handle dynamic only configs???
 				continue
 			}
+
 			d[k] = c1[k]
+
 			continue
 		}
 		/*
@@ -527,9 +573,11 @@ func changeKey(key string) string {
 	} else {
 		key = nsRe.ReplaceAllString(key, "namespace._.${2}")
 	}
+
 	key = dcRe.ReplaceAllString(key, "xdr.datacenter._.${2}")
 	key = tlsRe.ReplaceAllString(key, "network.tls._.${2}")
 	key = logRe.ReplaceAllString(key, "logging._.${2}")
+
 	return key
 }
 
@@ -538,7 +586,7 @@ func changeKey(key string) string {
 func getSystemProperty(log logr.Logger, c Conf, key string) (
 	stype sysproptype, value []string,
 ) {
-	baseKey, _ := baseKey(key, sep)
+	baseKey := baseKey(key, sep)
 	baseKey = SingularOf(baseKey)
 	value = make([]string, 0)
 
@@ -549,57 +597,66 @@ func getSystemProperty(log logr.Logger, c Conf, key string) (
 				"Unexpected type", "type", reflect.TypeOf(c[key]),
 				"key", baseKey,
 			)
+
 			stype = NONE
 		}
 	}()
 
 	switch baseKey {
 	// device <deviceName>:<shadowDeviceName>
-	case "device":
+	case device:
 		for _, d := range c[key].([]interface{}) {
 			value = append(value, strings.Split(d.(string), ":")...)
 		}
+
 		return DEVICE, value
 
 	// file <filename>
 	// feature-key-file <filename>
 	// work-directory <direname>
 	// FIXME FIXME add logging file ...
-	case "file", "feature-key-file", "work-directory", "system-path", "user-path":
+	case file, featureKeyFile, "work-directory", "system-path", "user-path":
 		v := c[key]
 		switch v := v.(type) {
 		case string:
 			value = append(value, v)
 			return FSPATH, value
+
 		case []interface{}:
 			for _, f := range v {
 				value = append(value, f.(string))
 			}
+
 			return FSPATH, value
+
 		case []string:
 			value = append(value, v...)
 			return FSPATH, value
 		}
+
 		return NONE, value
 
 	case "xdr-digestlog-path":
 		value = append(value, strings.Split(c[key].(string), " ")[0])
 		return FSPATH, value
 
-	case "address", "tls-address", "access-address",
-		"tls-access-address", "alternate-access-address",
-		"tls-alternate-access-address":
+	case address, tlsAddress, accessAddress,
+		tlsAccessAddress, alternateAccessAddress,
+		tlsAlternateAccessAddress:
 		v := c[key]
 		switch v := v.(type) {
 		case []interface{}:
 			for _, f := range v {
 				value = append(value, f.(string))
 			}
+
 			return NETADDR, value
+
 		case []string:
 			value = append(value, v...)
 			return NETADDR, value
 		}
+
 		return NONE, value
 
 	default:
@@ -610,9 +667,8 @@ func getSystemProperty(log logr.Logger, c Conf, key string) (
 // isListField return true if passed in key representing
 // aerospike config is of type List that is can have multiple
 // entries for same config key.
-func isListField(key string) (bool, string) {
-
-	key, _ = baseKey(key, sep)
+func isListField(key string) (exists bool, sep string) {
+	key = baseKey(key, sep)
 	key = SingularOf(key)
 
 	switch key {
@@ -622,14 +678,14 @@ func isListField(key string) (bool, string) {
 	// TODO: Device with shadow device is not reported by server
 	// yet in runtime making it colon separated for now.
 	case "mesh-seed-address-port", "tls-mesh-seed-address-port",
-		"device", "report-data-op", "node-address-port", "feature-key-file":
+		device, "report-data-op", "node-address-port", featureKeyFile:
 		return true, ":"
 
-	case "file", "address", "tls-address", "access-address", "mount",
-		"tls-access-address", "alternate-access-address",
-		"tls-alternate-access-address", "role-query-pattern",
+	case file, address, tlsAddress, accessAddress, "mount",
+		tlsAccessAddress, alternateAccessAddress,
+		tlsAlternateAccessAddress, "role-query-pattern",
 		"xdr-remote-datacenter", "multicast-group",
-		"tls-authenticate-client", "http-url":
+		tlsAuthenticateClient, "http-url":
 		return true, ""
 
 	default:
@@ -647,7 +703,7 @@ func isListField(key string) (bool, string) {
 // representing aerospike set config which is incomplete and needs
 // 'set-' prefix
 func isIncompleteSetSectionFields(key string) bool {
-	key, _ = baseKey(key, sep)
+	key = baseKey(key, sep)
 	switch key {
 	case "disable-eviction", "enable-xdr", "stop-writes-count":
 		return true
@@ -658,7 +714,7 @@ func isIncompleteSetSectionFields(key string) bool {
 }
 
 func isInternalField(key string) bool {
-	key, _ = baseKey(key, sep)
+	key = baseKey(key, sep)
 	switch key {
 	case "index", "name":
 		return true
@@ -669,11 +725,13 @@ func isInternalField(key string) bool {
 }
 
 func isListSection(section string) bool {
-	section, _ = baseKey(section, sep)
+	section = baseKey(section, sep)
 	section = SingularOf(section)
+
 	switch section {
-	case "namespace", "datacenter", "dc", "set", "tls", "file":
+	case "namespace", "datacenter", "dc", "set", "tls", file:
 		return true
+
 	default:
 		return false
 	}
@@ -682,11 +740,13 @@ func isListSection(section string) bool {
 // section without name but should consider as list
 // for ex. logging
 func isSpecialListSection(section string) bool {
-	section, _ = baseKey(section, sep)
+	section = baseKey(section, sep)
 	section = SingularOf(section)
+
 	switch section {
 	case "logging":
 		return true
+
 	default:
 		return false
 	}
@@ -697,12 +757,13 @@ func isSpecialListSection(section string) bool {
 // virtue of it generated from the config form. Forms are the
 // JSON schema for nice form layout in UI.
 func isFormField(key string) bool {
-	key, _ = baseKey(key, sep)
+	key = baseKey(key, sep)
 	// "name" is id for named sections
 	// "storage-engine-type" is type of storage engine.
 	switch key {
 	case "name", "storage-engine-type":
 		return true
+
 	default:
 		return false
 	}
@@ -716,13 +777,16 @@ func isEmptyField(key, value string) bool {
 	switch {
 	case strings.EqualFold(value, "NULL"), strings.EqualFold(value, ""):
 		return true
+
 	case portRegex.MatchString(key):
 		if value == "0" {
 			return true
 		}
+
 	default:
 		return false
 	}
+
 	return false
 }
 
@@ -737,6 +801,7 @@ func isSpecialBoolField(key string) bool {
 		"enable-benchmarks-udf", "enable-benchmarks-write",
 		"enable-benchmarks-udf-sub", "enable-benchmarks-storage":
 		return true
+
 	default:
 		return false
 	}
@@ -747,10 +812,11 @@ func isSpecialBoolField(key string) bool {
 // bool value also
 // e.g. tls-authenticate-client
 func isSpecialStringField(key string) bool {
-	key, _ = baseKey(key, sep)
+	key = baseKey(key, sep)
 	switch key {
-	case "tls-authenticate-client":
+	case tlsAuthenticateClient:
 		return true
+
 	default:
 		return false
 	}
@@ -761,15 +827,16 @@ func isSpecialStringField(key string) bool {
 func isNodeSpecificField(key string) bool {
 	key = SingularOf(key)
 	switch key {
-	case "file", "device", "pidfile",
-		"node-id", "address", "port", "access-address", "access-port",
-		"external-address", "interface-address", "alternate-access-address",
-		"tls-address", "tls-port", "tls-access-address", "tls-access-port",
-		"tls-alternate-access-address", "tls-alternate-access-port",
+	case file, device, "pidfile",
+		"node-id", address, "port", "access-address", "access-port",
+		"external-address", "interface-address", alternateAccessAddress,
+		tlsAddress, "tls-port", tlsAccessAddress, "tls-access-port",
+		tlsAlternateAccessAddress, "tls-alternate-access-port",
 		"xdr-info-port", "service-threads", "batch-index-threads",
 		"mesh-seed-address-port", "mtu":
 		return true
 	}
+
 	return false
 }
 
@@ -779,6 +846,7 @@ func isNodeSpecificContext(key string) bool {
 	if key == "" || strings.Contains(key, "logging.") {
 		return true
 	}
+
 	return false
 }
 
@@ -800,9 +868,11 @@ func isStorageEngineKey(key string) bool {
 	if key == "" {
 		return false
 	}
+
 	if key == "storage-engine" || strings.HasPrefix(key, "storage-engine.") {
 		return true
 	}
+
 	return false
 }
 
@@ -818,8 +888,10 @@ func addStorageEngineConfig(
 	switch v := v.(type) {
 	case map[string]interface{}:
 		conf[storageKey] = toConf(log, v)
+
 	case lib.Stats:
 		conf[storageKey] = toConf(log, v)
+
 	default:
 		vStr, ok := v.(string)
 		if key == storageKey {
@@ -828,12 +900,15 @@ func addStorageEngineConfig(
 					"Wrong value type",
 					"key", key, "valueType", reflect.TypeOf(v),
 				)
+
 				return
 			}
+
 			if vStr == "memory" {
 				// in-memory storage-engine
 				conf[storageKey] = v
 			}
+
 			return
 		}
 
@@ -907,7 +982,9 @@ func toConf(log logr.Logger, input map[string]interface{}) Conf {
 							temp[i] = s.(string)
 						}
 					}
+
 					result[k] = temp
+
 				case map[string]interface{}, lib.Stats:
 					temp := make([]Conf, len(v))
 					for i, m := range v {
@@ -922,7 +999,9 @@ func toConf(log logr.Logger, input map[string]interface{}) Conf {
 							break
 						}
 					}
+
 					result[k] = temp
+
 				default:
 					log.V(1).Info(
 						"Unexpected value",
@@ -930,9 +1009,10 @@ func toConf(log logr.Logger, input map[string]interface{}) Conf {
 					)
 				}
 			}
+
 		case string:
-			if ok, _ := isListField(k); ok && k != "feature-key-file" {
-				if k == "tls-authenticate-client" && (v == "any" || v == "false") {
+			if ok, _ := isListField(k); ok && k != featureKeyFile {
+				if k == tlsAuthenticateClient && (v == "any" || v == "false") {
 					result[k] = v
 				} else {
 					result[k] = []string{v}
@@ -944,7 +1024,7 @@ func toConf(log logr.Logger, input map[string]interface{}) Conf {
 		case bool:
 			if isSpecialStringField(k) {
 				if ok, _ := isListField(k); ok {
-					if k == "tls-authenticate-client" && !v {
+					if k == tlsAuthenticateClient && !v {
 						result[k] = strconv.FormatBool(v)
 					} else {
 						result[k] = []string{strconv.FormatBool(v)}
@@ -978,13 +1058,16 @@ func toConf(log logr.Logger, input map[string]interface{}) Conf {
 			result[k] = v
 		}
 	}
+
 	return result
 }
 
 func getCfgValue(log logr.Logger, diffKeys []string, flatConf Conf) []CfgValue {
-	var diffValues []CfgValue
+	diffValues := make([]CfgValue, 0, len(diffKeys))
+
 	for _, k := range diffKeys {
 		context, name := getContextAndName(log, k, "/")
+
 		diffValues = append(
 			diffValues, CfgValue{
 				Context: context,
@@ -993,16 +1076,18 @@ func getCfgValue(log logr.Logger, diffKeys []string, flatConf Conf) []CfgValue {
 			},
 		)
 	}
+
 	return diffValues
 }
 
-func getContextAndName(log logr.Logger, key, _ string) (string, string) {
+func getContextAndName(log logr.Logger, key, _ string) (context, name string) {
 	keys := splitKey(log, key, sep)
 	if len(keys) == 1 {
 		return "", ""
 	}
 
 	ctx := ""
+
 	for i := 0; i < len(keys)-1; i++ {
 		if isListSection(keys[i]) || isSpecialListSection(keys[i]) {
 			ctx = fmt.Sprintf("%s/%s=%s", ctx, keys[i], getRawName(keys[i+1]))
@@ -1011,6 +1096,7 @@ func getContextAndName(log logr.Logger, key, _ string) (string, string) {
 			ctx = fmt.Sprintf("%s/%s", ctx, keys[i])
 		}
 	}
+
 	return strings.Trim(ctx, "/"), keys[len(keys)-1]
 }
 
@@ -1048,6 +1134,7 @@ func CompareVersions(version1, version2 string) (int, error) {
 		if err != nil {
 			return 0, fmt.Errorf("wrong version to compare")
 		}
+
 		ve2, err := strconv.Atoi(verElems2[i])
 		if err != nil {
 			return 0, fmt.Errorf("wrong version to compare")
@@ -1111,6 +1198,7 @@ func CompareVersionsIgnoreRevision(version1, version2 string) (int, error) {
 		if err != nil {
 			return 0, fmt.Errorf("wrong version to compare")
 		}
+
 		ve2, err := strconv.Atoi(verElems2[i])
 		if err != nil {
 			return 0, fmt.Errorf("wrong version to compare")

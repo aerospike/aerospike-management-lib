@@ -20,9 +20,11 @@ func (ip *InfoParser) Expect(s string) error {
 	if _, err := ip.Read(buf); err != nil {
 		return err
 	}
+
 	if sbuf := string(buf); sbuf != s {
 		return fmt.Errorf("expected value %q found %q", s, sbuf)
 	}
+
 	return nil
 }
 
@@ -36,8 +38,10 @@ func (ip *InfoParser) ReadUntil(delim byte) (string, error) {
 		if v[0] == delim {
 			return "", err
 		}
+
 		return string(v), err
 	}
+
 	return string(v[:len(v)-1]), err
 }
 

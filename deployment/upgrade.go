@@ -9,8 +9,8 @@ import (
 // Metadata for restriction check
 
 // unsupportedJumps is set of versions which need special attention or system changes for upgrade/downgrade.
-// upgrade/downgrade from A to B is not supported if (A < R and B > R) or (A > R and B < R) for any unsupported jump version R.
-// this list should be in ascending order.
+// upgrade/downgrade from A to B is not supported if (A < R and B > R) or (A > R and B < R) for any unsupported
+// jump version R. This list should be in ascending order.
 var unsupportedJumps = []string{"3.13", "4.2", "4.3", "4.9"}
 
 func setUnsupportedJumps() error {
@@ -55,6 +55,7 @@ func IsUpgrade(fromVersion, toVersion string) (bool, error) {
 	if r >= 0 {
 		return false, nil
 	}
+
 	return true, nil
 }
 
@@ -62,6 +63,7 @@ func checkUpgradeJump(fromVersion, toVersion string) error {
 	for _, jumpVer := range unsupportedJumps {
 		r1, _ := asconfig.CompareVersionsIgnoreRevision(fromVersion, jumpVer)
 		r2, _ := asconfig.CompareVersionsIgnoreRevision(toVersion, jumpVer)
+
 		if (r1 < 0 && r2 > 0) || (r2 < 0 && r1 > 0) {
 			return fmt.Errorf("version change not allowed from %s to %s - jump required to version %s",
 				fromVersion, toVersion, jumpVer)

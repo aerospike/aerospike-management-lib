@@ -14,8 +14,9 @@ import (
 	"sort"
 	"strings"
 
-	lib "github.com/aerospike/aerospike-management-lib"
 	"github.com/go-logr/logr"
+
+	lib "github.com/aerospike/aerospike-management-lib"
 )
 
 func indentString(indent int) string {
@@ -45,7 +46,8 @@ func writeSimpleSection(
 }
 
 func writeLogContext(buf *bytes.Buffer, conf Conf, indent int) {
-	var keys []string
+	keys := make([]string, 0, len(conf))
+
 	for k := range conf {
 		keys = append(keys, k)
 	}
@@ -53,10 +55,11 @@ func writeLogContext(buf *bytes.Buffer, conf Conf, indent int) {
 	sort.Strings(keys)
 
 	for _, context := range keys {
-		if context == "name" {
+		if context == name {
 			// ignore generated field
 			continue
 		}
+
 		writeField(buf, "context "+context, conf[context].(string), indent)
 	}
 }
@@ -65,13 +68,15 @@ func writeLogSection(
 	log logr.Logger, buf *bytes.Buffer, section string, confs []Conf, indent int,
 ) {
 	beginSection(log, buf, indent, section)
+
 	for i := range confs {
 		conf := confs[i]
 
-		name, ok := conf["name"].(string)
+		name, ok := conf[name].(string)
 		if !ok {
 			continue
 		}
+
 		key := name
 		if name != "console" {
 			key = "file " + name
@@ -81,6 +86,7 @@ func writeLogSection(
 		writeLogContext(buf, conf, indent+2)
 		endSection(buf, indent+1)
 	}
+
 	endSection(buf, indent)
 }
 
@@ -114,16 +120,19 @@ func writeSpecialListSection(
 func writeListSection(
 	log logr.Logger, buf *bytes.Buffer, section string, conf Conf, indent int,
 ) {
-	name, ok := conf["name"].(string)
+	name, ok := conf[name].(string)
 	if !ok || name == "" {
 		return
 	}
 
-	delete(conf, "name")
+	delete(conf, name)
+
 	section = SingularOf(section)
+
 	beginSection(log, buf, indent, section+" "+name)
 	writeDotConf(log, buf, conf, indent+1, nil)
 	endSection(buf, indent)
+
 	conf["name"] = name
 }
 
@@ -185,6 +194,7 @@ func writeField(buf *bytes.Buffer, key, value string, indent int) {
 		if strings.EqualFold(value, "true") {
 			writeSpecialBoolField(buf, key, indent)
 		}
+
 		return
 	}
 
@@ -219,6 +229,7 @@ func writeKeys(
 				if len(v) == 0 {
 					break
 				}
+
 				for _, str := range v {
 					writeListField(buf, k, str, indent, sep)
 				}
@@ -237,12 +248,15 @@ func writeKeys(
 
 				if isSpecialListSection(k) {
 					vList := make([]Conf, 0)
+
 					for indx := range v {
 						if vM, ok := v[indx].(Conf); ok {
 							vList = append(vList, vM)
 						}
 					}
+
 					writeSpecialListSection(log, buf, k, vList, indent)
+
 					break
 				}
 
@@ -288,19 +302,18 @@ func writeKeys(
 	}
 }
 
-func writeDotConf(
-	log logr.Logger, buf *bytes.Buffer, conf Conf, indent int,
-	onlyKeys *[]string,
-) {
+//nolint:unparam // kept "onlyKeys" param for future ref
+func writeDotConf(log logr.Logger, buf *bytes.Buffer, conf Conf, indent int, onlyKeys *[]string) {
 	var keys = onlyKeys
 
-	// Asthetics, print conf in sorted manner in config
+	// Aesthetics, print conf in sorted manner in config
 	// file.
 	if keys == nil {
 		allKeys := make([]string, 0, len(conf))
 		for k := range conf {
 			allKeys = append(allKeys, k)
 		}
+
 		keys = &allKeys
 	}
 

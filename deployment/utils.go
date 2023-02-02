@@ -74,7 +74,7 @@ func parseInfo(info map[string]string) map[string]string {
 }
 
 func getHostIDsFromHostConns(hostConns []*HostConn) []string {
-	var hostIDs []string
+	hostIDs := make([]string, 0, len(hostConns))
 
 	for _, hc := range hostConns {
 		hostIDs = append(hostIDs, hc.ID)
