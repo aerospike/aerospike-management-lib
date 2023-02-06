@@ -191,6 +191,8 @@ func (c *cluster) IsClusterAndStable(hostIDs []string) (bool, error) {
 }
 
 // InfoQuiesce quiesce host.
+
+//nolint:gocyclo //refactor later
 func (c *cluster) InfoQuiesce(hostsToBeQuiesced, hostIDs, removedNamespaces []string) error {
 	lg := c.log.WithValues("nodes", hostsToBeQuiesced)
 

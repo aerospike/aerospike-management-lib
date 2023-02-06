@@ -522,6 +522,7 @@ func diff(
 
 			continue
 		}
+		//nolint:gocritic // revisit this later
 		/*
 			// FIXME FIXME looks hacky
 			// Defaults comes with storage-engine type device and
@@ -927,6 +928,8 @@ func addStorageEngineConfig(
 // toConf does deep conversion of map[string]interface{}
 // into Conf objects. Also converts the list form in conf
 // into map form, if required.
+
+//nolint:gocyclo //refactor later
 func toConf(log logr.Logger, input map[string]interface{}) Conf {
 	result := make(Conf)
 

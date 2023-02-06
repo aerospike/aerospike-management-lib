@@ -3,7 +3,6 @@ package asconfig
 const (
 	featureKeyFile = "feature-key-file"
 	device         = "device"
-	configs        = "configs"
 	file           = "file"
 	name           = "name"
 
