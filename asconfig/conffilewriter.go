@@ -55,7 +55,7 @@ func writeLogContext(buf *bytes.Buffer, conf Conf, indent int) {
 	sort.Strings(keys)
 
 	for _, context := range keys {
-		if context == name {
+		if context == keyName {
 			// ignore generated field
 			continue
 		}
@@ -72,7 +72,7 @@ func writeLogSection(
 	for i := range confs {
 		conf := confs[i]
 
-		name, ok := conf[name].(string)
+		name, ok := conf[keyName].(string)
 		if !ok {
 			continue
 		}
@@ -120,7 +120,7 @@ func writeSpecialListSection(
 func writeListSection(
 	log logr.Logger, buf *bytes.Buffer, section string, conf Conf, indent int,
 ) {
-	name, ok := conf[name].(string)
+	name, ok := conf[keyName].(string)
 	if !ok || name == "" {
 		return
 	}

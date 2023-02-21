@@ -12,7 +12,7 @@ import (
 	aero "github.com/ashishshinde/aerospike-client-go/v6"
 )
 
-const trueString = "true"
+const constTrue = "true"
 
 // cluster represents an aerospike cluster
 type cluster struct {
@@ -273,7 +273,7 @@ func (c *cluster) InfoQuiesce(hostsToBeQuiesced, hostIDs, removedNamespaces []st
 					)
 				}
 
-				if pendingQuiesce != trueString {
+				if pendingQuiesce != constTrue {
 					lg.V(1).Info(
 						"Verifying pending_quiesce failed on node, "+
 							"should be true",
@@ -349,7 +349,7 @@ func (c *cluster) InfoQuiesce(hostsToBeQuiesced, hostIDs, removedNamespaces []st
 					)
 				}
 
-				if effectiveIsQuiesced != trueString {
+				if effectiveIsQuiesced != constTrue {
 					lg.V(1).Info(
 						"Verifying effective_is_quiesced failed on node,"+
 							" should be true",
@@ -561,7 +561,7 @@ func (c *cluster) getQuiescedNodes(hostIDs []string) ([]string, error) {
 			)
 		}
 
-		if nodesQuiesced == trueString {
+		if nodesQuiesced == constTrue {
 			quiescedNodes = append(quiescedNodes, hostID)
 		}
 	}

@@ -32,45 +32,45 @@ var ErrInvalidDC = fmt.Errorf("invalid dc")
 const (
 	DefaultTimeout = 2 * time.Second
 
-	stat       = "statistics"     // stat
-	statXDR    = "statistics/xdr" // StatXdr
-	statNS     = "namespace/"     // StatNamespace
-	statDC     = "dc/"            // statDC
-	statSet    = "sets/"          // StatSets
-	statBin    = "bins/"          // StatBins
-	statSIndex = "sindex/"        // StatSindex
+	constStat        = "statistics"     // stat
+	constStatXDR     = "statistics/xdr" // StatXdr
+	constStatNS      = "namespace/"     // StatNamespace
+	constStatDC      = "dc/"            // statDC
+	constStatSet     = "sets/"          // StatSets
+	constStatBin     = "bins/"          // StatBins
+	constStatSIndex  = "sindex/"        // StatSindex
+	constStatNSNames = "namespaces"     // StatNamespaces
+	constStatDCNames = "dcs"            // StatDcs need dc names
+	constStatLogIDS  = "logs"           // StatLogs need logging id
 
-	statNSNames = "namespaces" // StatNamespaces
-	statDCNames = "dcs"        // StatDcs need dc names
-	statLogIDS  = "logs"       // StatLogs need logging id
+	constConfigs       = "configs"                          // configs
+	cmdConfigNetwork   = "get-config:context=network"       // ConfigNetwork
+	cmdConfigService   = "get-config:context=service"       // ConfigService
+	cmdConfigNamespace = "get-config:context=namespace;id=" // ConfigNamespace
+	cmdConfigXDR       = "get-config:context=xdr"           // ConfigXDR
+	cmdConfigSecurity  = "get-config:context=security"      // ConfigSecurity
+	cmdConfigDC        = "get-dc-config:context=dc:dc="     // ConfigDC
+	cmdConfigMESH      = "mesh"                             // ConfigMesh
+	cmdConfigRacks     = "racks:"                           // configRacks
+	cmdConfigLogging   = "log/"                             // ConfigLog
 
-	configs         = "configs"                          // configs
-	configNetwork   = "get-config:context=network"       // configNetwork
-	configService   = "get-config:context=service"       // configService
-	configNamespace = "get-config:context=namespace;id=" // configNamespace
-	configXDR       = "get-config:context=xdr"           // configXDR
-	configSecurity  = "get-config:context=security"      // configSecurity
-	configDC        = "get-dc-config:context=dc:dc="     // configDC
-	configMCAST     = "mcast"                            // ConfigMulticast
-	configMESH      = "mesh"                             // ConfigMesh
-	configRacks     = "racks:"                           // configRacks
-	configLogging   = "log/"                             // ConfigLog
+	constLatency    = "latency"
+	cmdLatency      = "latency:"
+	constThroughput = "throughput"
+	cmdThroughput   = "throughput:"
 
-	latency    = "latency:"
-	throughput = "throughput:"
-
-	metadata              = "metadata"           // metadata
-	metaBuild             = "build"              // Build
-	metaVersion           = "version"            // Version
-	metaBuildOS           = "build_os"           // BUILD OS
-	metaNodeID            = "node"               // NodeID
-	metaClusterName       = "cluster-name"       // Cluster Name
-	metaService           = "service"            // Service
-	metaServices          = "services"           // Services
-	metaServicesAlumni    = "services-alumni"    // ServicesAlumni
-	metaServicesAlternate = "services-alternate" // ServiceAlternate
-	metaFeatures          = "features"           // Features
-	metaEdition           = "edition"            // Edition
+	constMetadata            = "metadata"           // metadata
+	cmdMetaBuild             = "build"              // Build
+	cmdMetaVersion           = "version"            // Version
+	cmdMetaBuildOS           = "build_os"           // BUILD OS
+	cmdMetaNodeID            = "node"               // NodeID
+	cmdMetaClusterName       = "cluster-name"       // Cluster Name
+	cmdMetaService           = "service"            // Service
+	cmdMetaServices          = "services"           // Services
+	cmdMetaServicesAlumni    = "services-alumni"    // ServicesAlumni
+	cmdMetaServicesAlternate = "services-alternate" // ServiceAlternate
+	cmdMetaFeatures          = "features"           // Features
+	cmdMetaEdition           = "edition"            // Edition
 )
 
 // other meta-info
@@ -91,13 +91,13 @@ const (
 )
 
 const (
-	_ConfigDCNames        = "dc_names"
-	_ConfigNamespaceNames = "namespace_names"
-	_ConfigLogIDs         = "log_ids"
+	ConfigDCNames        = "dc_names"
+	ConfigNamespaceNames = "namespace_names"
+	ConfigLogIDs         = "log_ids"
 )
 
 var asCmds = []string{
-	stat, configs, metadata, latency, throughput,
+	constStat, constConfigs, constMetadata, constLatency, constThroughput,
 }
 
 var networkTLSNameRe = regexp.MustCompile(`^tls\[(\d+)].name$`)
@@ -148,7 +148,7 @@ func (info *AsInfo) RequestInfo(cmd ...string) (
 //
 // The returned map can be converted to asconfig.Conf.
 func (info *AsInfo) AllConfigs() (map[string]interface{}, error) {
-	key := configs
+	key := constConfigs
 
 	values, err := info.GetAsInfo(key)
 	if err != nil {
@@ -284,7 +284,7 @@ func (info *AsInfo) GetAsConfig(contextList ...string) (lib.Stats, error) {
 	}
 
 	rawCmdList := info.createConfigCmdList(m, contextList...)
-	key := configs
+	key := constConfigs
 
 	configs, err := info.execute(info.log, rawCmdList, m, key)
 	if err != nil {
@@ -307,48 +307,48 @@ func (info *AsInfo) GetAsConfig(contextList ...string) (lib.Stats, error) {
 
 // GetNamespaceNamesCmd returns the command to get namespace names
 func GetNamespaceNamesCmd() string {
-	return statNSNames
+	return constStatNSNames
 }
 
 // GetDCNamesCmd returns the command to get DC namespace
 func GetDCNamesCmd() string {
-	return statDCNames
+	return constStatDCNames
 }
 
 // GetTLSNamesCmd returns the command to get TLS names
 func GetTLSNamesCmd() string {
-	return configNetwork
+	return cmdConfigNetwork
 }
 
 // GetLogNamesCmd returns the command to get log names
 func GetLogNamesCmd() string {
-	return statLogIDS
+	return constStatLogIDS
 }
 
 // GetSindexNamesCmd returns the command to get sindex names
 func GetSindexNamesCmd() string {
-	return statSIndex
+	return constStatSIndex
 }
 
 // GetSetNamesCmd returns the command to get set names
 func GetSetNamesCmd() string {
-	return statSet
+	return constStatSet
 }
 
 // ParseNamespaceNames parses all namespace names
 func ParseNamespaceNames(m map[string]string) []string {
-	return getNames(m[statNSNames])
+	return getNames(m[constStatNSNames])
 }
 
 // ParseDCNames parses all DC names
 func ParseDCNames(m map[string]string) []string {
-	return getNames(m[statDCNames])
+	return getNames(m[constStatDCNames])
 }
 
 // ParseTLSNames parses all TLS names
 func ParseTLSNames(m map[string]string) []string {
 	names := make([]string, 0)
-	nc := parseBasicConfigInfo(m[configNetwork], "=")
+	nc := parseBasicConfigInfo(m[cmdConfigNetwork], "=")
 
 	for k, v := range nc {
 		if networkTLSNameRe.MatchString(k) {
@@ -361,7 +361,7 @@ func ParseTLSNames(m map[string]string) []string {
 
 // ParseLogNames parses all log names
 func ParseLogNames(m map[string]string) []string {
-	logs := parseIntoMap(m[statLogIDS], ";", ":")
+	logs := parseIntoMap(m[constStatLogIDS], ";", ":")
 	names := make([]string, 0, len(logs))
 
 	for _, l := range logs {
@@ -378,12 +378,12 @@ func ParseLogNames(m map[string]string) []string {
 
 // ParseSindexNames parses all sindex names for namespace
 func ParseSindexNames(m map[string]string, ns string) []string {
-	return sindexNames(m[statSIndex], ns)
+	return sindexNames(m[constStatSIndex], ns)
 }
 
 // ParseSetNames parses all set names for namespace
 func ParseSetNames(m map[string]string, ns string) []string {
-	return setNames(m[statSet], ns)
+	return setNames(m[constStatSet], ns)
 }
 
 // *******************************************************************************************
@@ -392,7 +392,7 @@ func ParseSetNames(m map[string]string, ns string) []string {
 
 func (info *AsInfo) getCoreInfo() (map[string]string, error) {
 	m, err := info.RequestInfo(
-		statNSNames, statDCNames, statSIndex, statLogIDS,
+		constStatNSNames, constStatDCNames, constStatSIndex, constStatLogIDS,
 	)
 	if err != nil {
 		return nil, err
@@ -408,19 +408,19 @@ func (info *AsInfo) createCmdList(
 
 	for _, cmd := range cmdList {
 		switch cmd {
-		case stat:
+		case constStat:
 			cmds := info.createStatCmdList(m)
 			rawCmdList = append(rawCmdList, cmds...)
-		case configs:
+		case constConfigs:
 			cmds := info.createConfigCmdList(m)
 			rawCmdList = append(rawCmdList, cmds...)
-		case metadata:
+		case constMetadata:
 			cmds := info.createMetaCmdList()
 			rawCmdList = append(rawCmdList, cmds...)
-		case latency:
-			rawCmdList = append(rawCmdList, latency)
-		case throughput:
-			rawCmdList = append(rawCmdList, throughput)
+		case constLatency:
+			rawCmdList = append(rawCmdList, cmdLatency)
+		case constThroughput:
+			rawCmdList = append(rawCmdList, cmdThroughput)
 
 		default:
 			info.log.V(1).Info("Invalid cmd to parse asinfo", "command", cmd)
@@ -431,24 +431,24 @@ func (info *AsInfo) createCmdList(
 }
 
 func (info *AsInfo) createStatCmdList(m map[string]string) []string {
-	cmdList := []string{stat, statXDR, statNSNames, statDCNames}
+	cmdList := []string{constStat, constStatXDR, constStatNSNames, constStatDCNames}
 
-	nsNames := getNames(m[statNSNames])
+	nsNames := getNames(m[constStatNSNames])
 	for _, ns := range nsNames {
 		// namespace, sets, bins, sindex
 		cmdList = append(
-			cmdList, statNS+ns, statSet+ns, statBin+ns, statSIndex+ns,
+			cmdList, constStatNS+ns, constStatSet+ns, constStatBin+ns, constStatSIndex+ns,
 		)
 
-		indexNames := sindexNames(m[statSIndex], ns)
+		indexNames := sindexNames(m[constStatSIndex], ns)
 		for _, index := range indexNames {
-			cmdList = append(cmdList, statSIndex+ns+"/"+index)
+			cmdList = append(cmdList, constStatSIndex+ns+"/"+index)
 		}
 	}
 
-	dcNames := getNames(m[statDCNames])
+	dcNames := getNames(m[constStatDCNames])
 	for _, dc := range dcNames {
-		cmdList = append(cmdList, statDC+dc)
+		cmdList = append(cmdList, constStatDC+dc)
 	}
 
 	return cmdList
@@ -462,10 +462,8 @@ func (info *AsInfo) createConfigCmdList(
 		contextList = []string{
 			ConfigServiceContext, ConfigNetworkContext, ConfigNamespaceContext,
 			ConfigSetContext, ConfigXDRContext, ConfigDCContext,
-			ConfigSecurityContext,
-			ConfigLoggingContext, _ConfigDCNames, _ConfigNamespaceNames,
-			_ConfigLogIDs,
-			ConfigRacksContext,
+			ConfigSecurityContext, ConfigLoggingContext, ConfigDCNames,
+			ConfigNamespaceNames, ConfigLogIDs, ConfigRacksContext,
 		}
 	}
 
@@ -474,50 +472,50 @@ func (info *AsInfo) createConfigCmdList(
 	for _, c := range contextList {
 		switch c {
 		case ConfigServiceContext:
-			cmdList = append(cmdList, configService)
+			cmdList = append(cmdList, cmdConfigService)
 
 		case ConfigNetworkContext:
-			cmdList = append(cmdList, configNetwork)
+			cmdList = append(cmdList, cmdConfigNetwork)
 
 		case ConfigNamespaceContext:
 			cmdList = append(
 				cmdList,
-				info.createNamespaceConfigCmdList(getNames(m[statNSNames])...)...,
+				info.createNamespaceConfigCmdList(getNames(m[constStatNSNames])...)...,
 			)
 
 		case ConfigSetContext:
 			cmdList = append(
 				cmdList,
-				info.createSetConfigCmdList(getNames(m[statNSNames])...)...,
+				info.createSetConfigCmdList(getNames(m[constStatNSNames])...)...,
 			)
 
 		case ConfigXDRContext:
-			cmdList = append(cmdList, configXDR)
+			cmdList = append(cmdList, cmdConfigXDR)
 
 		case ConfigDCContext:
 			cmdList = append(
 				cmdList,
-				info.createDCConfigCmdList(getNames(m[statDCNames])...)...,
+				info.createDCConfigCmdList(getNames(m[constStatDCNames])...)...,
 			)
 
 		case ConfigSecurityContext:
-			cmdList = append(cmdList, configSecurity)
+			cmdList = append(cmdList, cmdConfigSecurity)
 
 		case ConfigLoggingContext:
-			logs := parseIntoMap(m[statLogIDS], ";", ":")
+			logs := parseIntoMap(m[constStatLogIDS], ";", ":")
 			for id := range logs {
-				cmdList = append(cmdList, configLogging+id)
+				cmdList = append(cmdList, cmdConfigLogging+id)
 			}
 		case ConfigRacksContext:
-			cmdList = append(cmdList, configRacks)
-		case _ConfigDCNames:
-			cmdList = append(cmdList, statDCNames)
+			cmdList = append(cmdList, cmdConfigRacks)
+		case ConfigDCNames:
+			cmdList = append(cmdList, constStatDCNames)
 
-		case _ConfigNamespaceNames:
-			cmdList = append(cmdList, statNSNames)
+		case ConfigNamespaceNames:
+			cmdList = append(cmdList, constStatNSNames)
 
-		case _ConfigLogIDs:
-			cmdList = append(cmdList, statLogIDS)
+		case ConfigLogIDs:
+			cmdList = append(cmdList, constStatLogIDS)
 
 		default:
 			info.log.V(1).Info(
@@ -535,7 +533,7 @@ func (info *AsInfo) createNamespaceConfigCmdList(nsNames ...string) []string {
 	cmdList := make([]string, 0, len(nsNames))
 
 	for _, ns := range nsNames {
-		cmdList = append(cmdList, configNamespace+ns)
+		cmdList = append(cmdList, cmdConfigNamespace+ns)
 	}
 
 	return cmdList
@@ -546,7 +544,7 @@ func (info *AsInfo) createSetConfigCmdList(nsNames ...string) []string {
 	cmdList := make([]string, 0, len(nsNames))
 
 	for _, ns := range nsNames {
-		cmdList = append(cmdList, statSet+ns)
+		cmdList = append(cmdList, constStatSet+ns)
 	}
 
 	return cmdList
@@ -557,7 +555,7 @@ func (info *AsInfo) createDCConfigCmdList(dcNames ...string) []string {
 	cmdList := make([]string, 0, len(dcNames))
 
 	for _, dc := range dcNames {
-		cmdList = append(cmdList, configDC+dc)
+		cmdList = append(cmdList, cmdConfigDC+dc)
 	}
 
 	return cmdList
@@ -565,10 +563,10 @@ func (info *AsInfo) createDCConfigCmdList(dcNames ...string) []string {
 
 func (info *AsInfo) createMetaCmdList() []string {
 	cmdList := []string{
-		metaNodeID, metaBuild, metaService,
-		metaServices, metaServicesAlumni, metaServicesAlternate,
-		metaVersion,
-		metaBuildOS, metaClusterName, metaFeatures, metaEdition,
+		cmdMetaNodeID, cmdMetaBuild, cmdMetaService,
+		cmdMetaServices, cmdMetaServicesAlumni, cmdMetaServicesAlternate,
+		cmdMetaVersion,
+		cmdMetaBuildOS, cmdMetaClusterName, cmdMetaFeatures, cmdMetaEdition,
 	}
 
 	return cmdList
@@ -662,23 +660,23 @@ func parseCmdResults(
 
 	for _, cmd := range cmdList {
 		switch cmd {
-		case stat:
+		case constStat:
 			asMap[cmd] = parseStatInfo(rawMap)
-		case configs:
+		case constConfigs:
 			asMap[cmd] = parseConfigInfo(rawMap)
-		case metadata:
+		case constMetadata:
 			asMap[cmd] = parseMetadataInfo(rawMap)
-		case latency:
-			asMap[cmd] = parseLatencyInfo(log, rawMap[latency])
-		case throughput:
-			asMap[cmd] = parseThroughputInfo(rawMap[throughput])
+		case constLatency:
+			asMap[cmd] = parseLatencyInfo(log, rawMap[cmdLatency])
+		case constThroughput:
+			asMap[cmd] = parseThroughputInfo(rawMap[cmdThroughput])
 
 		default:
 			log.V(1).Info("Invalid cmd to parse asinfo", "command", cmd)
 		}
 	}
 
-	if _, ok := asMap[metadata]; ok {
+	if _, ok := asMap[constMetadata]; ok {
 		updateExtraMetadata(asMap)
 	}
 
@@ -686,10 +684,10 @@ func parseCmdResults(
 }
 
 func updateExtraMetadata(m lib.Stats) {
-	serviceMap := m.GetInnerVal(stat, "service")
-	nsStatMap := m.GetInnerVal("statistics", "namespace")
-	configMap := m.GetInnerVal(configs, "service")
-	metaMap := m.GetInnerVal(metadata)
+	serviceMap := m.GetInnerVal(constStat, "service")
+	nsStatMap := m.GetInnerVal(constStat, "namespace")
+	configMap := m.GetInnerVal(constConfigs, "service")
+	metaMap := m.GetInnerVal(constMetadata)
 
 	if len(serviceMap) != 0 {
 		metaMap["cluster_size"] = serviceMap.Get("cluster_size")
@@ -731,8 +729,8 @@ func updateExtraMetadata(m lib.Stats) {
 func parseStatInfo(rawMap map[string]string) lib.Stats {
 	statMap := make(lib.Stats)
 
-	statMap["service"] = parseBasicInfo(rawMap[stat])
-	statMap["xdr"] = parseBasicInfo(rawMap[statXDR])
+	statMap["service"] = parseBasicInfo(rawMap[constStat])
+	statMap["xdr"] = parseBasicInfo(rawMap[constStatXDR])
 	statMap["dc"] = parseAllDcStats(rawMap)
 	statMap["namespace"] = parseAllNsStats(rawMap)
 
@@ -742,10 +740,10 @@ func parseStatInfo(rawMap map[string]string) lib.Stats {
 // AllDCStats returns statistics of all dc's on the host.
 func parseAllDcStats(rawMap map[string]string) lib.Stats {
 	dcStats := make(lib.Stats)
-	dcNames := getNames(rawMap[statDCNames])
+	dcNames := getNames(rawMap[constStatDCNames])
 
 	for _, dc := range dcNames {
-		newCmd := statDC + "/" + dc
+		newCmd := constStatDC + "/" + dc
 		s := parseBasicInfo(rawMap[newCmd])
 		dcStats[dc] = s
 	}
@@ -755,13 +753,13 @@ func parseAllDcStats(rawMap map[string]string) lib.Stats {
 
 func parseAllNsStats(rawMap map[string]string) lib.Stats {
 	nsStatMap := make(lib.Stats)
-	nsNames := getNames(rawMap[statNSNames])
+	nsNames := getNames(rawMap[constStatNSNames])
 
 	for _, ns := range nsNames {
 		m := make(lib.Stats)
-		m["service"] = parseStatNsInfo(rawMap[statNS+ns])
-		m["set"] = parseStatSetsInfo(rawMap[statSet+ns])
-		m["bin"] = parseStatBinsInfo(rawMap[statBin+ns])
+		m["service"] = parseStatNsInfo(rawMap[constStatNS+ns])
+		m["set"] = parseStatSetsInfo(rawMap[constStatSet+ns])
+		m["bin"] = parseStatBinsInfo(rawMap[constStatBin+ns])
 		m["sindex"] = parseStatSindexsInfo(rawMap, ns)
 
 		nsStatMap[ns] = m
@@ -784,10 +782,10 @@ func parseStatNsInfo(res string) lib.Stats {
 
 func parseStatSindexsInfo(rawMap map[string]string, ns string) lib.Stats {
 	indexMap := make(lib.Stats)
-	indexNames := sindexNames(rawMap[statSIndex], ns)
+	indexNames := sindexNames(rawMap[constStatSIndex], ns)
 
 	for _, index := range indexNames {
-		indexMap[index] = parseBasicInfo(rawMap[statSIndex+ns+"/"+index])
+		indexMap[index] = parseBasicInfo(rawMap[constStatSIndex+ns+"/"+index])
 	}
 
 	return indexMap
@@ -829,42 +827,42 @@ func parseStatBinsInfo(res string) lib.Stats {
 func parseConfigInfo(rawMap map[string]string) lib.Stats {
 	configMap := make(lib.Stats)
 
-	sc := parseBasicConfigInfo(rawMap[configService], "=")
+	sc := parseBasicConfigInfo(rawMap[cmdConfigService], "=")
 	if len(sc) > 0 {
 		configMap[ConfigServiceContext] = sc
 	}
 
-	nc := parseBasicConfigInfo(rawMap[configNetwork], "=")
+	nc := parseBasicConfigInfo(rawMap[cmdConfigNetwork], "=")
 	if len(nc) > 0 {
 		configMap[ConfigNetworkContext] = nc
 	}
 
-	nsc := parseAllNsConfig(rawMap, configNamespace)
+	nsc := parseAllNsConfig(rawMap, cmdConfigNamespace)
 	if len(nsc) > 0 {
 		configMap[ConfigNamespaceContext] = nsc
 	}
 
-	xc := parseBasicConfigInfo(rawMap[configXDR], "=")
+	xc := parseBasicConfigInfo(rawMap[cmdConfigXDR], "=")
 	if len(xc) > 0 {
 		configMap[ConfigXDRContext] = xc
 	}
 
-	dcc := parseAllDcConfig(rawMap, configDC)
+	dcc := parseAllDcConfig(rawMap, cmdConfigDC)
 	if len(dcc) > 0 {
 		configMap[ConfigDCContext] = dcc
 	}
 
-	sec := parseBasicConfigInfo(rawMap[configSecurity], "=")
+	sec := parseBasicConfigInfo(rawMap[cmdConfigSecurity], "=")
 	if len(sec) > 0 {
 		configMap[ConfigSecurityContext] = sec
 	}
 
-	lc := parseAllLoggingConfig(rawMap, configLogging)
+	lc := parseAllLoggingConfig(rawMap, cmdConfigLogging)
 	if len(lc) > 0 {
 		configMap[ConfigLoggingContext] = lc
 	}
 
-	rc := parseConfigRacksInfo(rawMap[configRacks])
+	rc := parseConfigRacksInfo(rawMap[cmdConfigRacks])
 	if len(rc) > 0 {
 		configMap[ConfigRacksContext] = rc
 	}
@@ -874,7 +872,7 @@ func parseConfigInfo(rawMap map[string]string) lib.Stats {
 
 func parseAllLoggingConfig(rawMap map[string]string, cmd string) lib.Stats {
 	logConfigMap := make(lib.Stats)
-	logs := parseIntoMap(rawMap[statLogIDS], ";", ":")
+	logs := parseIntoMap(rawMap[constStatLogIDS], ";", ":")
 
 	for id := range logs {
 		m := parseBasicConfigInfo(rawMap[cmd+id], ":")
@@ -889,11 +887,11 @@ func parseAllLoggingConfig(rawMap map[string]string, cmd string) lib.Stats {
 // {test}-configname -> configname
 func parseAllNsConfig(rawMap map[string]string, cmd string) lib.Stats {
 	nsConfigMap := make(lib.Stats)
-	nsNames := getNames(rawMap[statNSNames])
+	nsNames := getNames(rawMap[constStatNSNames])
 
 	for _, ns := range nsNames {
 		m := parseBasicConfigInfo(rawMap[cmd+ns], "=")
-		setM := parseConfigSetsInfo(rawMap[statSet+ns])
+		setM := parseConfigSetsInfo(rawMap[constStatSet+ns])
 
 		if len(setM) > 0 {
 			if len(m) == 0 {
@@ -939,7 +937,7 @@ func parseConfigSetsInfo(res string) lib.Stats {
 
 func parseAllDcConfig(rawMap map[string]string, cmd string) lib.Stats {
 	dcConfigMap := make(lib.Stats)
-	dcNames := getNames(rawMap[statDCNames])
+	dcNames := getNames(rawMap[constStatDCNames])
 
 	for _, dc := range dcNames {
 		m := parseIntoDcMap(rawMap[cmd+dc], ":", "=")
@@ -969,20 +967,20 @@ func parseConfigRacksInfo(res string) []lib.Stats {
 func parseMetadataInfo(rawMap map[string]string) lib.Stats {
 	metaMap := make(lib.Stats)
 
-	metaMap["node_id"] = rawMap[metaNodeID]
-	metaMap["asd_build"] = rawMap[metaBuild]
-	metaMap["service"] = parseListTypeMetaInfo(rawMap, metaService)
-	metaMap["services"] = parseListTypeMetaInfo(rawMap, metaServices)
+	metaMap["node_id"] = rawMap[cmdMetaNodeID]
+	metaMap["asd_build"] = rawMap[cmdMetaBuild]
+	metaMap["service"] = parseListTypeMetaInfo(rawMap, cmdMetaService)
+	metaMap["services"] = parseListTypeMetaInfo(rawMap, cmdMetaServices)
 	metaMap["services-alumni"] = parseListTypeMetaInfo(
-		rawMap, metaServicesAlumni,
+		rawMap, cmdMetaServicesAlumni,
 	)
 	metaMap["services-alternate"] = parseListTypeMetaInfo(
-		rawMap, metaServicesAlternate,
+		rawMap, cmdMetaServicesAlternate,
 	)
-	metaMap["features"] = parseListTypeMetaInfo(rawMap, metaFeatures)
-	metaMap["edition"] = rawMap[metaEdition]
-	metaMap["version"] = rawMap[metaVersion]
-	metaMap["build_os"] = rawMap[metaBuildOS]
+	metaMap["features"] = parseListTypeMetaInfo(rawMap, cmdMetaFeatures)
+	metaMap["edition"] = rawMap[cmdMetaEdition]
+	metaMap["version"] = rawMap[cmdMetaVersion]
+	metaMap["build_os"] = rawMap[cmdMetaBuildOS]
 
 	return metaMap
 }

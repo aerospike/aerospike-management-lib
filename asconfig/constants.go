@@ -1,16 +1,17 @@
 package asconfig
 
+// All the aerospike config related keys
 const (
-	featureKeyFile = "feature-key-file"
-	device         = "device"
-	file           = "file"
-	name           = "name"
+	keyFeatureKeyFile = "feature-key-file"
+	keyDevice         = "device"
+	keyFile           = "file"
+	keyName           = "name"
 
-	address                   = "address"
-	tlsAddress                = "tls-address"
-	accessAddress             = "access-address"
-	tlsAccessAddress          = "tls-access-address"
-	alternateAccessAddress    = "alternate-access-address"
-	tlsAlternateAccessAddress = "tls-alternate-access-address"
-	tlsAuthenticateClient     = "tls-authenticate-client"
+	keyAddress                   = "address"
+	keyTLSAddress                = "tls-address"
+	keyAccessAddress             = "access-address"
+	keyTLSAccessAddress          = "tls-access-address"
+	keyAlternateAccessAddress    = "alternate-access-address"
+	keyTLSAlternateAccessAddress = "tls-alternate-access-address"
+	keyTLSAuthenticateClient     = "tls-authenticate-client"
 )

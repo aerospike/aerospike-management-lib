@@ -605,7 +605,7 @@ func getSystemProperty(log logr.Logger, c Conf, key string) (
 
 	switch baseKey {
 	// device <deviceName>:<shadowDeviceName>
-	case device:
+	case keyDevice:
 		for _, d := range c[key].([]interface{}) {
 			value = append(value, strings.Split(d.(string), ":")...)
 		}
@@ -616,7 +616,7 @@ func getSystemProperty(log logr.Logger, c Conf, key string) (
 	// feature-key-file <filename>
 	// work-directory <direname>
 	// FIXME FIXME add logging file ...
-	case file, featureKeyFile, "work-directory", "system-path", "user-path":
+	case keyFile, keyFeatureKeyFile, "work-directory", "system-path", "user-path":
 		v := c[key]
 		switch v := v.(type) {
 		case string:
@@ -641,9 +641,9 @@ func getSystemProperty(log logr.Logger, c Conf, key string) (
 		value = append(value, strings.Split(c[key].(string), " ")[0])
 		return FSPATH, value
 
-	case address, tlsAddress, accessAddress,
-		tlsAccessAddress, alternateAccessAddress,
-		tlsAlternateAccessAddress:
+	case keyAddress, keyTLSAddress, keyAccessAddress,
+		keyTLSAccessAddress, keyAlternateAccessAddress,
+		keyTLSAlternateAccessAddress:
 		v := c[key]
 		switch v := v.(type) {
 		case []interface{}:
@@ -679,14 +679,14 @@ func isListField(key string) (exists bool, sep string) {
 	// TODO: Device with shadow device is not reported by server
 	// yet in runtime making it colon separated for now.
 	case "mesh-seed-address-port", "tls-mesh-seed-address-port",
-		device, "report-data-op", "node-address-port", featureKeyFile:
+		keyDevice, "report-data-op", "node-address-port", keyFeatureKeyFile:
 		return true, ":"
 
-	case file, address, tlsAddress, accessAddress, "mount",
-		tlsAccessAddress, alternateAccessAddress,
-		tlsAlternateAccessAddress, "role-query-pattern",
+	case keyFile, keyAddress, keyTLSAddress, keyAccessAddress, "mount",
+		keyTLSAccessAddress, keyAlternateAccessAddress,
+		keyTLSAlternateAccessAddress, "role-query-pattern",
 		"xdr-remote-datacenter", "multicast-group",
-		tlsAuthenticateClient, "http-url":
+		keyTLSAuthenticateClient, "http-url":
 		return true, ""
 
 	default:
@@ -730,7 +730,7 @@ func isListSection(section string) bool {
 	section = SingularOf(section)
 
 	switch section {
-	case "namespace", "datacenter", "dc", "set", "tls", file:
+	case "namespace", "datacenter", "dc", "set", "tls", keyFile:
 		return true
 
 	default:
@@ -815,7 +815,7 @@ func isSpecialBoolField(key string) bool {
 func isSpecialStringField(key string) bool {
 	key = baseKey(key, sep)
 	switch key {
-	case tlsAuthenticateClient:
+	case keyTLSAuthenticateClient:
 		return true
 
 	default:
@@ -828,11 +828,11 @@ func isSpecialStringField(key string) bool {
 func isNodeSpecificField(key string) bool {
 	key = SingularOf(key)
 	switch key {
-	case file, device, "pidfile",
-		"node-id", address, "port", "access-address", "access-port",
-		"external-address", "interface-address", alternateAccessAddress,
-		tlsAddress, "tls-port", tlsAccessAddress, "tls-access-port",
-		tlsAlternateAccessAddress, "tls-alternate-access-port",
+	case keyFile, keyDevice, "pidfile",
+		"node-id", keyAddress, "port", "access-address", "access-port",
+		"external-address", "interface-address", keyAlternateAccessAddress,
+		keyTLSAddress, "tls-port", keyTLSAccessAddress, "tls-access-port",
+		keyTLSAlternateAccessAddress, "tls-alternate-access-port",
 		"xdr-info-port", "service-threads", "batch-index-threads",
 		"mesh-seed-address-port", "mtu":
 		return true
@@ -1014,8 +1014,8 @@ func toConf(log logr.Logger, input map[string]interface{}) Conf {
 			}
 
 		case string:
-			if ok, _ := isListField(k); ok && k != featureKeyFile {
-				if k == tlsAuthenticateClient && (v == "any" || v == "false") {
+			if ok, _ := isListField(k); ok && k != keyFeatureKeyFile {
+				if k == keyTLSAuthenticateClient && (v == "any" || v == "false") {
 					result[k] = v
 				} else {
 					result[k] = []string{v}
@@ -1027,7 +1027,7 @@ func toConf(log logr.Logger, input map[string]interface{}) Conf {
 		case bool:
 			if isSpecialStringField(k) {
 				if ok, _ := isListField(k); ok {
-					if k == tlsAuthenticateClient && !v {
+					if k == keyTLSAuthenticateClient && !v {
 						result[k] = strconv.FormatBool(v)
 					} else {
 						result[k] = []string{strconv.FormatBool(v)}
