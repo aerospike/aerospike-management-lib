@@ -125,7 +125,7 @@ func writeListSection(
 		return
 	}
 
-	delete(conf, name)
+	delete(conf, keyName)
 
 	section = SingularOf(section)
 
@@ -133,7 +133,7 @@ func writeListSection(
 	writeDotConf(log, buf, conf, indent+1, nil)
 	endSection(buf, indent)
 
-	conf["name"] = name
+	conf[keyName] = name
 }
 
 func writeSection(

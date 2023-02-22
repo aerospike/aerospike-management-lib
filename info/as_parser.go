@@ -32,6 +32,10 @@ var ErrInvalidDC = fmt.Errorf("invalid dc")
 const (
 	DefaultTimeout = 2 * time.Second
 
+	// Explicit constants are defined with `const` prefix when
+	// 1. string values which are not commands
+	// 2. string values which are used to generate other commands
+	// 3. string values which are both command and constant
 	constStat        = "statistics"     // stat
 	constStatXDR     = "statistics/xdr" // StatXdr
 	constStatNS      = "namespace/"     // StatNamespace

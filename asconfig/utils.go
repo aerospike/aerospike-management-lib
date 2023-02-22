@@ -348,7 +348,7 @@ func flattenConfList(log logr.Logger, input []Conf, sep string) Conf {
 			continue
 		}
 
-		name, ok := v["name"].(string)
+		name, ok := v[keyName].(string)
 		if !ok {
 			log.V(-1).Info(
 				"FlattenConfList not possible for ListSection" +
@@ -717,7 +717,7 @@ func isIncompleteSetSectionFields(key string) bool {
 func isInternalField(key string) bool {
 	key = baseKey(key, sep)
 	switch key {
-	case "index", "name":
+	case "index", keyName:
 		return true
 
 	default:
@@ -762,7 +762,7 @@ func isFormField(key string) bool {
 	// "name" is id for named sections
 	// "storage-engine-type" is type of storage engine.
 	switch key {
-	case "name", "storage-engine-type":
+	case keyName, "storage-engine-type":
 		return true
 
 	default:
@@ -829,7 +829,7 @@ func isNodeSpecificField(key string) bool {
 	key = SingularOf(key)
 	switch key {
 	case keyFile, keyDevice, "pidfile",
-		"node-id", keyAddress, "port", "access-address", "access-port",
+		"node-id", keyAddress, "port", keyAccessAddress, "access-port",
 		"external-address", "interface-address", keyAlternateAccessAddress,
 		keyTLSAddress, "tls-port", keyTLSAccessAddress, "tls-access-port",
 		keyTLSAlternateAccessAddress, "tls-alternate-access-port",
