@@ -10,7 +10,7 @@ import (
 	as "github.com/ashishshinde/aerospike-client-go/v6"
 )
 
-var (
+const (
 	rosterKeyObservedNodes     = "observed_nodes"
 	rosterKeyRosterNodes       = "roster"
 	nsKeyUnavailablePartitions = "unavailable_partitions"

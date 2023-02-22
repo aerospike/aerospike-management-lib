@@ -9,20 +9,20 @@ package asconfig
 
 import "fmt"
 
-// ConfigParseError is config parse error
-var ConfigParseError = fmt.Errorf("config parse error")
+// ErrConfigParse is config parse error
+var ErrConfigParse = fmt.Errorf("config parse error")
 
-// ConfigSchemaError is config schema error
-var ConfigSchemaError = fmt.Errorf("config schema error")
+// ErrConfigSchema is config schema error
+var ErrConfigSchema = fmt.Errorf("config schema error")
 
-// ConfigVersionUnsupported is unsupported config version
-var ConfigVersionUnsupported = fmt.Errorf("unsupported config version")
+// ErrConfigVersionUnsupported is unsupported config version
+var ErrConfigVersionUnsupported = fmt.Errorf("unsupported config version")
 
-// ConfigVersionInvalid is invalid config version
-var ConfigVersionInvalid = fmt.Errorf("invalid config version")
+// ErrConfigVersionInvalid is invalid config version
+var ErrConfigVersionInvalid = fmt.Errorf("invalid config version")
 
-// ConfigTransformUnsupported is unsupported config transform
-var ConfigTransformUnsupported = fmt.Errorf("unsupported config transform")
+// ErrConfigTransformUnsupported is unsupported config transform
+var ErrConfigTransformUnsupported = fmt.Errorf("unsupported config transform")
 
-// ConfigKeyInvalid is invalid config key error
-var ConfigKeyInvalid = fmt.Errorf("invalid config key")
+// ErrConfigKeyInvalid is invalid config key error
+var ErrConfigKeyInvalid = fmt.Errorf("invalid config key")

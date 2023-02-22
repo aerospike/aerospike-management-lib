@@ -3,25 +3,26 @@ package deployment
 import (
 	"fmt"
 
+	"github.com/go-logr/logr"
+
 	"github.com/aerospike/aerospike-management-lib/info"
 	aero "github.com/ashishshinde/aerospike-client-go/v6"
-	"github.com/go-logr/logr"
 )
 
 // host is a system on which the aerospike server is running. It provides aerospike
 // specific capabilities on the system.
 type host struct {
-	id         string // host UUID string
-	asConnInfo *asConnInfo
 	log        logr.Logger
+	asConnInfo *asConnInfo
+	id         string // host UUID string
 }
 
 type asConnInfo struct {
 	// aerospike specific details
-	aerospikeHostName string
-	aerospikePort     int
 	aerospikePolicy   *aero.ClientPolicy
 	asInfo            *info.AsInfo
+	aerospikeHostName string
+	aerospikePort     int
 }
 
 // newHost creates an aerospike host.
@@ -63,11 +64,13 @@ func (n *host) String() string {
 // Close closes all the open connections of the host.
 func (n *host) Close() error {
 	var err error
+
 	if n.asConnInfo.asInfo != nil {
 		if e := n.asConnInfo.asInfo.Close(); e != nil {
 			err = e
 		}
 	}
+
 	return fmt.Errorf(
 		"failed to close asinfo/system connection for host %s: %v",
 		n.asConnInfo.aerospikeHostName, err,

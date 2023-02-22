@@ -6,9 +6,9 @@ import (
 
 // AsConfig is wrapper over Conf
 type AsConfig struct {
-	version  string
-	baseConf *Conf
 	log      logr.Logger
+	baseConf *Conf
+	version  string
 }
 
 func New(log logr.Logger, version string, bconf *Conf) *AsConfig {
@@ -21,11 +21,11 @@ func New(log logr.Logger, version string, bconf *Conf) *AsConfig {
 
 // ValidationErr represents version validation error
 type ValidationErr struct {
+	Value       interface{}
 	ErrType     string
 	Context     string
 	Description string
 	Field       string
-	Value       interface{}
 }
 
 // NewMapAsConfig creates AsConfig from map

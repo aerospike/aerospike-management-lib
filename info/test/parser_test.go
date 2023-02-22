@@ -7,10 +7,11 @@ import (
 	"os"
 	"testing"
 
+	"github.com/go-logr/logr"
+
 	lib "github.com/aerospike/aerospike-management-lib"
 	"github.com/aerospike/aerospike-management-lib/info"
 	aero "github.com/ashishshinde/aerospike-client-go/v6"
-	"github.com/go-logr/logr"
 )
 
 var ParsedData lib.Stats
@@ -22,6 +23,7 @@ var AsInfo *info.AsInfo
 func BenchmarkAsParser__map(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
+
 	for i := 0; i < b.N; i++ {
 		ParsedData, err = AsInfo.GetAsInfo()
 		if err != nil {
@@ -29,6 +31,7 @@ func BenchmarkAsParser__map(b *testing.B) {
 			return
 		}
 	}
+
 	_ = writeToFile(ParsedData, "as_info.json")
 }
 
@@ -49,6 +52,7 @@ func NewAsInfo() (*info.AsInfo, error) {
 	p := aero.NewClientPolicy()
 	host := AerospikeHost()
 	log := logr.Discard()
+
 	return info.NewAsInfo(log, &host, p), nil
 }
 
@@ -67,6 +71,7 @@ func writeToFile(m interface{}, filename string) error {
 	enc.SetEscapeHTML(false)
 	enc.SetIndent("", "    ")
 	_ = enc.Encode(m)
-	err := os.WriteFile(filename, buf.Bytes(), 0644)
+	err := os.WriteFile(filename, buf.Bytes(), 0o600)
+
 	return err
 }

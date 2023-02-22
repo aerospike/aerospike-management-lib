@@ -14,15 +14,15 @@ import (
 // HostConn has all parameters to connect to an aerospike host and the machine.
 type HostConn struct {
 	Log    logr.Logger
-	ID     string // host UUID string
 	ASConn *ASConn
+	ID     string // host UUID string
 }
 
 type ASConn struct {
 	Log               logr.Logger
 	AerospikeHostName string // host name of the machine to connect through aerospike
-	AerospikePort     int    // aerospike port to connect to
 	AerospikeTLSName  string // tls name of the aerospike connection
+	AerospikePort     int    // aerospike port to connect to
 }
 
 // NewHostConn returns a new HostConn
@@ -44,6 +44,7 @@ func (asc *ASConn) RunInfo(
 		TLSName: asc.AerospikeTLSName,
 	}
 	asinfo := info.NewAsInfo(asc.Log, &h, aerospikePolicy)
+
 	return asinfo.RequestInfo(command...)
 }
 
@@ -51,6 +52,7 @@ func (asc *ASConn) RunInfo(
 func (asc *ASConn) AlumniReset(aerospikePolicy *aero.ClientPolicy) error {
 	res, err := asc.RunInfo(aerospikePolicy, "services-alumni-reset")
 	asc.Log.Info("TipClearHostname", "res", res)
+
 	return err
 }
 
@@ -63,6 +65,7 @@ func (asc *ASConn) TipClearHostname(
 		fmt.Sprintf("tip-clear:host-port-list=%s:%d", address, heartbeatPort),
 	)
 	asc.Log.Info("TipClearHostname", "res", res)
+
 	return err
 }
 
@@ -75,6 +78,7 @@ func (asc *ASConn) TipHostname(
 		fmt.Sprintf("tip:host=%s;port=%d", address, heartbeatPort),
 	)
 	asc.Log.Info("TipHostname", "res", res)
+
 	return err
 }
 

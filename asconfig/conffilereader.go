@@ -23,10 +23,12 @@ var insideWhtspRegex = regexp.MustCompile(`[\s\p{Zs}]{2,}`)
 func parseLine(line string) string {
 	input := strings.Split(line, "#")[0]
 	final := leadcloseWhtspRegex.ReplaceAllString(input, "")
+
 	final = insideWhtspRegex.ReplaceAllString(final, " ")
 	if final == "" || final == " " {
 		return ""
 	}
+
 	return final
 }
 
@@ -41,14 +43,17 @@ func toList(conf Conf) []Conf {
 		v := conf[k]
 		switch v := v.(type) {
 		case Conf:
-			v["name"] = k
+			v[keyName] = k
 			confList = append(confList, v)
+
 		case []Conf:
 			confList = append(confList, v...)
+
 		default:
 			continue
 		}
 	}
+
 	return confList
 }
 
@@ -94,7 +99,7 @@ func processSection(
 		seList := toList(tempConf)
 		if len(seList) > 0 {
 			// storage engine is named section, but it is not list so use first entry
-			delete(seList[0], "name")
+			delete(seList[0], keyName)
 			conf[cfgName] = seList[0]
 		}
 	}
@@ -106,6 +111,7 @@ func addToStrList(conf Conf, cfgName, val string) {
 	if _, ok := conf[cfgName]; !ok {
 		conf[cfgName] = make([]string, 0)
 	}
+
 	conf[cfgName] = append(conf[cfgName].([]string), val)
 }
 
@@ -131,13 +137,11 @@ func writeConf(log logr.Logger, tok []string, conf Conf) {
 	case "xdr-digestlog-path":
 		size, err := deHumanizeSize(tok[2])
 		if err != nil {
-			log.V(1).Info(
-				"Found invalid xdr-digestlog-size value, "+
-					"while creating acc config struct",
-				"err", err,
-			)
+			log.V(1).Info("Found invalid xdr-digestlog-size value, while creating acc config struct",
+				"err", err)
 			break
 		}
+
 		conf[cfgName] = fmt.Sprintf("%s %d", tok[1], size)
 
 	default:
@@ -167,12 +171,13 @@ func process(log logr.Logger, scanner *bufio.Scanner, conf Conf) (Conf, error) {
 		if line == "" {
 			continue
 		}
+
 		tok := strings.Split(line, " ")
 
 		// Zero tokens
 		if len(tok) == 0 {
 			log.V(1).Info("Config file line has 0 tokens")
-			return nil, ConfigParseError
+			return nil, ErrConfigParse
 		}
 		// End of Section
 		if tok[0] == "}" {
@@ -188,8 +193,10 @@ func process(log logr.Logger, scanner *bufio.Scanner, conf Conf) (Conf, error) {
 				conf[tok[0]] = true
 				continue
 			}
+
 			log.V(1).Info("Config file line has  < 2 tokens:", "token", tok)
-			return nil, ConfigParseError
+
+			return nil, ErrConfigParse
 		}
 
 		// Start section

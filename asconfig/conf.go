@@ -5,9 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 
-	lib "github.com/aerospike/aerospike-management-lib"
 	"github.com/go-logr/logr"
 	"github.com/xeipuuv/gojsonschema"
+
+	lib "github.com/aerospike/aerospike-management-lib"
 )
 
 // Conf is format for configs
@@ -19,9 +20,9 @@ type DotConf = string
 
 // CfgValue is config details
 type CfgValue struct {
+	Value   interface{}
 	Context string
 	Name    string
-	Value   interface{}
 }
 
 // confIsValid checks if passed conf is valid. If it is not valid
@@ -32,12 +33,14 @@ func confIsValid(log logr.Logger, flatConf *Conf, ver string) (bool, []*Validati
 	if err != nil {
 		return false, nil, fmt.Errorf("failed to do json.Marshal for flatten aerospike conf: %v", err)
 	}
+
 	confLoader := gojsonschema.NewStringLoader(string(confJSON))
 
 	schema, err := getSchema(ver)
 	if err != nil {
 		return false, nil, fmt.Errorf("failed to get aerospike config schema for version %s: %v", ver, err)
 	}
+
 	schemaLoader := gojsonschema.NewStringLoader(schema)
 
 	result, err := gojsonschema.Validate(schemaLoader, confLoader)
@@ -50,6 +53,7 @@ func confIsValid(log logr.Logger, flatConf *Conf, ver string) (bool, []*Validati
 	}
 
 	vErrs := make([]*ValidationErr, 0)
+
 	for _, desc := range result.Errors() {
 		vErr := &ValidationErr{
 			ErrType:     desc.Type(),
@@ -60,7 +64,8 @@ func confIsValid(log logr.Logger, flatConf *Conf, ver string) (bool, []*Validati
 		}
 		vErrs = append(vErrs, vErr)
 	}
-	return false, vErrs, ConfigSchemaError
+
+	return false, vErrs, ErrConfigSchema
 }
 
 // confToDotConf takes Conf as parameter and returns server
