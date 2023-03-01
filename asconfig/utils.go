@@ -691,8 +691,12 @@ func isListField(key string) (exists bool, sep string) {
 
 	default:
 		// TODO: This should use the configuration schema instead.
-		// Kludge for not to ensure we do not miss list items.
+		// If this field is in singularToPlural or pluralToSingular it is a list field.
 		if _, ok := singularToPlural[key]; ok {
+			return true, ""
+		}
+
+		if _, ok := pluralToSingular[key]; ok {
 			return true, ""
 		}
 
