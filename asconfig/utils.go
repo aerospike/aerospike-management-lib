@@ -404,10 +404,6 @@ func flattenConf(log logr.Logger, input Conf, sep string) Conf {
 }
 
 func baseKey(k, sep string) (baseKey string) {
-	if sep == "" {
-		return k
-	}
-
 	s := strings.Split(k, sep)
 	return s[len(s)-1]
 }
@@ -697,10 +693,6 @@ func isListField(key string) (bool, string) {
 		// TODO: This should use the configuration schema instead.
 		// If this field is in singularToPlural or pluralToSingular it is a list field.
 		if _, ok := singularToPlural[key]; ok {
-			return true, ""
-		}
-
-		if _, ok := pluralToSingular[key]; ok {
 			return true, ""
 		}
 
