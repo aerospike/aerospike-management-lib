@@ -668,7 +668,7 @@ func getSystemProperty(log logr.Logger, c Conf, key string) (
 // isListField return true if passed in key representing
 // aerospike config is of type List that is can have multiple
 // entries for same config key.
-func isListField(key string) (bool, string) {
+func isListField(key string) (exists bool, separater string) {
 	key = baseKey(key, sep)
 	key = SingularOf(key)
 
