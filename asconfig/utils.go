@@ -403,7 +403,7 @@ func flattenConf(log logr.Logger, input Conf, sep string) Conf {
 	return res
 }
 
-func baseKey(k, sep string) (baseKey string) {
+func baseKey(k string) (baseKey string) {
 	s := strings.Split(k, sep)
 	return s[len(s)-1]
 }
@@ -481,7 +481,7 @@ func diff(
 	// or if type or value is different add/update it
 	for k, v1 := range c1 {
 		// Ignore the node specific details
-		bN := baseKey(k, sep)
+		bN := baseKey(k)
 		if !c2IsDefault && (isNodeSpecificContext(k) || isNodeSpecificField(bN)) {
 			// If we need diff with defaults then we need to consider all fields
 			// otherwise ignore nodespcific details
@@ -587,7 +587,7 @@ func changeKey(key string) string {
 func getSystemProperty(log logr.Logger, c Conf, key string) (
 	stype sysproptype, value []string,
 ) {
-	baseKey := baseKey(key, sep)
+	baseKey := baseKey(key)
 	baseKey = SingularOf(baseKey)
 	value = make([]string, 0)
 
@@ -668,8 +668,8 @@ func getSystemProperty(log logr.Logger, c Conf, key string) (
 // isListField return true if passed in key representing
 // aerospike config is of type List that is can have multiple
 // entries for same config key.
-func isListField(key string) (exists bool, sep string) {
-	key = baseKey(key, sep)
+func isListField(key string) (exists bool, separator string) {
+	key = baseKey(key)
 	key = SingularOf(key)
 
 	switch key {
@@ -691,7 +691,7 @@ func isListField(key string) (exists bool, sep string) {
 
 	default:
 		// TODO: This should use the configuration schema instead.
-		// Kludge for not to ensure we do not miss list items.
+		// If this field is in singularToPlural or pluralToSingular it is a list field.
 		if _, ok := singularToPlural[key]; ok {
 			return true, ""
 		}
@@ -704,7 +704,7 @@ func isListField(key string) (exists bool, sep string) {
 // representing aerospike set config which is incomplete and needs
 // 'set-' prefix
 func isIncompleteSetSectionFields(key string) bool {
-	key = baseKey(key, sep)
+	key = baseKey(key)
 	switch key {
 	case "disable-eviction", "enable-xdr", "stop-writes-count":
 		return true
@@ -715,7 +715,7 @@ func isIncompleteSetSectionFields(key string) bool {
 }
 
 func isInternalField(key string) bool {
-	key = baseKey(key, sep)
+	key = baseKey(key)
 	switch key {
 	case "index", keyName:
 		return true
@@ -726,7 +726,7 @@ func isInternalField(key string) bool {
 }
 
 func isListSection(section string) bool {
-	section = baseKey(section, sep)
+	section = baseKey(section)
 	section = SingularOf(section)
 
 	switch section {
@@ -741,7 +741,7 @@ func isListSection(section string) bool {
 // section without name but should consider as list
 // for ex. logging
 func isSpecialListSection(section string) bool {
-	section = baseKey(section, sep)
+	section = baseKey(section)
 	section = SingularOf(section)
 
 	switch section {
@@ -758,7 +758,7 @@ func isSpecialListSection(section string) bool {
 // virtue of it generated from the config form. Forms are the
 // JSON schema for nice form layout in UI.
 func isFormField(key string) bool {
-	key = baseKey(key, sep)
+	key = baseKey(key)
 	// "name" is id for named sections
 	// "storage-engine-type" is type of storage engine.
 	switch key {
@@ -813,7 +813,7 @@ func isSpecialBoolField(key string) bool {
 // bool value also
 // e.g. tls-authenticate-client
 func isSpecialStringField(key string) bool {
-	key = baseKey(key, sep)
+	key = baseKey(key)
 	switch key {
 	case keyTLSAuthenticateClient:
 		return true
