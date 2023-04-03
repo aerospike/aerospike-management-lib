@@ -62,6 +62,11 @@ func (cfg *AsConfig) ToConfFile() DotConf {
 	return confToDotConf(cfg.log, conf)
 }
 
+// ToMap gets a pointer to the underlying Conf map from the AsConfig
+func (cfg *AsConfig) ToMap() *Conf {
+	return cfg.baseConf
+}
+
 // FromConfFile unmarshales the aerospike config text in "in" into a new *Asconfig
 func FromConfFile(log logr.Logger, version string, in io.Reader) (*AsConfig, error) {
 	scanner := bufio.NewScanner(in)
