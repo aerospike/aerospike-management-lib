@@ -1,6 +1,9 @@
 package asconfig
 
 import (
+	"bufio"
+	"io"
+
 	"github.com/go-logr/logr"
 )
 
@@ -57,6 +60,18 @@ func (cfg *AsConfig) IsValid(log logr.Logger, version string) (
 func (cfg *AsConfig) ToConfFile() DotConf {
 	conf := cfg.baseConf
 	return confToDotConf(cfg.log, conf)
+}
+
+// FromConfFile unmarshales the aerospike config text in "in" into a new *Asconfig
+func FromConfFile(log logr.Logger, version string, in io.Reader) (*AsConfig, error) {
+	scanner := bufio.NewScanner(in)
+
+	configMap, err := process(log, scanner, Conf{})
+	if err != nil {
+		return nil, err
+	}
+
+	return NewMapAsConfig(log, version, configMap)
 }
 
 // IsSupportedVersion returns true if version supported else false
