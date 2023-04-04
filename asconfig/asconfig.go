@@ -62,9 +62,10 @@ func (cfg *AsConfig) ToConfFile() DotConf {
 	return confToDotConf(cfg.log, conf)
 }
 
-// ToMap gets a pointer to the underlying Conf map from the AsConfig
+// ToMap returns a pointer to the expanded map form of AsConfig
 func (cfg *AsConfig) ToMap() *Conf {
-	return cfg.baseConf
+	res := Conf(expandConf(cfg.log, cfg.baseConf, sep))
+	return &res
 }
 
 // FromConfFile unmarshales the aerospike config text in "in" into a new *Asconfig
