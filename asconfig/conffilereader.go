@@ -61,6 +61,11 @@ func processSection(
 	log logr.Logger, tok []string, scanner *bufio.Scanner, conf Conf,
 ) error {
 	cfgName := tok[0]
+
+	if isListSection(cfgName) {
+		cfgName = PluralOf(cfgName)
+	}
+
 	// Unnamed Sections are simply processed as Map except special sections like logging
 	if len(tok) == 2 {
 		if _, ok := conf[cfgName]; !ok {
@@ -120,6 +125,7 @@ func writeConf(log logr.Logger, tok []string, conf Conf) {
 
 	// Handle List Field
 	if ok, sep := isListField(cfgName); ok {
+		cfgName = PluralOf(cfgName)
 		addToStrList(conf, cfgName, strings.Join(tok[1:], sep))
 		return
 	}

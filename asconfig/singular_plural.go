@@ -46,7 +46,7 @@ func init() {
 	}
 }
 
-// PluralOf returns the plural for of the input noun.
+// PluralOf returns the plural of the input noun.
 func PluralOf(noun string) string {
 	plural, ok := singularToPlural[noun]
 
@@ -57,7 +57,7 @@ func PluralOf(noun string) string {
 	return plural
 }
 
-// SingularOf returns the singular for of the input noun.
+// SingularOf returns the singular of the input noun.
 func SingularOf(noun string) string {
 	singular, ok := pluralToSingular[noun]
 
