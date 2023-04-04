@@ -100,11 +100,10 @@ func processSection(
 	if isListSection(cfgName) {
 		conf[cfgName] = append(conf[cfgName].([]Conf), toList(tempConf)...)
 	} else {
-		// storage engine device
+		// storage engine x or index-type y
 		seList := toList(tempConf)
 		if len(seList) > 0 {
 			// storage engine is named section, but it is not list so use first entry
-			delete(seList[0], keyType)
 			conf[cfgName] = seList[0]
 		}
 	}
