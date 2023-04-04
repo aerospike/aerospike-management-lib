@@ -6,6 +6,7 @@ const (
 	keyDevice         = "device"
 	keyFile           = "file"
 	keyName           = "name"
+	keyType           = "type"
 
 	keyAddress                   = "address"
 	keyTLSAddress                = "tls-address"

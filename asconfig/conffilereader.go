@@ -43,7 +43,7 @@ func toList(conf Conf) []Conf {
 		v := conf[k]
 		switch v := v.(type) {
 		case Conf:
-			v[keyName] = k
+			v[keyType] = k
 			confList = append(confList, v)
 
 		case []Conf:
@@ -104,7 +104,7 @@ func processSection(
 		seList := toList(tempConf)
 		if len(seList) > 0 {
 			// storage engine is named section, but it is not list so use first entry
-			delete(seList[0], keyName)
+			delete(seList[0], keyType)
 			conf[cfgName] = seList[0]
 		}
 	}

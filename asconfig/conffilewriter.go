@@ -93,8 +93,8 @@ func writeLogSection(
 func writeTypedSection(
 	log logr.Logger, buf *bytes.Buffer, section string, conf Conf, indent int,
 ) {
-	typeStr := conf["type"].(string)
-	delete(conf, "type")
+	typeStr := conf[keyType].(string)
+	delete(conf, keyType)
 
 	if len(conf) > 0 {
 		beginSection(log, buf, indent, fmt.Sprintf("%s %v", section, typeStr))
