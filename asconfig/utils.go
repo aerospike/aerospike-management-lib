@@ -883,6 +883,17 @@ func isStorageEngineKey(key string) bool {
 	return false
 }
 
+func isTypedContext(key string) bool {
+	singular := SingularOf(key)
+
+	switch singular {
+	case "storage-engine", "index-type":
+		return true
+	default:
+		return false
+	}
+}
+
 func addStorageEngineConfig(
 	log logr.Logger, key string, v interface{}, conf Conf,
 ) {

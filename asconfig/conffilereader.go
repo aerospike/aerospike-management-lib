@@ -100,14 +100,22 @@ func processSection(
 	if isListSection(cfgName) {
 		conf[cfgName] = append(conf[cfgName].([]Conf), toList(tempConf)...)
 	} else {
-		// storage engine x or index-type y
+		// process a non list named section (typed section)
 		seList := toList(tempConf)
-		if len(seList) > 0 {
+
+		if len(seList) < 1 {
+			return nil
+		}
+
+		// storage engine device or index-type flash
+		if isTypedContext(cfgName) {
 			// storage engine is a named section, but it is not list so use first entry.
 			// the schema files expect index-type and storage-engine to have a type field, not name, so replace it
 			seList[0][keyType] = seList[0][keyName]
 			delete(seList[0], keyName)
 			conf[cfgName] = seList[0]
+		} else { // TODO maybe error out in this else instead
+			delete(seList[0], keyName)
 		}
 	}
 
