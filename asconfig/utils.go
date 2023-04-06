@@ -883,7 +883,7 @@ func isStorageEngineKey(key string) bool {
 	return false
 }
 
-func isTypedContext(key string) bool {
+func isTypedSection(key string) bool {
 	singular := SingularOf(key)
 
 	switch singular {

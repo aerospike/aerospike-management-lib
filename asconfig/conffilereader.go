@@ -62,10 +62,6 @@ func processSection(
 ) error {
 	cfgName := tok[0]
 
-	if isListSection(cfgName) {
-		cfgName = PluralOf(cfgName)
-	}
-
 	// Unnamed Sections are simply processed as Map except special sections like logging
 	if len(tok) == 2 {
 		if _, ok := conf[cfgName]; !ok {
@@ -108,7 +104,7 @@ func processSection(
 		}
 
 		// storage engine device or index-type flash
-		if isTypedContext(cfgName) {
+		if isTypedSection(cfgName) {
 			// storage engine is a named section, but it is not list so use first entry.
 			// the schema files expect index-type and storage-engine to have a type field, not name, so replace it
 			seList[0][keyType] = seList[0][keyName]
@@ -135,7 +131,6 @@ func writeConf(log logr.Logger, tok []string, conf Conf) {
 
 	// Handle List Field
 	if ok, sep := isListField(cfgName); ok {
-		cfgName = PluralOf(cfgName)
 		addToStrList(conf, cfgName, strings.Join(tok[1:], sep))
 		return
 	}
