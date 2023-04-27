@@ -6,9 +6,9 @@ require github.com/qdm12/reprint v0.0.0-20200326205758-722754a53494
 
 require (
 	github.com/ashishshinde/aerospike-client-go/v6 v6.0.1-0.20220606044039-77304169d3a4
-	github.com/go-logr/logr v1.2.3
+	github.com/go-logr/logr v0.4.0
 	github.com/xeipuuv/gojsonschema v1.2.0
-	k8s.io/apimachinery v0.27.1
+	k8s.io/apimachinery v0.21.2
 )
 
 require (
