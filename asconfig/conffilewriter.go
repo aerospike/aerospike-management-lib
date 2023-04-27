@@ -78,7 +78,7 @@ func writeLogSection(
 		}
 
 		key := name
-		if name != "console" {
+		if name != "console" && name != "syslog" {
 			key = "file " + name
 		}
 
@@ -171,7 +171,8 @@ func writeListField(
 	if sep != "" {
 		buf.WriteString(
 			indentString(indent) + key + "    " + strings.ReplaceAll(
-				value, sep, " ") + "\n",
+				value, sep, " ",
+			) + "\n",
 		)
 	} else {
 		buf.WriteString(indentString(indent) + key + "    " + value + "\n")
