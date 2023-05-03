@@ -547,52 +547,50 @@ func (c *cluster) infoClusterStablePerNamespace(hostIDs, removedNamespaces []str
 		return err
 	}
 
-	hostCmdMap := make(map[string]string)
+	effectiveNamespaces := sets.String{}
 
-	for hostID, namespaces := range nodesNamespaces {
-		effectiveNamespaces := sets.String{}
+	for _, namespaces := range nodesNamespaces {
 		effectiveNamespaces.Insert(namespaces...)
-		effectiveNamespaces.Delete(removedNamespaces...)
-
-		for ns := range effectiveNamespaces {
-			cmd := fmt.Sprintf(
-				"cluster-stable:size=%d;ignore-migrations=no;namespace=%s", len(hostIDs), ns,
-			)
-
-			hostCmdMap[hostID] = cmd
-		}
 	}
 
-	infoResults, err := c.infoOnHostsPerCmd(hostIDs, hostCmdMap)
-	if err != nil {
-		return err
-	}
+	effectiveNamespaces.Delete(removedNamespaces...)
 
-	clusterKey := ""
+	for ns := range effectiveNamespaces {
+		cmd := fmt.Sprintf(
+			"cluster-stable:size=%d;ignore-migrations=no;namespace=%s", len(hostIDs), ns,
+		)
 
-	for id, info := range infoResults {
-		ck, err := info.toString(hostCmdMap[id])
+		infoResults, err := c.infoOnHosts(hostIDs, cmd)
 		if err != nil {
-			return fmt.Errorf(
-				"failed to execute cluster-stable command on"+
-					" node %s: %v", id, err,
-			)
+			return err
 		}
 
-		if strings.Contains(strings.ToLower(ck), "error") {
-			return fmt.Errorf(
-				"failed to execute cluster-stable command on node %s: %v", id,
-				ck,
-			)
-		}
+		clusterKey := ""
 
-		if clusterKey == "" {
-			clusterKey = ck
-			continue
-		}
+		for id, info := range infoResults {
+			ck, err := info.toString(cmd)
+			if err != nil {
+				return fmt.Errorf(
+					"failed to execute cluster-stable command on"+
+						" node %s: %v", id, err,
+				)
+			}
 
-		if ck != clusterKey {
-			return fmt.Errorf("node %s not part of the cluster", id)
+			if strings.Contains(strings.ToLower(ck), "error") && !strings.Contains(strings.ToLower(ck), "unknown-namespace") {
+				return fmt.Errorf(
+					"failed to execute cluster-stable command on node %s: %v", id,
+					ck,
+				)
+			}
+
+			if clusterKey == "" {
+				clusterKey = ck
+				continue
+			}
+
+			if ck != clusterKey {
+				return fmt.Errorf("node %s not part of the cluster", id)
+			}
 		}
 	}
 
@@ -796,44 +794,6 @@ func (c *cluster) infoOnHosts(
 	if len(infos) != len(hostIDs) {
 		return nil, fmt.Errorf(
 			"failed to fetch aerospike info `%s` for all hosts %v", cmd,
-			hostIDs,
-		)
-	}
-
-	return infos, nil
-}
-
-// infoOnHosts returns the result of running the info command on the hosts.
-func (c *cluster) infoOnHostsPerCmd(
-	hostIDs []string, cmds map[string]string,
-) (map[string]infoResult, error) {
-	infos := make(map[string]infoResult) // host id to info output
-
-	var (
-		mut sync.Mutex
-		wg  sync.WaitGroup
-	)
-
-	wg.Add(len(hostIDs))
-
-	for _, id := range hostIDs {
-		go func(hostID string, wg *sync.WaitGroup) {
-			defer wg.Done()
-
-			if info, err := c.infoCmd(hostID, cmds[hostID]); err == nil {
-				mut.Lock()
-				defer mut.Unlock()
-
-				infos[hostID] = info
-			}
-		}(id, &wg)
-	}
-
-	wg.Wait()
-
-	if len(infos) != len(hostIDs) {
-		return nil, fmt.Errorf(
-			"failed to fetch aerospike info `%s` for all hosts %v", cmds,
 			hostIDs,
 		)
 	}
