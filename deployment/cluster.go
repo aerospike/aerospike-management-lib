@@ -555,6 +555,8 @@ func (c *cluster) infoClusterStablePerNamespace(hostIDs, removedNamespaces []str
 
 	effectiveNamespaces.Delete(removedNamespaces...)
 
+	clusterKey := ""
+
 	for ns := range effectiveNamespaces {
 		cmd := fmt.Sprintf(
 			"cluster-stable:size=%d;ignore-migrations=no;namespace=%s", len(hostIDs), ns,
@@ -565,8 +567,6 @@ func (c *cluster) infoClusterStablePerNamespace(hostIDs, removedNamespaces []str
 			return err
 		}
 
-		clusterKey := ""
-
 		for id, info := range infoResults {
 			ck, err := info.toString(cmd)
 			if err != nil {
@@ -576,7 +576,11 @@ func (c *cluster) infoClusterStablePerNamespace(hostIDs, removedNamespaces []str
 				)
 			}
 
-			if strings.Contains(strings.ToLower(ck), "error") && !strings.Contains(strings.ToLower(ck), "unknown-namespace") {
+			if strings.Contains(strings.ToLower(ck), "error") {
+				if strings.Contains(strings.ToLower(ck), "unknown-namespace") {
+					continue
+				}
+
 				return fmt.Errorf(
 					"failed to execute cluster-stable command on node %s: %v", id,
 					ck,
