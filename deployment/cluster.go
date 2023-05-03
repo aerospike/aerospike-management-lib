@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	aero "github.com/ashishshinde/aerospike-client-go/v6"
 )
@@ -204,8 +205,14 @@ func (c *cluster) InfoQuiesce(hostsToBeQuiesced, hostIDs, removedNamespaces []st
 		return nil
 	}
 
-	if err := c.infoClusterStable(hostIDs); err != nil {
-		return err
+	if len(removedNamespaces) != 0 {
+		if err := c.infoClusterStablePerNamespace(hostIDs, removedNamespaces); err != nil {
+			return err
+		}
+	} else {
+		if err := c.infoClusterStable(hostIDs); err != nil {
+			return err
+		}
 	}
 
 	lg.V(1).Info("Fetching namespace names")
@@ -530,6 +537,68 @@ func (c *cluster) infoClusterStable(hostIDs []string) error {
 	return nil
 }
 
+func (c *cluster) infoClusterStablePerNamespace(hostIDs, removedNamespaces []string) error {
+	lg := c.log.WithValues("nodes", hostIDs)
+
+	lg.V(1).Info("Executing cluster-stable command")
+
+	nodesNamespaces, err := c.getClusterNamespaces(hostIDs)
+	if err != nil {
+		return err
+	}
+
+	hostCmdMap := make(map[string]string)
+
+	for hostID, namespaces := range nodesNamespaces {
+		effectiveNamespaces := sets.String{}
+		effectiveNamespaces.Insert(namespaces...)
+		effectiveNamespaces.Delete(removedNamespaces...)
+
+		for ns := range effectiveNamespaces {
+			cmd := fmt.Sprintf(
+				"cluster-stable:size=%d;ignore-migrations=no;namespace=%s", len(hostIDs), ns,
+			)
+
+			hostCmdMap[hostID] = cmd
+		}
+	}
+
+	infoResults, err := c.infoOnHostsPerCmd(hostIDs, hostCmdMap)
+	if err != nil {
+		return err
+	}
+
+	clusterKey := ""
+
+	for id, info := range infoResults {
+		ck, err := info.toString(hostCmdMap[id])
+		if err != nil {
+			return fmt.Errorf(
+				"failed to execute cluster-stable command on"+
+					" node %s: %v", id, err,
+			)
+		}
+
+		if strings.Contains(strings.ToLower(ck), "error") {
+			return fmt.Errorf(
+				"failed to execute cluster-stable command on node %s: %v", id,
+				ck,
+			)
+		}
+
+		if clusterKey == "" {
+			clusterKey = ck
+			continue
+		}
+
+		if ck != clusterKey {
+			return fmt.Errorf("node %s not part of the cluster", id)
+		}
+	}
+
+	return nil
+}
+
 func (c *cluster) getQuiescedNodes(hostIDs []string) ([]string, error) {
 	var quiescedNodes []string
 
@@ -727,6 +796,44 @@ func (c *cluster) infoOnHosts(
 	if len(infos) != len(hostIDs) {
 		return nil, fmt.Errorf(
 			"failed to fetch aerospike info `%s` for all hosts %v", cmd,
+			hostIDs,
+		)
+	}
+
+	return infos, nil
+}
+
+// infoOnHosts returns the result of running the info command on the hosts.
+func (c *cluster) infoOnHostsPerCmd(
+	hostIDs []string, cmds map[string]string,
+) (map[string]infoResult, error) {
+	infos := make(map[string]infoResult) // host id to info output
+
+	var (
+		mut sync.Mutex
+		wg  sync.WaitGroup
+	)
+
+	wg.Add(len(hostIDs))
+
+	for _, id := range hostIDs {
+		go func(hostID string, wg *sync.WaitGroup) {
+			defer wg.Done()
+
+			if info, err := c.infoCmd(hostID, cmds[hostID]); err == nil {
+				mut.Lock()
+				defer mut.Unlock()
+
+				infos[hostID] = info
+			}
+		}(id, &wg)
+	}
+
+	wg.Wait()
+
+	if len(infos) != len(hostIDs) {
+		return nil, fmt.Errorf(
+			"failed to fetch aerospike info `%s` for all hosts %v", cmds,
 			hostIDs,
 		)
 	}
