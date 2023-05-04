@@ -1,6 +1,6 @@
 module github.com/aerospike/aerospike-management-lib
 
-go 1.18
+go 1.19
 
 require github.com/qdm12/reprint v0.0.0-20200326205758-722754a53494
 
