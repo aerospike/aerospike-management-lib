@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	aero "github.com/ashishshinde/aerospike-client-go/v6"
 )
@@ -204,8 +205,14 @@ func (c *cluster) InfoQuiesce(hostsToBeQuiesced, hostIDs, removedNamespaces []st
 		return nil
 	}
 
-	if err := c.infoClusterStable(hostIDs); err != nil {
-		return err
+	if len(removedNamespaces) != 0 {
+		if err := c.infoClusterStablePerNamespace(hostIDs, removedNamespaces); err != nil {
+			return err
+		}
+	} else {
+		if err := c.infoClusterStable(hostIDs); err != nil {
+			return err
+		}
 	}
 
 	lg.V(1).Info("Fetching namespace names")
@@ -524,6 +531,70 @@ func (c *cluster) infoClusterStable(hostIDs []string) error {
 
 		if ck != clusterKey {
 			return fmt.Errorf("node %s not part of the cluster", id)
+		}
+	}
+
+	return nil
+}
+
+func (c *cluster) infoClusterStablePerNamespace(hostIDs, removedNamespaces []string) error {
+	lg := c.log.WithValues("nodes", hostIDs)
+
+	lg.V(1).Info("Executing cluster-stable command")
+
+	nodesNamespaces, err := c.getClusterNamespaces(hostIDs)
+	if err != nil {
+		return err
+	}
+
+	effectiveNamespaces := sets.String{}
+
+	for _, namespaces := range nodesNamespaces {
+		effectiveNamespaces.Insert(namespaces...)
+	}
+
+	effectiveNamespaces.Delete(removedNamespaces...)
+
+	clusterKey := ""
+
+	for ns := range effectiveNamespaces {
+		cmd := fmt.Sprintf(
+			"cluster-stable:size=%d;ignore-migrations=no;namespace=%s", len(hostIDs), ns,
+		)
+
+		infoResults, err := c.infoOnHosts(hostIDs, cmd)
+		if err != nil {
+			return err
+		}
+
+		for id, info := range infoResults {
+			ck, err := info.toString(cmd)
+			if err != nil {
+				return fmt.Errorf(
+					"failed to execute cluster-stable command on"+
+						" node %s: %v", id, err,
+				)
+			}
+
+			if strings.Contains(strings.ToLower(ck), "error") {
+				if strings.Contains(strings.ToLower(ck), "unknown-namespace") {
+					continue
+				}
+
+				return fmt.Errorf(
+					"failed to execute cluster-stable command on node %s: %v", id,
+					ck,
+				)
+			}
+
+			if clusterKey == "" {
+				clusterKey = ck
+				continue
+			}
+
+			if ck != clusterKey {
+				return fmt.Errorf("node %s not part of the cluster", id)
+			}
 		}
 	}
 
