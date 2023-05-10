@@ -150,6 +150,7 @@ func writeConf(log logr.Logger, tok []string, conf Conf) {
 			}
 
 			conf[cfgName] = tok[1]
+			return
 		}
 	}
 
