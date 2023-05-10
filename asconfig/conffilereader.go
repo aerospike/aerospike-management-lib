@@ -136,16 +136,16 @@ func writeConf(log logr.Logger, tok []string, conf Conf) {
 
 	// Handle special case for tls-authentication-client which can be a list
 	// or a string depending on its value
-	if cfgName == "tls-authentication-client" {
+	if cfgName == keyTLSAuthenticateClient {
 		if len(tok) < 2 {
-			log.V(1).Info("tls-authentication-client requires a value")
+			log.V(1).Info("tls-authenticate-client requires a value")
 			return
 		}
 
 		v := strings.ToLower(tok[1])
 		if v == "false" || v == "any" {
 			if _, ok := conf[cfgName]; ok {
-				log.V(1).Info("tls-authentication-client must only use 'any', 'false', or one or more subject names")
+				log.V(1).Info("tls-authenticate-client must only use 'any', 'false', or one or more subject names")
 				return
 			}
 
