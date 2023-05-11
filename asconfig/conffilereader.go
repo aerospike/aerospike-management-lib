@@ -124,11 +124,15 @@ func processSection(
 }
 
 func addToStrList(conf Conf, cfgName, val string) {
+	// if we have not seen this config field before,
+	// assume it has a single item, and does not need
+	// to be a list. If we see it again, make it a list
 	if _, ok := conf[cfgName]; !ok {
-		conf[cfgName] = make([]string, 0)
+		conf[cfgName] = val
+	} else {
+		conf[cfgName] = []string{conf[cfgName].(string)}
+		conf[cfgName] = append(conf[cfgName].([]string), val)
 	}
-
-	conf[cfgName] = append(conf[cfgName].([]string), val)
 }
 
 func writeConf(log logr.Logger, tok []string, conf Conf) {
