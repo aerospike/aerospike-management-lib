@@ -164,6 +164,8 @@ func writeConf(log logr.Logger, tok []string, conf Conf) {
 				conf[cfgName] = append(conf[cfgName].([]Conf), entry)
 			}
 		}
+
+		return
 	}
 
 	// Handle List Field that gets concatenated
