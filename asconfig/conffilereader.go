@@ -158,11 +158,13 @@ func writeConf(log logr.Logger, tok []string, conf Conf) {
 	// Ex: file <path1> <path2> ...
 	if ok, _ := isSingleLineListField(cfgName); ok {
 		if _, ok := conf[cfgName]; !ok {
-			conf[cfgName] = make([]Conf, 0)
+			tmp := make([]Conf, 0)
 			for _, item := range tok[1:] {
 				entry := Conf{cfgName: item}
-				conf[cfgName] = append(conf[cfgName].([]Conf), entry)
+				tmp = append(tmp, entry)
 			}
+			conf[cfgName] = []Conf{{keyName: cfgName}}
+			conf[cfgName] = append(conf[cfgName].([]Conf), tmp...)
 		}
 
 		return
