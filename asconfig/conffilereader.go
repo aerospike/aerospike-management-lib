@@ -62,19 +62,6 @@ func processSection(
 ) error {
 	cfgName := tok[0]
 
-	// Handle single line list field
-	// Ex: file <path1> <path2> ...
-	if ok, _ := isSingleLineListField(cfgName); ok {
-		if _, ok := conf[cfgName]; !ok {
-			conf[cfgName] = make([]Conf, 0)
-			for _, item := range tok[1:] {
-				entry := Conf{cfgName: item}
-				conf[cfgName] = append(conf[cfgName].([]Conf), entry)
-			}
-		}
-		return nil
-	}
-
 	// Unnamed Sections are simply processed as Map except special sections like logging
 	if len(tok) == 2 {
 		if _, ok := conf[cfgName]; !ok {
@@ -164,6 +151,18 @@ func writeConf(log logr.Logger, tok []string, conf Conf) {
 
 			conf[cfgName] = tok[1]
 			return
+		}
+	}
+
+	// Handle single line list field
+	// Ex: file <path1> <path2> ...
+	if ok, _ := isSingleLineListField(cfgName); ok {
+		if _, ok := conf[cfgName]; !ok {
+			conf[cfgName] = make([]Conf, 0)
+			for _, item := range tok[1:] {
+				entry := Conf{cfgName: item}
+				conf[cfgName] = append(conf[cfgName].([]Conf), entry)
+			}
 		}
 	}
 
