@@ -160,11 +160,10 @@ func writeConf(log logr.Logger, tok []string, conf Conf) {
 		if _, ok := conf[cfgName]; !ok {
 			tmp := make([]Conf, 0)
 			for _, item := range tok[1:] {
-				entry := Conf{cfgName: item}
+				entry := Conf{keyName: cfgName, cfgName: item}
 				tmp = append(tmp, entry)
 			}
-			conf[cfgName] = []Conf{{keyName: cfgName}}
-			conf[cfgName] = append(conf[cfgName].([]Conf), tmp...)
+			conf[cfgName] = tmp
 		}
 
 		return
