@@ -158,12 +158,13 @@ func writeConf(log logr.Logger, tok []string, conf Conf) {
 	// Ex: file <path1> <path2> ...
 	if ok, _ := isSingleLineListField(cfgName); ok {
 		if _, ok := conf[cfgName]; !ok {
-			conf[cfgName] = Conf{}
+			tmp := Conf{}
 			for i, item := range tok[1:] {
 				key := fmt.Sprintf("placeholder%d", i)
-				conf[cfgName].(Conf)[key] = item
+				tmp[key] = item
 			}
-			conf[cfgName].(Conf)[keyName] = cfgName
+			tmp[keyName] = cfgName
+			conf[cfgName] = []Conf{tmp}
 		}
 
 		return
