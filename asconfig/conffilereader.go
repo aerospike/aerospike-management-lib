@@ -154,25 +154,30 @@ func writeConf(log logr.Logger, tok []string, conf Conf) {
 		}
 	}
 
-	// Handle single line list field
-	// Ex: file <path1> <path2> ...
-	if ok, _ := isSingleLineListField(cfgName); ok {
-		if _, ok := conf[cfgName]; !ok {
-			tmp := Conf{}
-			for i, item := range tok[1:] {
-				key := fmt.Sprintf("placeholder%d", i)
-				tmp[key] = item
-			}
-			tmp[keyName] = cfgName
-			conf[cfgName] = []Conf{tmp}
-		}
+	// // Handle single line list field
+	// // Ex: file <path1> <path2> ...
+	// if ok, _ := isSingleLineListField(cfgName); ok {
+	// 	if _, ok := conf[cfgName]; !ok {
+	// 		tmp := Conf{}
+	// 		for i, item := range tok[1:] {
+	// 			key := fmt.Sprintf("placeholder%d", i)
+	// 			tmp[key] = item
+	// 		}
+	// 		tmp[keyName] = cfgName
+	// 		conf[cfgName] = []Conf{tmp}
+	// 	}
 
-		return
-	}
+	// 	return
+	// }
 
 	// Handle List Field that gets concatenated
 	// Ex: node-address-port 10.20.10 tlsname 3000
 	if ok, sep := isListField(cfgName); ok {
+		// we never want to concat list entries while parsing asconfig
+		// because we loose the individual entries if we do
+		if sep == "" {
+			sep = " "
+		}
 		addToStrList(conf, cfgName, strings.Join(tok[1:], sep))
 		return
 	}
@@ -265,18 +270,18 @@ func process(log logr.Logger, scanner *bufio.Scanner, conf Conf) (Conf, error) {
 	return conf, nil
 }
 
-// isSingleLineListField identifies aerospike config list fields that can contain
-// multiple elements on the same line without a repeated key. Ex: file <path1> <path2> ...
-// it returns true if the key is a single line list field, and the separator used between
-// its elements
-func isSingleLineListField(key string) (exists bool, separator string) {
-	switch key {
-	case keyFile: // TODO identify other single line list fields
-		exists = true
-		separator = " "
-	default:
-		exists = false
-	}
+// // isSingleLineListField identifies aerospike config list fields that can contain
+// // multiple elements on the same line without a repeated key. Ex: file <path1> <path2> ...
+// // it returns true if the key is a single line list field, and the separator used between
+// // its elements
+// func isSingleLineListField(key string) (exists bool, separator string) {
+// 	switch key {
+// 	case keyFile: // TODO identify other single line list fields
+// 		exists = true
+// 		separator = " "
+// 	default:
+// 		exists = false
+// 	}
 
-	return
-}
+// 	return
+// }
