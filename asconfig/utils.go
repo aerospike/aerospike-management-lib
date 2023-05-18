@@ -863,7 +863,7 @@ func isSizeOrTime(key string) (bool, humanize) {
 		"tomb-raider-period":
 		return true, deHumanizeTime
 
-	case "memory-size", "filesize":
+	case "memory-size", "filesize", "write-block-size":
 		return true, deHumanizeSize
 
 	default:
