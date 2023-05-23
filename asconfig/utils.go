@@ -168,6 +168,12 @@ func expandConfList(log logr.Logger, input Conf) Conf {
 						continue
 					}
 
+					if len(confList) <= index {
+						log.V(-1).Info("Index out of range", "section", k, "key", k2, "index", index)
+
+						continue
+					}
+
 					confList[index] = expandConfList(log, v2Conf)
 
 					// index is flattenConf generated field, delete it
