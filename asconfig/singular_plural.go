@@ -23,6 +23,7 @@ var singularToPlural = map[string]string{
 	"namespace":                    "namespaces",
 	"node-address-port":            "node-address-ports",
 	"report-data-op":               "report-data-op",
+	"report-data-op-user":          "report-data-op-user",
 	"role-query-pattern":           "role-query-patterns",
 	"set":                          "sets",
 	"ship-bin":                     "ship-bins",

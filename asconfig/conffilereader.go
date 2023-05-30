@@ -213,6 +213,11 @@ func writeConf(log logr.Logger, tok []string, conf Conf) {
 			break
 		}
 
+		if isStringField(cfgName) {
+			conf[cfgName] = tok[1]
+			break
+		}
+
 		// Convert string into Uint if possible
 		n, err := strconv.ParseUint(tok[1], 10, 64)
 		if err != nil {
