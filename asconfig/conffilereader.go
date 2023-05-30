@@ -128,7 +128,9 @@ func addToStrList(conf Conf, cfgName, val string) {
 		conf[cfgName] = make([]string, 0)
 	}
 
-	conf[cfgName] = append(conf[cfgName].([]string), val)
+	if l, ok := conf[cfgName].([]string); !ok {
+		conf[cfgName] = append(l, val)
+	}
 }
 
 func writeConf(log logr.Logger, tok []string, conf Conf) {
