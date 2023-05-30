@@ -120,7 +120,12 @@ func processSection(
 		}
 	}
 
-	return nil
+	if tok[len(tok)-1] == "}" {
+		return nil
+	}
+
+	_, err := process(log, scanner, conf)
+	return err
 }
 
 func addToStrList(conf Conf, cfgName, val string) {
@@ -264,6 +269,15 @@ func process(log logr.Logger, scanner *bufio.Scanner, conf Conf) (Conf, error) {
 
 		// Start section
 		if tok[len(tok)-1] == "{" {
+			// if v, ok := conf[tok[0]]; ok {
+			// 	// we have seen this section before
+			// 	if v, ok := v.(Conf); ok {
+			// 		if err := processSection(log, tok, scanner, v); err != nil {
+			// 			return nil, err
+			// 		}
+			// 	}
+			// }
+
 			if err := processSection(log, tok, scanner, conf); err != nil {
 				return nil, err
 			}
