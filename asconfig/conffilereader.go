@@ -120,9 +120,9 @@ func processSection(
 		}
 	}
 
-	if tok[len(tok)-1] == "}" {
-		return nil
-	}
+	// if tok[len(tok)-1] == "}" {
+	// 	return nil
+	// }
 
 	_, err := process(log, scanner, conf)
 	return err
