@@ -154,22 +154,6 @@ func writeConf(log logr.Logger, tok []string, conf Conf) {
 		}
 	}
 
-	// // Handle single line list field
-	// // Ex: file <path1> <path2> ...
-	// if ok, _ := isSingleLineListField(cfgName); ok {
-	// 	if _, ok := conf[cfgName]; !ok {
-	// 		tmp := Conf{}
-	// 		for i, item := range tok[1:] {
-	// 			key := fmt.Sprintf("placeholder%d", i)
-	// 			tmp[key] = item
-	// 		}
-	// 		tmp[keyName] = cfgName
-	// 		conf[cfgName] = []Conf{tmp}
-	// 	}
-
-	// 	return
-	// }
-
 	// Handle List Field that gets concatenated
 	// Ex: node-address-port 10.20.10 tlsname 3000
 	if ok, sep := isListField(cfgName); ok {
@@ -213,18 +197,32 @@ func writeConf(log logr.Logger, tok []string, conf Conf) {
 			break
 		}
 
-		if isStringField(cfgName) {
-			conf[cfgName] = tok[1]
-			break
-		}
+		conf[cfgName] = parseValue(cfgName, tok[1])
+	}
+}
 
-		// Convert string into Uint if possible
-		n, err := strconv.ParseUint(tok[1], 10, 64)
-		if err != nil {
-			conf[cfgName] = tok[1]
-		} else {
-			conf[cfgName] = n
-		}
+func parseValue(k string, val interface{}) interface{} {
+	valStr, ok := val.(string)
+	if !ok {
+		return val
+	}
+
+	if isStringField(k) {
+		return val
+	}
+
+	if value, err := strconv.ParseInt(valStr, 10, 64); err == nil {
+		return value
+	} else if value, err := strconv.ParseFloat(valStr, 64); err == nil {
+		return value
+	} else if value, err := strconv.ParseBool(valStr); err == nil {
+		return value
+	} else if _, err := strconv.ParseUint(valStr, 10, 64); err == nil {
+		// this uint can not fit in int. uint numbers should not be put in tsdb. There may be few config/stats which
+		// are initialized with biggest uint. Put may be as zero but not as string.
+		return 0
+	} else {
+		return valStr
 	}
 }
 
@@ -244,7 +242,7 @@ func process(log logr.Logger, scanner *bufio.Scanner, conf Conf) (Conf, error) {
 		}
 		// End of Section
 		if tok[0] == "}" {
-			return conf.ToParsedValues(), nil
+			return conf, nil
 		}
 
 		// Except end of section there should
