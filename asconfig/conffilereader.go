@@ -77,6 +77,7 @@ func processSection(
 			conf[cfgName] = toList(sec)
 			// } else if cfgName == "tls-authentication-client" {
 			// 	if
+			// TODO is list handling needed here for multiple entries?
 		} else {
 			conf[cfgName] = sec
 		}
@@ -100,6 +101,9 @@ func processSection(
 
 	if isListSection(cfgName) {
 		conf[cfgName] = append(conf[cfgName].([]Conf), toList(tempConf)...)
+		// in case there are multiple list entries
+		_, err := process(log, scanner, conf)
+		return err
 	} else {
 		// process a non list named section (typed section)
 		seList := toList(tempConf)
@@ -120,12 +124,7 @@ func processSection(
 		}
 	}
 
-	// if tok[len(tok)-1] == "}" {
-	// 	return nil
-	// }
-
-	_, err := process(log, scanner, conf)
-	return err
+	return nil
 }
 
 func addToStrList(conf Conf, cfgName, val string) {
