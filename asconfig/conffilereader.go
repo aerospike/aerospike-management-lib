@@ -20,6 +20,12 @@ import (
 var leadcloseWhtspRegex = regexp.MustCompile(`^[\s\p{Zs}]+|[\s\p{Zs}]+$`)
 var insideWhtspRegex = regexp.MustCompile(`[\s\p{Zs}]{2,}`)
 
+// // NOTE these assume the input has been scrubbed of leading and trailing whitespace
+// var namedSectionRegex = regexp.MustCompile(`^\S+[ \t]+\S+[ \t]*{`)
+// var unnamedSectionRegex = regexp.MustCompile(`^\S+[ \t]*{`)
+// var fieldRegex = regexp.MustCompile(`^(?:\S+[ \t]+){1,}\S+`)
+// var endSectionRegex = regexp.MustCompile(`}`)
+
 func parseLine(line string) string {
 	input := strings.Split(line, "#")[0]
 	final := leadcloseWhtspRegex.ReplaceAllString(input, "")
@@ -77,7 +83,6 @@ func processSection(
 			conf[cfgName] = toList(sec)
 			// } else if cfgName == "tls-authentication-client" {
 			// 	if
-			// TODO is list handling needed here for multiple entries?
 		} else {
 			conf[cfgName] = sec
 		}
@@ -101,9 +106,6 @@ func processSection(
 
 	if isListSection(cfgName) {
 		conf[cfgName] = append(conf[cfgName].([]Conf), toList(tempConf)...)
-		// in case there are multiple list entries
-		_, err := process(log, scanner, conf)
-		return err
 	} else {
 		// process a non list named section (typed section)
 		seList := toList(tempConf)
@@ -237,6 +239,11 @@ func process(log logr.Logger, scanner *bufio.Scanner, conf Conf) (Conf, error) {
 		line := parseLine(scanner.Text())
 		if line == "" {
 			continue
+		}
+
+		// support brace next to section name namespaces ns1{
+		if strings.HasSuffix(line, "{") {
+			line = line[:len(line)-1] + " {"
 		}
 
 		tok := strings.Split(line, " ")
