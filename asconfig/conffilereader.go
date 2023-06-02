@@ -241,11 +241,6 @@ func process(log logr.Logger, scanner *bufio.Scanner, conf Conf) (Conf, error) {
 			continue
 		}
 
-		// support brace next to section name namespaces ns1{
-		if strings.HasSuffix(line, "{") {
-			line = line[:len(line)-1] + " {"
-		}
-
 		tok := strings.Split(line, " ")
 
 		// Zero tokens
