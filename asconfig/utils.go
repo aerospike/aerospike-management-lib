@@ -867,7 +867,7 @@ func isNodeSpecificContext(key string) bool {
 func isSizeOrTime(key string) (bool, humanize) {
 	switch key {
 	case "default-ttl", "max-ttl", "tomb-raider-eligible-age",
-		"tomb-raider-period":
+		"tomb-raider-period", "nsup-period":
 		return true, deHumanizeTime
 
 	case "memory-size", "filesize", "write-block-size",
