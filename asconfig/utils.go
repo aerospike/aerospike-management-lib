@@ -812,7 +812,8 @@ func isSpecialBoolField(key string) bool {
 	switch key {
 	case "enable-benchmark-batch-sub", "enable-benchmarks-read",
 		"enable-benchmarks-udf", "enable-benchmarks-write",
-		"enable-benchmarks-udf-sub", "enable-benchmarks-storage":
+		"enable-benchmarks-udf-sub", "enable-benchmarks-storage",
+		"run-as-daemon":
 		return true
 
 	default:
