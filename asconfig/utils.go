@@ -964,7 +964,7 @@ func isStringField(key string) bool {
 		"auth-password-file", "feature-key-file", "read-consistency-level-override",
 		"cert-file", "user-query-pattern", "key-file-password", "protocol", "vault-path",
 		"user-dn-pattern", "debug-allocations", "scheduler-mode", "token-hash-method",
-		"remote-namespace", "tls-ca-file", "role-query-base-dn":
+		"remote-namespace", "tls-ca-file", "role-query-base-dn", "set-enable-xdr":
 		return true
 	}
 
