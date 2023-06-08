@@ -139,26 +139,26 @@ func addToStrList(conf Conf, cfgName, val string) {
 	}
 }
 
-func writeConf(log logr.Logger, tok []string, conf Conf) {
+func writeConf(log logr.Logger, tok []string, conf Conf) error {
 	cfgName := tok[0]
 
 	// Handle special case for tls-authentication-client which can be a list
 	// or a string depending on its value
 	if cfgName == keyTLSAuthenticateClient {
 		if len(tok) < 2 {
-			log.V(1).Info("tls-authenticate-client requires a value")
-			return
+			log.Error(ErrConfigParse, "tls-authenticate-client requires a value")
+			return ErrConfigParse
 		}
 
 		v := strings.ToLower(tok[1])
 		if v == "false" || v == "any" {
 			if _, ok := conf[cfgName]; ok {
-				log.V(1).Info("tls-authenticate-client must only use 'any', 'false', or one or more subject names")
-				return
+				log.Error(ErrConfigParse, "tls-authenticate-client must only use 'any', 'false', or one or more subject names")
+				return ErrConfigParse
 			}
 
 			conf[cfgName] = tok[1]
-			return
+			return nil
 		}
 	}
 
@@ -171,13 +171,13 @@ func writeConf(log logr.Logger, tok []string, conf Conf) {
 			sep = " "
 		}
 		addToStrList(conf, cfgName, strings.Join(tok[1:], sep))
-		return
+		return nil
 	}
 
 	// Handle human readable content
 	if ok, humanizeFn := isSizeOrTime(cfgName); ok {
 		conf[cfgName], _ = humanizeFn(tok[1])
-		return
+		return nil
 	}
 	// More special Case handling
 	switch cfgName {
@@ -187,8 +187,7 @@ func writeConf(log logr.Logger, tok []string, conf Conf) {
 	case "xdr-digestlog-path":
 		size, err := deHumanizeSize(tok[2])
 		if err != nil {
-			log.V(1).Info("Found invalid xdr-digestlog-size value, while creating acc config struct",
-				"err", err)
+			log.Error(err, "Found invalid xdr-digestlog-size value, while creating acc config struct")
 			break
 		}
 
@@ -196,7 +195,7 @@ func writeConf(log logr.Logger, tok []string, conf Conf) {
 
 	default:
 		if len(tok) > 2 {
-			log.V(1).Info(
+			log.Error(ErrConfigParse,
 				"Found > 2 tokens: Unknown format for config, "+
 					"while creating acc config struct",
 				"config", cfgName, "token", tok,
@@ -207,6 +206,8 @@ func writeConf(log logr.Logger, tok []string, conf Conf) {
 
 		conf[cfgName] = parseValue(cfgName, tok[1])
 	}
+
+	return nil
 }
 
 func parseValue(k string, val interface{}) interface{} {
@@ -245,13 +246,13 @@ func process(log logr.Logger, scanner *bufio.Scanner, conf Conf) (Conf, error) {
 
 		lastToken := tok[len(tok)-1]
 		if lastToken != "{" && strings.HasSuffix(lastToken, "{") {
-			log.V(1).Info("Config file items must have a space between them and '{' ", "token", lastToken)
+			log.Error(ErrConfigParse, "Config file items must have a space between them and '{' ", "token", lastToken)
 			return nil, ErrConfigParse
 		}
 
 		// Zero tokens
 		if len(tok) == 0 {
-			log.V(1).Info("Config file line has 0 tokens")
+			log.Error(ErrConfigParse, "Config file line has 0 tokens")
 			return nil, ErrConfigParse
 		}
 		// End of Section
@@ -269,7 +270,7 @@ func process(log logr.Logger, scanner *bufio.Scanner, conf Conf) (Conf, error) {
 				continue
 			}
 
-			log.V(1).Info("Config file line has  < 2 tokens:", "token", tok)
+			log.Error(ErrConfigParse, "Config file line has  < 2 tokens:", "token", tok)
 
 			return nil, ErrConfigParse
 		}
@@ -280,7 +281,9 @@ func process(log logr.Logger, scanner *bufio.Scanner, conf Conf) (Conf, error) {
 				return nil, err
 			}
 		} else {
-			writeConf(log, tok, conf)
+			if err := writeConf(log, tok, conf); err != nil {
+				return nil, err
+			}
 		}
 	}
 
