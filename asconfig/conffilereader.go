@@ -243,6 +243,12 @@ func process(log logr.Logger, scanner *bufio.Scanner, conf Conf) (Conf, error) {
 
 		tok := strings.Split(line, " ")
 
+		lastToken := tok[len(tok)-1]
+		if lastToken != "{" && strings.HasSuffix(lastToken, "{") {
+			log.V(1).Info("Config file items must have a space between them and '{' ", "token", lastToken)
+			return nil, ErrConfigParse
+		}
+
 		// Zero tokens
 		if len(tok) == 0 {
 			log.V(1).Info("Config file line has 0 tokens")
@@ -270,15 +276,6 @@ func process(log logr.Logger, scanner *bufio.Scanner, conf Conf) (Conf, error) {
 
 		// Start section
 		if tok[len(tok)-1] == "{" {
-			// if v, ok := conf[tok[0]]; ok {
-			// 	// we have seen this section before
-			// 	if v, ok := v.(Conf); ok {
-			// 		if err := processSection(log, tok, scanner, v); err != nil {
-			// 			return nil, err
-			// 		}
-			// 	}
-			// }
-
 			if err := processSection(log, tok, scanner, conf); err != nil {
 				return nil, err
 			}
@@ -289,19 +286,3 @@ func process(log logr.Logger, scanner *bufio.Scanner, conf Conf) (Conf, error) {
 
 	return conf, nil
 }
-
-// // isSingleLineListField identifies aerospike config list fields that can contain
-// // multiple elements on the same line without a repeated key. Ex: file <path1> <path2> ...
-// // it returns true if the key is a single line list field, and the separator used between
-// // its elements
-// func isSingleLineListField(key string) (exists bool, separator string) {
-// 	switch key {
-// 	case keyFile: // TODO identify other single line list fields
-// 		exists = true
-// 		separator = " "
-// 	default:
-// 		exists = false
-// 	}
-
-// 	return
-// }
