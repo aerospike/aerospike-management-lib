@@ -20,12 +20,6 @@ import (
 var leadcloseWhtspRegex = regexp.MustCompile(`^[\s\p{Zs}]+|[\s\p{Zs}]+$`)
 var insideWhtspRegex = regexp.MustCompile(`[\s\p{Zs}]{2,}`)
 
-// // NOTE these assume the input has been scrubbed of leading and trailing whitespace
-// var namedSectionRegex = regexp.MustCompile(`^\S+[ \t]+\S+[ \t]*{`)
-// var unnamedSectionRegex = regexp.MustCompile(`^\S+[ \t]*{`)
-// var fieldRegex = regexp.MustCompile(`^(?:\S+[ \t]+){1,}\S+`)
-// var endSectionRegex = regexp.MustCompile(`}`)
-
 func parseLine(line string) string {
 	input := strings.Split(line, "#")[0]
 	final := leadcloseWhtspRegex.ReplaceAllString(input, "")
@@ -67,7 +61,6 @@ func processSection(
 	log logr.Logger, tok []string, scanner *bufio.Scanner, conf Conf,
 ) error {
 	cfgName := tok[0]
-
 	// Unnamed Sections are simply processed as Map except special sections like logging
 	if len(tok) == 2 {
 		if _, ok := conf[cfgName]; !ok {
@@ -81,8 +74,6 @@ func processSection(
 
 		if isSpecialListSection(cfgName) {
 			conf[cfgName] = toList(sec)
-			// } else if cfgName == "tls-authentication-client" {
-			// 	if
 		} else {
 			conf[cfgName] = sec
 		}
@@ -92,9 +83,6 @@ func processSection(
 
 	// All section starts with > 2 token are named
 	// section with possible multiple entries.
-	// NOTE this means tls-authenticate-client will always be a slice.
-	// The schema expects tls-authenticate-client to not have "false" or "any"
-	// entries when it is an array so converting this back into yaml causes problems
 	if _, ok := conf[cfgName]; !ok {
 		conf[cfgName] = make([]Conf, 0)
 	}
@@ -110,7 +98,7 @@ func processSection(
 		// process a non list named section (typed section)
 		seList := toList(tempConf)
 
-		if len(seList) < 1 {
+		if len(seList) <= 0 {
 			return nil
 		}
 
@@ -119,11 +107,10 @@ func processSection(
 			// storage engine is a named section, but it is not list so use first entry.
 			// the schema files expect index-type and storage-engine to have a type field, not name, so replace it
 			seList[0][keyType] = seList[0][keyName]
-			delete(seList[0], keyName)
-			conf[cfgName] = seList[0]
-		} else { // TODO maybe error out in this else instead
-			delete(seList[0], keyName)
 		}
+
+		delete(seList[0], keyName)
+		conf[cfgName] = seList[0]
 	}
 
 	return nil
