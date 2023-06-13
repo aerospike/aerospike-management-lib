@@ -350,7 +350,6 @@ func flattenConfList(log logr.Logger, input []Conf, sep string) Conf {
 
 		name, ok := v[keyName].(string)
 		if !ok {
-
 			// Some lists like for storage-engine and index-type use "type" instead
 			// of "name" in order to be compatible with the schema files.
 			name, ok = v[keyType].(string)
@@ -879,7 +878,7 @@ func isStorageEngineKey(key string) bool {
 		return false
 	}
 
-	if key == "storage-engine" || strings.HasPrefix(key, "storage-engine.") {
+	if key == keyStorageEngine || strings.HasPrefix(key, keyStorageEngine+".") {
 		return true
 	}
 
@@ -890,7 +889,7 @@ func isTypedSection(key string) bool {
 	singular := SingularOf(key)
 
 	switch singular {
-	case "storage-engine", "index-type":
+	case keyStorageEngine, "index-type":
 		return true
 	default:
 		return false
@@ -904,7 +903,7 @@ func addStorageEngineConfig(
 		return
 	}
 
-	storageKey := "storage-engine"
+	storageKey := keyStorageEngine
 
 	switch v := v.(type) {
 	case map[string]interface{}:
@@ -939,7 +938,7 @@ func addStorageEngineConfig(
 			seConf = conf[storageKey].(Conf)
 		}
 
-		key = strings.TrimPrefix(key, "storage-engine.")
+		key = strings.TrimPrefix(key, keyStorageEngine+".")
 
 		seConf[key] = v
 	}

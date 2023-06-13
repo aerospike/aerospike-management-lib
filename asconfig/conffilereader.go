@@ -98,7 +98,7 @@ func processSection(
 		// process a non list named section (typed section)
 		seList := toList(tempConf)
 
-		if len(seList) <= 0 {
+		if len(seList) == 0 {
 			return nil
 		}
 
@@ -145,6 +145,7 @@ func writeConf(log logr.Logger, tok []string, conf Conf) error {
 			}
 
 			conf[cfgName] = tok[1]
+
 			return nil
 		}
 	}
@@ -157,7 +158,9 @@ func writeConf(log logr.Logger, tok []string, conf Conf) error {
 		if sep == "" {
 			sep = " "
 		}
+
 		addToStrList(conf, cfgName, strings.Join(tok[1:], sep))
+
 		return nil
 	}
 

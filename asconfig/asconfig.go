@@ -66,14 +66,15 @@ func (cfg *AsConfig) ToConfFile() DotConf {
 // expanded map form of AsConfig
 func (cfg *AsConfig) ToMap() *Conf {
 	cpy := cfg.baseConf.DeepClone()
-	res := Conf(expandConf(cfg.log, &cpy, sep))
+	res := expandConf(cfg.log, &cpy, sep)
+
 	return &res
 }
 
 // GetFlatMap returns a pointer to the copy
 // of the flattened config stored in cfg
 func (cfg *AsConfig) GetFlatMap() *Conf {
-	res := Conf(cfg.baseConf.DeepClone())
+	res := cfg.baseConf.DeepClone()
 	return &res
 }
 

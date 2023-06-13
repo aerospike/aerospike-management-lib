@@ -159,7 +159,7 @@ func writeSection(
 	}
 
 	switch {
-	case strings.EqualFold(section, "storage-engine"):
+	case strings.EqualFold(section, keyStorageEngine):
 		writeTypedSection(log, buf, section, m, indent)
 		return
 
