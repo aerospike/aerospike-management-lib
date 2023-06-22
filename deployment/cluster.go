@@ -10,7 +10,7 @@ import (
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	aero "github.com/ashishshinde/aerospike-client-go/v6"
+	aero "github.com/aerospike/aerospike-client-go/v6"
 )
 
 const constTrue = "true"
