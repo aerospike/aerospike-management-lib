@@ -691,7 +691,8 @@ func isListField(key string) (exists bool, separator string) {
 		keyTLSAccessAddress, keyAlternateAccessAddress,
 		keyTLSAlternateAccessAddress, "role-query-pattern",
 		"xdr-remote-datacenter", "multicast-group",
-		keyTLSAuthenticateClient, "http-url", "report-data-op-user":
+		keyTLSAuthenticateClient, "http-url", "report-data-op-user",
+		"report-data-op-role":
 		return true, ""
 
 	default:
