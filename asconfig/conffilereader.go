@@ -152,14 +152,14 @@ func writeConf(log logr.Logger, tok []string, conf Conf) error {
 
 	// Handle List Field that gets concatenated
 	// Ex: node-address-port 10.20.10 tlsname 3000
-	if ok, sep := isListField(cfgName); ok {
+	if ok, listSep := isListField(cfgName); ok {
 		// we never want to concat list entries without a separator while parsing asconfig
 		// because we loose the individual entries if we do
-		if sep == "" {
-			sep = " "
+		if listSep == "" {
+			listSep = " "
 		}
 
-		addToStrList(conf, cfgName, strings.Join(tok[1:], sep))
+		addToStrList(conf, cfgName, strings.Join(tok[1:], listSep))
 
 		return nil
 	}
