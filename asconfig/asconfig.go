@@ -78,7 +78,7 @@ func (cfg *AsConfig) GetFlatMap() *Conf {
 	return &res
 }
 
-// FromConfFile unmarshales the aerospike config text in "in" into a new *Asconfig
+// FromConfFile unmarshales the aerospike config text in "in" into a new *AsConfig
 func FromConfFile(log logr.Logger, version string, in io.Reader) (*AsConfig, error) {
 	scanner := bufio.NewScanner(in)
 
