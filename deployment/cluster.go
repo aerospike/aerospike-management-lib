@@ -547,7 +547,7 @@ func (c *cluster) infoClusterStablePerNamespace(hostIDs, removedNamespaces []str
 		return err
 	}
 
-	effectiveNamespaces := sets.String{}
+	effectiveNamespaces := sets.Set[string]{}
 
 	for _, namespaces := range nodesNamespaces {
 		effectiveNamespaces.Insert(namespaces...)
