@@ -212,14 +212,12 @@ func parseValue(k string, val interface{}) interface{} {
 
 	if value, err := strconv.ParseInt(valStr, 10, 64); err == nil {
 		return value
+	} else if value, err := strconv.ParseUint(valStr, 10, 64); err == nil {
+		return value
 	} else if value, err := strconv.ParseFloat(valStr, 64); err == nil {
 		return value
 	} else if value, err := strconv.ParseBool(valStr); err == nil {
 		return value
-	} else if _, err := strconv.ParseUint(valStr, 10, 64); err == nil {
-		// this uint can not fit in int. uint numbers should not be put in tsdb. There may be few config/stats which
-		// are initialized with biggest uint. Put may be as zero but not as string.
-		return 0
 	} else {
 		return valStr
 	}
