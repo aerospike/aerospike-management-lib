@@ -352,7 +352,7 @@ func flattenConfList(log logr.Logger, input []Conf, sep string) Conf {
 		if !ok {
 			// Some lists like for storage-engine and index-type use "type" instead
 			// of "name" in order to be compatible with the schema files.
-			type, ok = v[keyType].(string)
+			name, ok = v[keyType].(string)
 			if !ok {
 				log.V(-1).Info(
 					"FlattenConfList not possible for ListSection" +
