@@ -234,17 +234,18 @@ func process(log logr.Logger, scanner *bufio.Scanner, conf Conf) (Conf, error) {
 
 		tok := strings.Split(line, " ")
 
+		// Zero tokens
+		if len(tok) == 0 {
+			log.Error(ErrConfigParse, "Config file line has 0 tokens")
+			return nil, ErrConfigParse
+		}
+
 		lastToken := tok[len(tok)-1]
 		if lastToken != "{" && strings.HasSuffix(lastToken, "{") {
 			log.Error(ErrConfigParse, "Config file items must have a space between them and '{' ", "token", lastToken)
 			return nil, ErrConfigParse
 		}
 
-		// Zero tokens
-		if len(tok) == 0 {
-			log.Error(ErrConfigParse, "Config file line has 0 tokens")
-			return nil, ErrConfigParse
-		}
 		// End of Section
 		if tok[0] == "}" {
 			return conf, nil

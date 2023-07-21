@@ -804,7 +804,7 @@ func isEmptyField(key, value string) bool {
 // e.g. namespace and storage level benchmark fields
 func isSpecialBoolField(key string) bool {
 	switch key {
-	case "enable-benchmark-batch-sub", "enable-benchmarks-read",
+	case "enable-benchmarks-batch-sub", "enable-benchmarks-read",
 		"enable-benchmarks-udf", "enable-benchmarks-write",
 		"enable-benchmarks-udf-sub", "enable-benchmarks-storage",
 		"run-as-daemon":
