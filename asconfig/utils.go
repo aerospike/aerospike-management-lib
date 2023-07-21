@@ -880,7 +880,8 @@ func isSizeOrTime(key string) (bool, humanize) {
 
 	case "memory-size", "filesize", "write-block-size",
 		"partition-tree-sprigs", "max-write-cache",
-		"mounts-size-limit", "index-stage-size":
+		"mounts-size-limit", "index-stage-size",
+		"stop-writes-count", "stop-writes-size":
 		return true, deHumanizeSize
 
 	default:
