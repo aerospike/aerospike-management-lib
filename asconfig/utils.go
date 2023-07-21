@@ -797,6 +797,21 @@ func isEmptyField(key, value string) bool {
 	return false
 }
 
+// isSpecialOrNormalBoolField returns true if the passed key
+// in aerospike config is boolean type field which can have
+// a true/false value in the config or, its mere presence
+// indicates a true/false value
+// e.g. run-as-daemon fields
+func isSpecialOrNormalBoolField(key string) bool {
+	switch key {
+	case "run-as-daemon":
+		return true
+
+	default:
+		return false
+	}
+}
+
 // isSpecialBoolField returns true if the passed key
 // in aerospike config is boolean type field but does not
 // need true or false in config file. Their mere presence
@@ -806,8 +821,7 @@ func isSpecialBoolField(key string) bool {
 	switch key {
 	case "enable-benchmarks-batch-sub", "enable-benchmarks-read",
 		"enable-benchmarks-udf", "enable-benchmarks-write",
-		"enable-benchmarks-udf-sub", "enable-benchmarks-storage",
-		"run-as-daemon":
+		"enable-benchmarks-udf-sub", "enable-benchmarks-storage":
 		return true
 
 	default:

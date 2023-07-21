@@ -187,12 +187,23 @@ func writeListField(
 	}
 }
 
+func writeSpecialBoolField(buf *bytes.Buffer, key string, indent int) {
+	buf.WriteString(indentString(indent) + key + "\n")
+}
+
 func writeField(buf *bytes.Buffer, key, value string, indent int) {
 	switch {
 	case isFormField(key):
 		return
 
 	case isEmptyField(key, value):
+		return
+
+	case isSpecialBoolField(key):
+		if strings.EqualFold(value, "true") {
+			writeSpecialBoolField(buf, key, indent)
+		}
+
 		return
 	}
 
