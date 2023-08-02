@@ -602,9 +602,9 @@ func (s Stats) GetRaw(keys ...string) interface{} {
 		if d1, ok := d[k].(Stats); ok {
 			d = d1
 			continue
-		} else {
-			return d[k]
 		}
+
+		return d[k]
 	}
 
 	return d
