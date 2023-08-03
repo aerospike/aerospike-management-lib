@@ -108,10 +108,10 @@ var networkTLSNameRe = regexp.MustCompile(`^tls\[(\d+)].name$`)
 
 // AsInfo provides info calls on an aerospike cluster.
 type AsInfo struct {
-	log    logr.Logger
 	policy *aero.ClientPolicy
 	host   *aero.Host
 	conn   *aero.Connection
+	log    logr.Logger
 	mutex  sync.Mutex
 }
 
