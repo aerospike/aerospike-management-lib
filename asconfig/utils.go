@@ -684,7 +684,8 @@ func isListField(key string) (exists bool, separator string) {
 	// TODO: Device with shadow device is not reported by server
 	// yet in runtime making it colon separated for now.
 	case "mesh-seed-address-port", "tls-mesh-seed-address-port",
-		keyDevice, "report-data-op", "node-address-port", keyFeatureKeyFile:
+		keyDevice, "report-data-op", "node-address-port", keyFeatureKeyFile,
+		"secrets-address-port":
 		return true, ":"
 
 	case keyFile, keyAddress, keyTLSAddress, keyAccessAddress, "mount",
@@ -973,7 +974,8 @@ func isStringField(key string) bool {
 		"auth-password-file", "feature-key-file", "read-consistency-level-override",
 		"cert-file", "user-query-pattern", "key-file-password", "protocol", "vault-path",
 		"user-dn-pattern", "debug-allocations", "scheduler-mode", "token-hash-method",
-		"remote-namespace", "tls-ca-file", "role-query-base-dn", "set-enable-xdr":
+		"remote-namespace", "tls-ca-file", "role-query-base-dn", "set-enable-xdr",
+		"secrets-tls-context", "secrets-uds-path":
 		return true
 	}
 
