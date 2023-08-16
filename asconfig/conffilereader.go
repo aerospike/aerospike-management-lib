@@ -164,6 +164,20 @@ func writeConf(log logr.Logger, tok []string, conf Conf) error {
 		return nil
 	}
 
+	// Handle delimiter separated strings
+	// Ex: node-address-port 10.20.10 tlsname 3000
+	if ok, delim := isDelimitedStringField(cfgName); ok {
+		// we never want to concat separated string entries without a separator while parsing asconfig
+		// because we loose the individual entries if we do
+		if delim == "" {
+			delim = " "
+		}
+
+		conf[cfgName] = strings.Join(tok[1:], delim)
+
+		return nil
+	}
+
 	// Handle human readable content
 	if ok, humanizeFn := isSizeOrTime(cfgName); ok {
 		conf[cfgName], _ = humanizeFn(tok[1])

@@ -981,6 +981,18 @@ func isStringField(key string) bool {
 	return false
 }
 
+// isDelimitedStringField returns true for configuration fields that
+// are delimited strings, but not members of a list section
+// EX: secrets-address-port 127.0.0.1 3000
+func isDelimitedStringField(key string) (exists bool, separator string) {
+	switch key {
+	case "secrets-address-port":
+		return true, " "
+	}
+
+	return false, ""
+}
+
 // toConf does deep conversion of map[string]interface{}
 // into Conf objects. Also converts the list form in conf
 // into map form, if required.
