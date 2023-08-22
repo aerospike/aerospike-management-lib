@@ -977,10 +977,10 @@ func isStringField(key string) bool {
 
 // isDelimitedStringField returns true for configuration fields that
 // are delimited strings, but not members of a list section
-// EX: secrets-address-port 127.0.0.1 3000
+// EX: secrets-address-port 127.0.0.1:3000
 func isDelimitedStringField(key string) (exists bool, separator string) {
 	if key == "secrets-address-port" {
-		return true, " "
+		return true, ":"
 	}
 
 	return false, ""

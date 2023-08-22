@@ -228,6 +228,12 @@ func writeKeys(
 		case string, bool, int, int64, uint64, float64:
 			if isSimple {
 				sv, _ := lib.ToString(v)
+
+				if ok, sep := isDelimitedStringField(sv); ok {
+					writeListField(buf, k, sv, indent, sep)
+					break
+				}
+
 				writeField(buf, k, sv, indent)
 			}
 
