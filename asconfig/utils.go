@@ -979,8 +979,7 @@ func isStringField(key string) bool {
 // are delimited strings, but not members of a list section
 // EX: secrets-address-port 127.0.0.1 3000
 func isDelimitedStringField(key string) (exists bool, separator string) {
-	switch key {
-	case "secrets-address-port":
+	if key == "secrets-address-port" {
 		return true, " "
 	}
 
