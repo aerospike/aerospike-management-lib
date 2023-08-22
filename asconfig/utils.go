@@ -803,13 +803,7 @@ func isEmptyField(key, value string) bool {
 // indicates a true/false value
 // e.g. run-as-daemon fields
 func isSpecialOrNormalBoolField(key string) bool {
-	switch key {
-	case "run-as-daemon":
-		return true
-
-	default:
-		return false
-	}
+	return key == "run-as-daemon"
 }
 
 // isSpecialBoolField returns true if the passed key
