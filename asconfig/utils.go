@@ -899,7 +899,7 @@ func isTypedSection(key string) bool {
 	singular := SingularOf(key)
 
 	switch singular {
-	case keyStorageEngine, "index-type":
+	case keyStorageEngine, "index-type", "sindex-type":
 		return true
 	default:
 		return false
