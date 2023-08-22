@@ -167,6 +167,10 @@ func writeSection(
 		writeTypedSection(log, buf, section, m, indent)
 		return
 
+	case strings.EqualFold(section, "sindex-type"):
+		writeTypedSection(log, buf, section, m, indent)
+		return
+
 	default:
 		writeSimpleSection(log, buf, section, m, indent)
 	}

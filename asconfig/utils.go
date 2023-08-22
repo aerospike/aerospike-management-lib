@@ -350,7 +350,7 @@ func flattenConfList(log logr.Logger, input []Conf, sep string) Conf {
 
 		name, ok := v[keyName].(string)
 		if !ok {
-			// Some lists like for storage-engine and index-type use "type" instead
+			// Some lists like for storage-engine, index-type, and sindex-type use "type" instead
 			// of "name" in order to be compatible with the schema files.
 			name, ok = v[keyType].(string)
 			if !ok {
