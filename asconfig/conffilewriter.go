@@ -229,7 +229,7 @@ func writeKeys(
 			if isSimple {
 				sv, _ := lib.ToString(v)
 
-				if ok, sep := isDelimitedStringField(sv); ok {
+				if ok, sep := isDelimitedStringField(k); ok {
 					writeListField(buf, k, sv, indent, sep)
 					break
 				}
