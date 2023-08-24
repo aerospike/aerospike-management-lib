@@ -365,7 +365,7 @@ func ParseTLSNames(m map[string]string) []string {
 
 // ParseLogNames parses all log names
 func ParseLogNames(m map[string]string) []string {
-	logs := parseIntoMap(m[constStatLogIDS], ";", ":")
+	logs := ParseIntoMap(m[constStatLogIDS], ";", ":")
 	names := make([]string, 0, len(logs))
 
 	for _, l := range logs {
@@ -506,7 +506,7 @@ func (info *AsInfo) createConfigCmdList(
 			cmdList = append(cmdList, cmdConfigSecurity)
 
 		case ConfigLoggingContext:
-			logs := parseIntoMap(m[constStatLogIDS], ";", ":")
+			logs := ParseIntoMap(m[constStatLogIDS], ";", ":")
 			for id := range logs {
 				cmdList = append(cmdList, cmdConfigLogging+id)
 			}
@@ -594,7 +594,7 @@ func sindexNames(str, ns string) []string {
 			continue
 		}
 
-		idxMap := parseIntoMap(str, ":", "=")
+		idxMap := ParseIntoMap(str, ":", "=")
 
 		nsIdx := idxMap.TryString("ns", "")
 		if nsIdx != ns {
@@ -617,7 +617,7 @@ func setNames(str, ns string) []string {
 			continue
 		}
 
-		setMap := parseIntoMap(str, ":", "=")
+		setMap := ParseIntoMap(str, ":", "=")
 
 		if setMap.TryString("ns", "") != ns {
 			continue
@@ -773,7 +773,7 @@ func parseAllNsStats(rawMap map[string]string) lib.Stats {
 }
 
 func parseBasicInfo(res string) lib.Stats {
-	return parseIntoMap(res, ";", "=")
+	return ParseIntoMap(res, ";", "=")
 }
 
 func parseStatNsInfo(res string) lib.Stats {
@@ -820,7 +820,7 @@ func parseStatBinsInfo(res string) lib.Stats {
 		}
 	}
 
-	stats := parseIntoMap(binStatStr, ",", "=")
+	stats := ParseIntoMap(binStatStr, ",", "=")
 
 	return stats
 }
@@ -876,7 +876,7 @@ func parseConfigInfo(rawMap map[string]string) lib.Stats {
 
 func parseAllLoggingConfig(rawMap map[string]string, cmd string) lib.Stats {
 	logConfigMap := make(lib.Stats)
-	logs := parseIntoMap(rawMap[constStatLogIDS], ";", ":")
+	logs := ParseIntoMap(rawMap[constStatLogIDS], ";", ":")
 
 	for id := range logs {
 		m := parseBasicConfigInfo(rawMap[cmd+id], ":")
@@ -955,7 +955,7 @@ func parseAllDcConfig(rawMap map[string]string, cmd string) lib.Stats {
 
 func parseBasicConfigInfo(res, sep string) lib.Stats {
 	// Parse
-	conf := parseIntoMap(res, ";", sep)
+	conf := ParseIntoMap(res, ";", sep)
 	return conf
 }
 
@@ -1330,7 +1330,7 @@ func parseNsKeys(rawMap lib.Stats) lib.Stats {
 	return newMap
 }
 
-func parseIntoMap(str, del, sep string) lib.Stats {
+func ParseIntoMap(str, del, sep string) lib.Stats {
 	if str == "" {
 		return nil
 	}
@@ -1380,7 +1380,7 @@ func parseIntoListOfMap(str, del1, del2, sep string) []lib.Stats {
 			continue
 		}
 
-		m := parseIntoMap(s, del2, sep)
+		m := ParseIntoMap(s, del2, sep)
 		// Assume indexname is always there
 		strListMap = append(strListMap, m)
 	}
