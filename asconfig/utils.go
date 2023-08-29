@@ -350,12 +350,17 @@ func flattenConfList(log logr.Logger, input []Conf, sep string) Conf {
 
 		name, ok := v[keyName].(string)
 		if !ok {
-			log.V(-1).Info(
-				"FlattenConfList not possible for ListSection" +
-					" without name",
-			)
+			// Some lists like for storage-engine, index-type, and sindex-type use "type" instead
+			// of "name" in order to be compatible with the schema files.
+			name, ok = v[keyType].(string)
+			if !ok {
+				log.V(-1).Info(
+					"FlattenConfList not possible for ListSection" +
+						" without name or type",
+				)
 
-			continue
+				continue
+			}
 		}
 
 		// create key for this item as {name}
@@ -686,7 +691,8 @@ func isListField(key string) (exists bool, separator string) {
 		keyTLSAccessAddress, keyAlternateAccessAddress,
 		keyTLSAlternateAccessAddress, "role-query-pattern",
 		"xdr-remote-datacenter", "multicast-group",
-		keyTLSAuthenticateClient, "http-url":
+		keyTLSAuthenticateClient, "http-url", "report-data-op-user",
+		"report-data-op-role":
 		return true, ""
 
 	default:
@@ -791,6 +797,15 @@ func isEmptyField(key, value string) bool {
 	return false
 }
 
+// isSpecialOrNormalBoolField returns true if the passed key
+// in aerospike config is boolean type field which can have
+// a true/false value in the config or, its mere presence
+// indicates a true/false value
+// e.g. run-as-daemon fields
+func isSpecialOrNormalBoolField(key string) bool {
+	return key == "run-as-daemon"
+}
+
 // isSpecialBoolField returns true if the passed key
 // in aerospike config is boolean type field but does not
 // need true or false in config file. Their mere presence
@@ -798,7 +813,7 @@ func isEmptyField(key, value string) bool {
 // e.g. namespace and storage level benchmark fields
 func isSpecialBoolField(key string) bool {
 	switch key {
-	case "enable-benchmark-batch-sub", "enable-benchmarks-read",
+	case "enable-benchmarks-batch-sub", "enable-benchmarks-read",
 		"enable-benchmarks-udf", "enable-benchmarks-write",
 		"enable-benchmarks-udf-sub", "enable-benchmarks-storage":
 		return true
@@ -854,10 +869,13 @@ func isNodeSpecificContext(key string) bool {
 func isSizeOrTime(key string) (bool, humanize) {
 	switch key {
 	case "default-ttl", "max-ttl", "tomb-raider-eligible-age",
-		"tomb-raider-period":
+		"tomb-raider-period", "nsup-period", "migrate-fill-delay":
 		return true, deHumanizeTime
 
-	case "memory-size", "filesize":
+	case "memory-size", "filesize", "write-block-size",
+		"partition-tree-sprigs", "max-write-cache",
+		"mounts-size-limit", "index-stage-size",
+		"stop-writes-count", "stop-writes-size":
 		return true, deHumanizeSize
 
 	default:
@@ -870,11 +888,22 @@ func isStorageEngineKey(key string) bool {
 		return false
 	}
 
-	if key == "storage-engine" || strings.HasPrefix(key, "storage-engine.") {
+	if key == keyStorageEngine || strings.HasPrefix(key, keyStorageEngine+".") {
 		return true
 	}
 
 	return false
+}
+
+func isTypedSection(key string) bool {
+	singular := SingularOf(key)
+
+	switch singular {
+	case keyStorageEngine, "index-type", "sindex-type":
+		return true
+	default:
+		return false
+	}
 }
 
 func addStorageEngineConfig(
@@ -884,7 +913,7 @@ func addStorageEngineConfig(
 		return
 	}
 
-	storageKey := "storage-engine"
+	storageKey := keyStorageEngine
 
 	switch v := v.(type) {
 	case map[string]interface{}:
@@ -919,10 +948,42 @@ func addStorageEngineConfig(
 			seConf = conf[storageKey].(Conf)
 		}
 
-		key = strings.TrimPrefix(key, "storage-engine.")
+		key = strings.TrimPrefix(key, keyStorageEngine+".")
 
 		seConf[key] = v
 	}
+}
+
+// TODO derive these from the schema file
+func isStringField(key string) bool {
+	switch key {
+	case "tls-name", "encryption", "query-user-password-file", "encryption-key-file",
+		"tls-authenticate-client", "mode", "auto-pin", "compression", "user-path",
+		"auth-user", "user", "cipher-suite", "ca-path", "write-policy", "vault-url",
+		"protocols", "bin-policy", "ca-file", "key-file", "pidfile", "cluster-name",
+		"auth-mode", "encryption-old-key-file", "group", "work-directory", "write-commit-level-override",
+		"vault-ca", "cert-blacklist", "vault-token-file", "query-user-dn", "node-id",
+		"conflict-resolution-policy", "server", "query-base-dn", "node-id-interface",
+		"auth-password-file", "feature-key-file", "read-consistency-level-override",
+		"cert-file", "user-query-pattern", "key-file-password", "protocol", "vault-path",
+		"user-dn-pattern", "debug-allocations", "scheduler-mode", "token-hash-method",
+		"remote-namespace", "tls-ca-file", "role-query-base-dn", "set-enable-xdr",
+		"secrets-tls-context", "secrets-uds-path", "secrets-address-port":
+		return true
+	}
+
+	return false
+}
+
+// isDelimitedStringField returns true for configuration fields that
+// are delimited strings, but not members of a list section
+// EX: secrets-address-port 127.0.0.1:3000
+func isDelimitedStringField(key string) (exists bool, separator string) {
+	if key == "secrets-address-port" {
+		return true, ":"
+	}
+
+	return false, ""
 }
 
 // toConf does deep conversion of map[string]interface{}

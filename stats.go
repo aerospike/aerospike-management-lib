@@ -617,10 +617,10 @@ func (s Stats) DeepClone() Stats {
 	for k := range s {
 		v := s[k]
 		switch v := v.(type) {
-		case string:
-			result[k] = v
+		case Stats:
+			result[k] = v.DeepClone()
 		default:
-			result[k] = v.(Stats).DeepClone()
+			result[k] = v
 		}
 	}
 
