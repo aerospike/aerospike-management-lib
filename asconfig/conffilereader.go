@@ -95,13 +95,22 @@ func processSection(
 	if isListSection(cfgName) {
 		conf[cfgName] = append(conf[cfgName].([]Conf), toList(tempConf)...)
 	} else {
-		// storage engine device
+		// process a non list named section (typed section)
 		seList := toList(tempConf)
-		if len(seList) > 0 {
-			// storage engine is named section, but it is not list so use first entry
-			delete(seList[0], keyName)
-			conf[cfgName] = seList[0]
+
+		if len(seList) == 0 {
+			return nil
 		}
+
+		// storage engine device or index-type flash
+		if isTypedSection(cfgName) {
+			// storage engine is a named section, but it is not list so use first entry.
+			// the schema files expect index-type and storage-engine to have a type field, not name, so replace it
+			seList[0][keyType] = seList[0][keyName]
+		}
+
+		delete(seList[0], keyName)
+		conf[cfgName] = seList[0]
 	}
 
 	return nil
@@ -112,24 +121,69 @@ func addToStrList(conf Conf, cfgName, val string) {
 		conf[cfgName] = make([]string, 0)
 	}
 
-	conf[cfgName] = append(conf[cfgName].([]string), val)
+	if l, ok := conf[cfgName].([]string); ok {
+		conf[cfgName] = append(l, val)
+	}
 }
 
-func writeConf(log logr.Logger, tok []string, conf Conf) {
+func writeConf(log logr.Logger, tok []string, conf Conf) error {
 	cfgName := tok[0]
 
-	// Handle List Field
-	if ok, sep := isListField(cfgName); ok {
-		addToStrList(conf, cfgName, strings.Join(tok[1:], sep))
-		return
+	// Handle special case for tls-authentication-client which can be a list
+	// or a string depending on its value
+	if cfgName == keyTLSAuthenticateClient {
+		if len(tok) < 2 {
+			log.Error(ErrConfigParse, "tls-authenticate-client requires a value")
+			return ErrConfigParse
+		}
+
+		v := strings.ToLower(tok[1])
+		if v == "false" || v == "any" {
+			if _, ok := conf[cfgName]; ok {
+				log.Error(ErrConfigParse, "tls-authenticate-client must only use 'any', 'false', or one or more subject names")
+				return ErrConfigParse
+			}
+
+			conf[cfgName] = tok[1]
+
+			return nil
+		}
+	}
+
+	// Handle List Field that gets concatenated
+	// Ex: node-address-port 10.20.10 tlsname 3000
+	if ok, listSep := isListField(cfgName); ok {
+		// we never want to concat list entries without a separator while parsing asconfig
+		// because we loose the individual entries if we do
+		if listSep == "" {
+			listSep = " "
+		}
+
+		addToStrList(conf, cfgName, strings.Join(tok[1:], listSep))
+
+		return nil
+	}
+
+	// Handle delimiter separated strings
+	// Ex: node-address-port 10.20.10 tlsname 3000
+	if ok, delim := isDelimitedStringField(cfgName); ok {
+		// we never want to concat separated string entries without a separator while parsing asconfig
+		// because we loose the individual entries if we do
+		if delim == "" {
+			delim = " "
+		}
+
+		conf[cfgName] = strings.Join(tok[1:], delim)
+
+		return nil
 	}
 
 	// Handle human readable content
 	if ok, humanizeFn := isSizeOrTime(cfgName); ok {
 		conf[cfgName], _ = humanizeFn(tok[1])
-		return
+		return nil
 	}
-	// Special Case handling
+	// More special Case handling
 	switch cfgName {
 	case "context":
 		conf[tok[1]] = tok[2]
@@ -137,8 +191,7 @@ func writeConf(log logr.Logger, tok []string, conf Conf) {
 	case "xdr-digestlog-path":
 		size, err := deHumanizeSize(tok[2])
 		if err != nil {
-			log.V(1).Info("Found invalid xdr-digestlog-size value, while creating acc config struct",
-				"err", err)
+			log.Error(err, "Found invalid xdr-digestlog-size value, while creating acc config struct")
 			break
 		}
 
@@ -146,7 +199,7 @@ func writeConf(log logr.Logger, tok []string, conf Conf) {
 
 	default:
 		if len(tok) > 2 {
-			log.V(1).Info(
+			log.Error(ErrConfigParse,
 				"Found > 2 tokens: Unknown format for config, "+
 					"while creating acc config struct",
 				"config", cfgName, "token", tok,
@@ -155,13 +208,32 @@ func writeConf(log logr.Logger, tok []string, conf Conf) {
 			break
 		}
 
-		// Convert string into Uint if possible
-		n, err := strconv.ParseUint(tok[1], 10, 64)
-		if err != nil {
-			conf[cfgName] = tok[1]
-		} else {
-			conf[cfgName] = n
-		}
+		conf[cfgName] = parseValue(cfgName, tok[1])
+	}
+
+	return nil
+}
+
+func parseValue(k string, val interface{}) interface{} {
+	valStr, ok := val.(string)
+	if !ok {
+		return val
+	}
+
+	if isStringField(k) {
+		return val
+	}
+
+	if value, err := strconv.ParseInt(valStr, 10, 64); err == nil {
+		return value
+	} else if value, err := strconv.ParseUint(valStr, 10, 64); err == nil {
+		return value
+	} else if value, err := strconv.ParseFloat(valStr, 64); err == nil {
+		return value
+	} else if value, err := strconv.ParseBool(valStr); err == nil {
+		return value
+	} else {
+		return valStr
 	}
 }
 
@@ -176,12 +248,19 @@ func process(log logr.Logger, scanner *bufio.Scanner, conf Conf) (Conf, error) {
 
 		// Zero tokens
 		if len(tok) == 0 {
-			log.V(1).Info("Config file line has 0 tokens")
+			log.Error(ErrConfigParse, "Config file line has 0 tokens")
 			return nil, ErrConfigParse
 		}
+
+		lastToken := tok[len(tok)-1]
+		if lastToken != "{" && strings.HasSuffix(lastToken, "{") {
+			log.Error(ErrConfigParse, "Config file items must have a space between them and '{' ", "token", lastToken)
+			return nil, ErrConfigParse
+		}
+
 		// End of Section
 		if tok[0] == "}" {
-			return conf.ToParsedValues(), nil
+			return conf, nil
 		}
 
 		// Except end of section there should
@@ -189,12 +268,12 @@ func process(log logr.Logger, scanner *bufio.Scanner, conf Conf) (Conf, error) {
 		if len(tok) < 2 {
 			// if enable benchmark presence is
 			// enable
-			if isSpecialBoolField(tok[0]) {
+			if isSpecialBoolField(tok[0]) || isSpecialOrNormalBoolField(tok[0]) {
 				conf[tok[0]] = true
 				continue
 			}
 
-			log.V(1).Info("Config file line has  < 2 tokens:", "token", tok)
+			log.Error(ErrConfigParse, "Config file line has  < 2 tokens:", "token", tok)
 
 			return nil, ErrConfigParse
 		}
@@ -205,7 +284,9 @@ func process(log logr.Logger, scanner *bufio.Scanner, conf Conf) (Conf, error) {
 				return nil, err
 			}
 		} else {
-			writeConf(log, tok, conf)
+			if err := writeConf(log, tok, conf); err != nil {
+				return nil, err
+			}
 		}
 	}
 

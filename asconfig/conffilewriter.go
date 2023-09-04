@@ -101,8 +101,8 @@ func writeLogSection(
 func writeTypedSection(
 	log logr.Logger, buf *bytes.Buffer, section string, conf Conf, indent int,
 ) {
-	typeStr := conf["type"].(string)
-	delete(conf, "type")
+	typeStr := conf[keyType].(string)
+	delete(conf, keyType)
 
 	if len(conf) > 0 {
 		beginSection(log, buf, indent, fmt.Sprintf("%s %v", section, typeStr))
@@ -159,11 +159,15 @@ func writeSection(
 	}
 
 	switch {
-	case strings.EqualFold(section, "storage-engine"):
+	case strings.EqualFold(section, keyStorageEngine):
 		writeTypedSection(log, buf, section, m, indent)
 		return
 
 	case strings.EqualFold(section, "index-type"):
+		writeTypedSection(log, buf, section, m, indent)
+		return
+
+	case strings.EqualFold(section, "sindex-type"):
 		writeTypedSection(log, buf, section, m, indent)
 		return
 
@@ -224,6 +228,12 @@ func writeKeys(
 		case string, bool, int, int64, uint64, float64:
 			if isSimple {
 				sv, _ := lib.ToString(v)
+
+				if ok, sep := isDelimitedStringField(k); ok {
+					writeListField(buf, k, sv, indent, sep)
+					break
+				}
+
 				writeField(buf, k, sv, indent)
 			}
 
