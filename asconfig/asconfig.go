@@ -87,8 +87,6 @@ func FromConfFile(log logr.Logger, version string, in io.Reader) (*AsConfig, err
 		return nil, err
 	}
 
-	log.Info("configMap in FromConfFile", "configMap", configMap)
-
 	return NewMapAsConfig(log, version, configMap)
 }
 
