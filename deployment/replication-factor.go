@@ -4,9 +4,10 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/go-logr/logr"
+
 	"github.com/aerospike/aerospike-management-lib/info"
 	as "github.com/ashishshinde/aerospike-client-go/v6"
-	"github.com/go-logr/logr"
 )
 
 func GetReplicationFactor(log logr.Logger, hostConns []*HostConn, policy *as.ClientPolicy,

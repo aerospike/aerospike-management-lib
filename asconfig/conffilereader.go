@@ -240,6 +240,7 @@ func parseValue(k string, val interface{}) interface{} {
 func process(log logr.Logger, scanner *bufio.Scanner, conf Conf) (Conf, error) {
 	for scanner.Scan() {
 		line := parseLine(scanner.Text())
+		log.Info("in process", "line", line)
 		if line == "" {
 			continue
 		}
