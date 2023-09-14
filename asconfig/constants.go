@@ -6,7 +6,9 @@ const (
 	keyDevice         = "device"
 	keyFile           = "file"
 	keyName           = "name"
+	keyType           = "type"
 
+	keyStorageEngine             = "storage-engine"
 	keyAddress                   = "address"
 	keyTLSAddress                = "tls-address"
 	keyAccessAddress             = "access-address"

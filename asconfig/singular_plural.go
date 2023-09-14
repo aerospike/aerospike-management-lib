@@ -23,6 +23,8 @@ var singularToPlural = map[string]string{
 	"namespace":                    "namespaces",
 	"node-address-port":            "node-address-ports",
 	"report-data-op":               "report-data-op",
+	"report-data-op-user":          "report-data-op-user",
+	"report-data-op-role":          "report-data-op-role",
 	"role-query-pattern":           "role-query-patterns",
 	"set":                          "sets",
 	"ship-bin":                     "ship-bins",
@@ -34,7 +36,7 @@ var singularToPlural = map[string]string{
 	"tls-mesh-seed-address-port":   "tls-mesh-seed-address-ports",
 	"tls-node":                     "tls-nodes",
 	"xdr-remote-datacenter":        "xdr-remote-datacenters",
-	"tls-authenticate-client":      "tls-authenticate-clients",
+	"tls-authenticate-client":      "tls-authenticate-client",
 }
 
 var pluralToSingular = map[string]string{}
@@ -46,7 +48,7 @@ func init() {
 	}
 }
 
-// PluralOf returns the plural for of the input noun.
+// PluralOf returns the plural of the input noun.
 func PluralOf(noun string) string {
 	plural, ok := singularToPlural[noun]
 
@@ -57,7 +59,7 @@ func PluralOf(noun string) string {
 	return plural
 }
 
-// SingularOf returns the singular for of the input noun.
+// SingularOf returns the singular of the input noun.
 func SingularOf(noun string) string {
 	singular, ok := pluralToSingular[noun]
 
