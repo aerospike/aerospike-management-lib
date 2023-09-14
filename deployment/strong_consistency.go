@@ -114,7 +114,7 @@ func setFilteredRosterNodes(clHost *host, scNs string, rosterNodes map[string]st
 }
 
 func ValidateSCClusterState(log logr.Logger, hostConns []*HostConn, policy *as.ClientPolicy,
-	removedNamespaces sets.Set[string]) error {
+	ignorableNamespaces sets.Set[string]) error {
 	clHosts, err := getHostsFromHostConns(hostConns, policy)
 	if err != nil {
 		return err
@@ -130,7 +130,7 @@ func ValidateSCClusterState(log logr.Logger, hostConns []*HostConn, policy *as.C
 		return nil
 	}
 
-	return validateSCClusterNsState(scNamespacesPerHost, removedNamespaces)
+	return validateSCClusterNsState(scNamespacesPerHost, ignorableNamespaces)
 }
 
 func getSCNamespaces(clHosts []*host) (scNamespacesPerHost map[*host][]string, isClusterSCEnabled bool, err error) {
