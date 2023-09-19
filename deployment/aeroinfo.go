@@ -5,7 +5,7 @@ import (
 
 	"github.com/go-logr/logr"
 
-	aero "github.com/ashishshinde/aerospike-client-go/v6"
+	aero "github.com/aerospike/aerospike-client-go/v6"
 )
 
 // IsClusterAndStable returns true if the cluster formed by the set of hosts is stable.

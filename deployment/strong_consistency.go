@@ -7,7 +7,7 @@ import (
 
 	"github.com/go-logr/logr"
 
-	as "github.com/ashishshinde/aerospike-client-go/v6"
+	as "github.com/aerospike/aerospike-client-go/v6"
 )
 
 const (
