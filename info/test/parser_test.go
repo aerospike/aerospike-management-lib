@@ -9,9 +9,9 @@ import (
 
 	"github.com/go-logr/logr"
 
+	aero "github.com/aerospike/aerospike-client-go/v6"
 	lib "github.com/aerospike/aerospike-management-lib"
 	"github.com/aerospike/aerospike-management-lib/info"
-	aero "github.com/ashishshinde/aerospike-client-go/v6"
 )
 
 var ParsedData lib.Stats
