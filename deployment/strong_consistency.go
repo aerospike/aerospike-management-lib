@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	as "github.com/aerospike/aerospike-client-go/v6"
 )
@@ -18,8 +19,8 @@ const (
 	nsKeyStrongConsistency     = "strong-consistency"
 )
 
-func GetAndSetRoster(log logr.Logger, hostConns []*HostConn, policy *as.ClientPolicy, rosterNodeBlockList,
-	removedNamespaces []string) error {
+func GetAndSetRoster(log logr.Logger, hostConns []*HostConn, policy *as.ClientPolicy, rosterNodeBlockList []string,
+	ignorableNamespaces sets.Set[string]) error {
 	log.Info("Check if we need to Get and Set roster for SC namespaces")
 
 	clHosts, err := getHostsFromHostConns(hostConns, policy)
@@ -39,7 +40,7 @@ func GetAndSetRoster(log logr.Logger, hostConns []*HostConn, policy *as.ClientPo
 
 	// Removed namespaces should not be validated, as it will fail when namespace will be available in nodes
 	// fewer than replication-factor
-	if err := validateSCClusterNsState(scNamespacesPerHost, removedNamespaces); err != nil {
+	if err := validateSCClusterNsState(scNamespacesPerHost, ignorableNamespaces); err != nil {
 		return fmt.Errorf("cluster namespace state not good, can not set roster: %v", err)
 	}
 
@@ -51,6 +52,10 @@ func GetAndSetRoster(log logr.Logger, hostConns []*HostConn, policy *as.ClientPo
 		}
 
 		for _, scNs := range nsList {
+			if ignorableNamespaces.Has(scNs) {
+				continue
+			}
+
 			rosterNodes, err := getRoster(clHost, scNs)
 			if err != nil {
 				return err
@@ -109,7 +114,7 @@ func setFilteredRosterNodes(clHost *host, scNs string, rosterNodes map[string]st
 }
 
 func ValidateSCClusterState(log logr.Logger, hostConns []*HostConn, policy *as.ClientPolicy,
-	removedNamespaces []string) error {
+	ignorableNamespaces sets.Set[string]) error {
 	clHosts, err := getHostsFromHostConns(hostConns, policy)
 	if err != nil {
 		return err
@@ -125,7 +130,7 @@ func ValidateSCClusterState(log logr.Logger, hostConns []*HostConn, policy *as.C
 		return nil
 	}
 
-	return validateSCClusterNsState(scNamespacesPerHost, removedNamespaces)
+	return validateSCClusterNsState(scNamespacesPerHost, ignorableNamespaces)
 }
 
 func getSCNamespaces(clHosts []*host) (scNamespacesPerHost map[*host][]string, isClusterSCEnabled bool, err error) {
@@ -168,14 +173,14 @@ func runRecluster(clHosts []*host) error {
 	return nil
 }
 
-func validateSCClusterNsState(scNamespacesPerHost map[*host][]string, removedNamespaces []string) error {
+func validateSCClusterNsState(scNamespacesPerHost map[*host][]string, ignorableNamespaces sets.Set[string]) error {
 	for clHost, nsList := range scNamespacesPerHost {
 		clHost.log.Info("Validate SC enabled Cluster namespace State. Looking for unavailable or dead partitions",
 			"namespaces", nsList)
 
 		for _, ns := range nsList {
 			// NS is getting removed from nodes. This may lead to unavailable partitions. Therefor skip the check for this NS
-			if containsString(removedNamespaces, ns) {
+			if ignorableNamespaces.Has(ns) {
 				continue
 			}
 
