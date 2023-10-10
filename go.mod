@@ -8,7 +8,7 @@ require (
 	github.com/aerospike/aerospike-client-go/v6 v6.14.0
 	github.com/go-logr/logr v1.2.3
 	github.com/xeipuuv/gojsonschema v1.2.0
-	k8s.io/apimachinery v0.26.2
+	k8s.io/apimachinery v0.27.2
 )
 
 require (
