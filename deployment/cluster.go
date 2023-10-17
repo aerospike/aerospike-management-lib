@@ -601,7 +601,7 @@ func (c *cluster) infoClusterStablePerNamespace(hostIDs, removedNamespaces []str
 	return nil
 }
 
-func (c *cluster) getQuiescedNodes(hostIDs []string) ([]string, error) {
+func (c *cluster) GetQuiescedNodes(hostIDs []string) ([]string, error) {
 	var quiescedNodes []string
 
 	namespaces, err := c.getClusterNamespaces(hostIDs)
@@ -676,7 +676,7 @@ func (c *cluster) InfoQuiesceUndo(hostIDs []string) error {
 	}
 
 	// Fetching quiesced Nodes
-	quiescedNodes, err := c.getQuiescedNodes(hostIDs)
+	quiescedNodes, err := c.GetQuiescedNodes(hostIDs)
 	if err != nil {
 		return err
 	}
