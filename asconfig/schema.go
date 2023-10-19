@@ -128,9 +128,9 @@ func baseVersion(ver string) (string, error) {
 	return baseVersion, nil
 }
 
-// getDynamic return the map of values which are dynamic
+// GetDynamic return the map of values which are dynamic
 // values.
-func getDynamic(ver string) (map[string]bool, error) {
+func GetDynamic(ver string) (map[string]bool, error) {
 	flatSchema, err := getFlatSchema(ver)
 	if err != nil {
 		return nil, err
