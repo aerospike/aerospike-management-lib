@@ -102,7 +102,7 @@ const (
 // }
 
 // reconcileAccessControl reconciles access control to ensure current state moves to the desired state.
-func reconcileAccessControl(
+func ReconcileAccessControl(
 	client *as.Client,
 	passwordProvider AerospikeUserPasswordProvider, desired, currentState *AerospikeAccessControlSpec, logger logger,
 ) error {
