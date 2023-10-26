@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
+	sets "github.com/deckarep/golang-set/v2"
 	"github.com/go-logr/logr"
-	"k8s.io/apimachinery/pkg/util/sets"
 
 	aero "github.com/aerospike/aerospike-client-go/v6"
 )
@@ -547,17 +547,17 @@ func (c *cluster) infoClusterStablePerNamespace(hostIDs, removedNamespaces []str
 		return err
 	}
 
-	effectiveNamespaces := sets.Set[string]{}
+	effectiveNamespaces := sets.NewSet[string]()
 
 	for _, namespaces := range nodesNamespaces {
-		effectiveNamespaces.Insert(namespaces...)
+		effectiveNamespaces.Append(namespaces...)
 	}
 
-	effectiveNamespaces.Delete(removedNamespaces...)
+	effectiveNamespaces.Append(removedNamespaces...)
 
 	clusterKey := ""
 
-	for ns := range effectiveNamespaces {
+	for ns := range effectiveNamespaces.Iter() {
 		cmd := fmt.Sprintf(
 			"cluster-stable:size=%d;ignore-migrations=no;namespace=%s", len(hostIDs), ns,
 		)

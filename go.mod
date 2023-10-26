@@ -6,9 +6,9 @@ require github.com/qdm12/reprint v0.0.0-20200326205758-722754a53494
 
 require (
 	github.com/aerospike/aerospike-client-go/v6 v6.14.0
+	github.com/deckarep/golang-set/v2 v2.3.1
 	github.com/go-logr/logr v1.2.3
 	github.com/xeipuuv/gojsonschema v1.2.0
-	k8s.io/apimachinery v0.27.2
 )
 
 // Pinned this dependcy to fix vulnerbaility in `golang.org/x/net` pkg

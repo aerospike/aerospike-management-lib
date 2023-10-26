@@ -5,8 +5,8 @@ import (
 	"strconv"
 	"strings"
 
+	sets "github.com/deckarep/golang-set/v2"
 	"github.com/go-logr/logr"
-	"k8s.io/apimachinery/pkg/util/sets"
 
 	as "github.com/aerospike/aerospike-client-go/v6"
 )
@@ -52,7 +52,7 @@ func GetAndSetRoster(log logr.Logger, hostConns []*HostConn, policy *as.ClientPo
 		}
 
 		for _, scNs := range nsList {
-			if ignorableNamespaces.Has(scNs) {
+			if ignorableNamespaces.Contains(scNs) {
 				continue
 			}
 
@@ -180,7 +180,7 @@ func validateSCClusterNsState(scNamespacesPerHost map[*host][]string, ignorableN
 
 		for _, ns := range nsList {
 			// NS is getting removed from nodes. This may lead to unavailable partitions. Therefor skip the check for this NS
-			if ignorableNamespaces.Has(ns) {
+			if ignorableNamespaces.Contains(ns) {
 				continue
 			}
 
