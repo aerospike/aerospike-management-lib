@@ -553,7 +553,7 @@ func (c *cluster) infoClusterStablePerNamespace(hostIDs, removedNamespaces []str
 		effectiveNamespaces.Append(namespaces...)
 	}
 
-	effectiveNamespaces.Append(removedNamespaces...)
+	effectiveNamespaces.RemoveAll(removedNamespaces...)
 
 	clusterKey := ""
 
