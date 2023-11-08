@@ -476,7 +476,7 @@ func isValueDiff(log logr.Logger, v1, v2 interface{}) bool {
 // node specific information like address, device, interface etc..
 func diff(
 	log logr.Logger, c1, c2 Conf,
-	isFlat, c2IsDefault, ignoreInternalFields bool,
+	isFlat, c2IsDefault, ignoreInternalFields, ignoreOrdering bool,
 ) Conf {
 	// Flatten if not flattened already.
 	if !isFlat {
@@ -499,6 +499,11 @@ func diff(
 
 		// Ignore internal fields
 		if ignoreInternalFields && isInternalField(k) {
+			continue
+		}
+
+		// Ignore Ordering
+		if ignoreOrdering && baseKey(k) == "index" {
 			continue
 		}
 
@@ -532,7 +537,7 @@ func diff(
 			for idx, token := range tokens {
 				if int32(token[0]) == sectionNameStartChar && int32(token[len(token)-1]) == sectionNameEndChar {
 					if _, okay := c2[strings.Join(tokens[:idx+1], sep)+"."+keyName]; !okay {
-						d[strings.Join(tokens[:idx+1], sep)] = c1[strings.Join(tokens[:idx+1], sep)]
+						d[strings.Join(tokens[:idx+1], sep)+"."+keyName] = c1[strings.Join(tokens[:idx+1], sep)+"."+keyName]
 						diffUpdate = true
 						break
 					}
@@ -568,9 +573,9 @@ func diff(
 //
 //	diff = c1 - c2
 func ConfDiff(
-	log logr.Logger, c1 Conf, c2 Conf, isFlat, ignoreInternalFields bool,
+	log logr.Logger, c1 Conf, c2 Conf, isFlat, ignoreInternalFields, ignoreOrdering bool,
 ) map[string]interface{} {
-	return diff(log, c1, c2, isFlat, false, ignoreInternalFields)
+	return diff(log, c1, c2, isFlat, false, ignoreInternalFields, ignoreOrdering)
 }
 
 // defaultDiff returns the values different from the default.
@@ -581,7 +586,7 @@ func ConfDiff(
 func defaultDiff(
 	log logr.Logger, flatConf Conf, flatDefConf Conf,
 ) map[string]interface{} {
-	return diff(log, flatConf, flatDefConf, true, true, false)
+	return diff(log, flatConf, flatDefConf, true, true, false, false)
 }
 
 var nsRe = regexp.MustCompile(`namespace\.({[^.]+})\.(.+)`)
