@@ -229,8 +229,8 @@ func removeJSONSpecKeywords(key string) string {
 	// Cleanup json schema strings
 	key = strings.ReplaceAll(key, "items", "_")
 	key = strings.ReplaceAll(key, "properties.", "")
-	key = strings.ReplaceAll(key, ".oneOf.1", "")
-	key = strings.ReplaceAll(key, ".oneOf.0", "")
+	re := regexp.MustCompile(`.oneOf.[0-9]+`)
+	key = re.ReplaceAllString(key, "")
 
 	return key
 }

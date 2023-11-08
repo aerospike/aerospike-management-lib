@@ -369,6 +369,7 @@ func flattenConfList(log logr.Logger, input []Conf, sep string) Conf {
 		// for ex. namespace name -> test}.abcd
 		// but this solution will work for most of the cases and reduce most of the failure scenarios
 		name = string(sectionNameStartChar) + name + string(sectionNameEndChar)
+		res[name] = v
 
 		for k2, v2 := range flattenConf(log, v, sep) {
 			res[name+sep+k2] = v2
@@ -452,6 +453,10 @@ func isValueDiff(log logr.Logger, v1, v2 interface{}) bool {
 			return true
 		}
 
+	case lib.Stats:
+		// Ignoring changes in map type as each key is being compared separately.
+		return false
+
 	default:
 		log.V(1).Info(
 			"Unhandled value type in config diff", "type",
@@ -489,7 +494,7 @@ func diff(
 		bN := baseKey(k)
 		if !c2IsDefault && (isNodeSpecificContext(k) || isNodeSpecificField(bN)) {
 			// If we need diff with defaults then we need to consider all fields
-			// otherwise ignore nodespcific details
+			// otherwise ignore nodespecific details
 			continue
 		}
 
@@ -523,7 +528,20 @@ func diff(
 				continue
 			}
 
-			d[k] = c1[k]
+			diffUpdate := false
+			tokens := strings.Split(k, sep)
+			for idx, token := range tokens {
+				if int32(token[0]) == sectionNameStartChar && int32(token[len(token)-1]) == sectionNameEndChar {
+					if _, okay := c2[strings.Join(tokens[:idx+1], sep)]; !okay {
+						d[strings.Join(tokens[:idx+1], sep)] = c1[strings.Join(tokens[:idx+1], sep)]
+						diffUpdate = true
+						break
+					}
+				}
+			}
+			if !diffUpdate {
+				d[k] = c1[k]
+			}
 
 			continue
 		}
@@ -547,10 +565,10 @@ func diff(
 	return d
 }
 
-// confDiff find diff between two configs;
+// ConfDiff find diff between two configs;
 //
 //	diff = c1 - c2
-func confDiff(
+func ConfDiff(
 	log logr.Logger, c1 Conf, c2 Conf, isFlat, ignoreInternalFields bool,
 ) map[string]interface{} {
 	return diff(log, c1, c2, isFlat, false, ignoreInternalFields)
