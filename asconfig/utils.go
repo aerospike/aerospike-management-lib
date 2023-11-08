@@ -369,7 +369,6 @@ func flattenConfList(log logr.Logger, input []Conf, sep string) Conf {
 		// for ex. namespace name -> test}.abcd
 		// but this solution will work for most of the cases and reduce most of the failure scenarios
 		name = string(sectionNameStartChar) + name + string(sectionNameEndChar)
-		res[name] = v
 
 		for k2, v2 := range flattenConf(log, v, sep) {
 			res[name+sep+k2] = v2
@@ -532,7 +531,7 @@ func diff(
 			tokens := strings.Split(k, sep)
 			for idx, token := range tokens {
 				if int32(token[0]) == sectionNameStartChar && int32(token[len(token)-1]) == sectionNameEndChar {
-					if _, okay := c2[strings.Join(tokens[:idx+1], sep)]; !okay {
+					if _, okay := c2[strings.Join(tokens[:idx+1], sep)+"."+keyName]; !okay {
 						d[strings.Join(tokens[:idx+1], sep)] = c1[strings.Join(tokens[:idx+1], sep)]
 						diffUpdate = true
 						break
