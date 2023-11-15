@@ -433,6 +433,10 @@ func isValueDiff(log logr.Logger, v1, v2 interface{}) bool {
 
 	switch val2 := v2.(type) {
 	case []string:
+		log.V(1).Info(
+			"compare string array", "type",
+			reflect.TypeOf(v2),
+		)
 		println("compare string array", val2)
 		sort.Strings(v1.([]string))
 		sort.Strings(val2)
@@ -442,6 +446,10 @@ func isValueDiff(log logr.Logger, v1, v2 interface{}) bool {
 		}
 
 	case string:
+		log.V(1).Info(
+			"compare string", "type",
+			reflect.TypeOf(v2),
+		)
 		if isEmptyField("", v1.(string)) && isEmptyField("", val2) {
 			return false
 		}
@@ -449,11 +457,19 @@ func isValueDiff(log logr.Logger, v1, v2 interface{}) bool {
 		return v1 != v2
 
 	case bool, int, uint64, int64, float64:
+		log.V(1).Info(
+			"compare bool int", "type",
+			reflect.TypeOf(v2),
+		)
 		if v1 != v2 {
 			return true
 		}
 
 	case lib.Stats:
+		log.V(1).Info(
+			"compare stats", "type",
+			reflect.TypeOf(v2), "value", val2,
+		)
 		// Ignoring changes in map type as each key is being compared separately.
 		return false
 
