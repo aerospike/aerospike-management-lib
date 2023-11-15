@@ -433,6 +433,7 @@ func isValueDiff(log logr.Logger, v1, v2 interface{}) bool {
 
 	switch val2 := v2.(type) {
 	case []string:
+		println("compare string array", val2)
 		sort.Strings(v1.([]string))
 		sort.Strings(val2)
 
@@ -481,6 +482,9 @@ func diff(
 	// Flatten if not flattened already.
 	if !isFlat {
 		c1 = flattenConf(log, c1, sep)
+		for k, v := range c1 {
+			println("after c1 ", fmt.Sprintf("%v	%v", k, v))
+		}
 		c2 = flattenConf(log, c2, sep)
 	}
 
