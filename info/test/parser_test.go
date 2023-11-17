@@ -59,8 +59,8 @@ func NewAsInfo() (*info.AsInfo, error) {
 // AerospikeHost returns the aerospike host
 func AerospikeHost() aero.Host {
 	return aero.Host{
-		Name: "127.0.0.1",
-		Port: 3004,
+		Name: "172.17.0.3",
+		Port: 3000,
 	}
 }
 

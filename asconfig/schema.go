@@ -266,31 +266,3 @@ func getFlatSchema(ver string) (map[string]interface{}, error) {
 
 	return flattenSchema(schema, sep), nil
 }
-
-func gtEqVersion(v1, v2 string) bool {
-	// TODO string.Split is allocation can it be avoided
-	s1 := strings.Split(v1, sep)
-	s2 := strings.Split(v2, sep)
-
-	for len(s1) > len(s2) {
-		s2 = append(s2, "0")
-	}
-
-	for len(s2) > len(s1) {
-		s1 = append(s1, "0")
-	}
-
-	loop := len(s1)
-
-	for i := 0; i < loop; i++ {
-		if s1[i] > s2[i] {
-			return true
-		}
-
-		if s1[i] < s2[i] {
-			return false
-		}
-	}
-	// Equal
-	return true
-}
