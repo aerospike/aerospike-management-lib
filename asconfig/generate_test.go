@@ -506,8 +506,9 @@ func (suite *GenerateTestSuite) TestGenerate() {
 		suite.Run(tc.name, func() {
 			suite.mockGetter.EXPECT().AllConfigs().Return(tc.allConfigs, nil)
 			suite.mockGetter.EXPECT().GetAsInfo("metadata").Return(tc.metadata, nil)
+			logger := logr.Discard()
 
-			actual, err := GenerateConf(logr.Discard(), suite.mockGetter)
+			actual, err := GenerateConf(&logger, suite.mockGetter)
 
 			suite.Assert().Nil(err)
 			suite.Assert().Equal(tc.expected, actual)
