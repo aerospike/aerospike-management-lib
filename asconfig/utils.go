@@ -1323,3 +1323,112 @@ func CompareVersionsIgnoreRevision(version1, version2 string) (int, error) {
 
 	return 0, nil
 }
+
+func CreateASConfCommand(diff string, value interface{}) []string {
+	tokens := strings.Split(diff, ".")
+	context := tokens[0]
+	cmds := make([]string, 0)
+	cmd := ""
+
+	switch context {
+	case "xdr":
+		cmd = fmt.Sprintf("set-config:context=%s", context)
+		prevToken := ""
+		for _, token := range tokens[1:] {
+			substr := ""
+			if token[0] == '{' && token[len(token)-1] == '}' {
+				switch prevToken {
+				case "dc":
+					substr = ";dc=" + strings.Trim(token, "{}")
+				case "namespace":
+					substr = ";namespace=" + strings.Trim(token, "{}")
+				}
+				cmd = cmd + substr
+			} else {
+				prevToken = token
+			}
+		}
+		val, err := convertValueToString(value)
+		if err != nil {
+			println(err)
+		}
+		for _, v := range val {
+			finalCMD := cmd + ";" + tokens[len(tokens)-1] + "=" + v
+			cmds = append(cmds, finalCMD)
+		}
+	case "namespaces":
+		if len(tokens) < 3 {
+			println("invalid diff")
+		}
+		namespaceName := strings.Trim(tokens[1], "{}")
+		cmd = fmt.Sprintf("set-config:context=namespace;id=%s", namespaceName)
+		prevToken := ""
+		for _, token := range tokens[2:] {
+			substr := ""
+			if token[0] == '{' && token[len(token)-1] == '}' {
+				switch prevToken {
+				case "set":
+					substr = ";set=" + strings.Trim(token, "{}")
+				}
+				cmd = cmd + substr
+			} else {
+				prevToken = token
+			}
+		}
+		val, err := convertValueToString(value)
+		if err != nil {
+			println(err)
+		}
+		for _, v := range val {
+			finalCMD := cmd + ";" + tokens[len(tokens)-1] + "=" + v
+			cmds = append(cmds, finalCMD)
+		}
+
+	case "network", "security", "service":
+		cmd = fmt.Sprintf("set-config:context=%v;", context)
+		for _, token := range tokens[1:] {
+			if token[0] != '{' && token[len(token)-1] != '}' {
+				cmd = cmd + token + "."
+			}
+		}
+		cmd = strings.TrimSuffix(cmd, ".")
+		val, err := convertValueToString(value)
+		if err != nil {
+			println(err)
+		}
+		for _, v := range val {
+			finalCMD := cmd + "=" + v
+			cmds = append(cmds, finalCMD)
+		}
+	}
+
+	return cmds
+}
+
+func convertValueToString(v1 interface{}) ([]string, error) {
+	values := make([]string, 0)
+
+	if v1 == nil {
+		return values, nil
+	}
+
+	switch v1.(type) {
+	case []string:
+		// need to discuss like how to handle if some entries has been removed.
+		return v1.([]string), nil
+
+	case string:
+		return append(values, v1.(string)), nil
+
+	case bool:
+		return append(values, fmt.Sprintf("%t", v1)), nil
+
+	case int, uint64, int64, float64:
+		return append(values, fmt.Sprintf("%v", v1)), nil
+
+	default:
+		return values, fmt.Errorf("format not supported")
+	}
+
+	return values, nil
+}

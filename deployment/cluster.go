@@ -871,6 +871,35 @@ func (c *cluster) setMigrateFillDelay(migrateFillDelay int, hosts []*HostConn) e
 	return nil
 }
 
+func (c *cluster) setConfigCommandsOnHosts(cmds []string, hosts []*HostConn) error {
+	log := c.log.WithValues("nodes", hosts)
+	log.V(1).Info("Running set-config")
+
+	for _, cmd := range cmds {
+		infoResults, iErr := c.infoOnHosts(getHostIDsFromHostConns(hosts), cmd)
+		if iErr != nil {
+			return iErr
+		}
+
+		for id, info := range infoResults {
+			output, err := info.toString(cmd)
+			if err != nil {
+				return fmt.Errorf(
+					"failed to execute set-config command on node %s: %v", id, err)
+			}
+
+			if !strings.EqualFold(output, "ok") {
+				return fmt.Errorf("failed to execute set-config"+
+					" command on node %s: %v", id, output)
+			}
+		}
+	}
+
+	log.V(1).Info("Finished running set-config")
+
+	return nil
+}
+
 func (c *cluster) findHost(hostID string) (*host, error) {
 	n, ok := c.allHosts[hostID]
 	if !ok {
