@@ -154,9 +154,8 @@ func GetDynamic(ver string) (map[string]bool, error) {
 	return dynMap, nil
 }
 
-// getDefault return the map of values which are dynamic
-// values.
-func getDefault(ver string) (map[string]interface{}, error) {
+// GetDefault return the map of default values.
+func GetDefault(ver string) (map[string]interface{}, error) {
 	flatSchema, err := getFlatSchema(ver)
 	if err != nil {
 		return nil, err
