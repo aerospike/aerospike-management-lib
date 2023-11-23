@@ -672,7 +672,9 @@ func getSystemProperty(log logr.Logger, c Conf, key string) (
 
 // isListField return true if passed in key representing
 // aerospike config is of type List that is can have multiple
-// entries for same config key.
+// entries for same config key. The separator is the delimiter
+// used in the .yml config and in the response returned from the server.
+// As opposed to the aerospike.conf file which uses space delimiters.
 func isListField(key string) (exists bool, separator string) {
 	key = baseKey(key)
 	key = SingularOf(key)
@@ -704,6 +706,33 @@ func isListField(key string) (exists bool, separator string) {
 
 		return false, ""
 	}
+}
+
+func isServerRespDelimitedListField(key string) (bool, string) {
+	key = baseKey(key)
+	key = SingularOf(key)
+
+	switch key {
+	case "multicast-group":
+		return true, ","
+	default:
+		return false, ""
+	}
+}
+
+// isDisallowedInConfigWhenSC returns true if the key is will cause aerospike to
+// fail to startup if the config is present in sc mode.
+func isDisallowedInConfigWhenSC(key string) bool {
+	key = baseKey(key)
+	key = SingularOf(key)
+
+	switch key {
+	case "read-consistency-level-override", "write-commit-level-override":
+		return true
+	default:
+		return false
+	}
+
 }
 
 // isIncompleteSetSectionFields returns true if passed in key
@@ -897,9 +926,10 @@ func isStorageEngineKey(key string) bool {
 }
 
 func isTypedSection(key string) bool {
-	singular := SingularOf(key)
+	baseKey := baseKey(key)
+	baseKey = SingularOf(baseKey)
 
-	switch singular {
+	switch baseKey {
 	case keyStorageEngine, "index-type", "sindex-type":
 		return true
 	default:
@@ -980,8 +1010,10 @@ func isStringField(key string) bool {
 }
 
 // isDelimitedStringField returns true for configuration fields that
-// are delimited strings, but not members of a list section
-// EX: secrets-address-port 127.0.0.1:3000
+// are delimited strings, but not members of a list section. The separator
+// represents the delimiter used in the .yml config as opposed to the
+// aerospike.conf file which normally uses spaces.
+// EX: secrets-address-port: 127.0.0.1:3000
 func isDelimitedStringField(key string) (exists bool, separator string) {
 	if key == "secrets-address-port" {
 		return true, ":"
@@ -992,7 +1024,8 @@ func isDelimitedStringField(key string) (exists bool, separator string) {
 
 // toConf does deep conversion of map[string]interface{}
 // into Conf objects. Also converts the list form in conf
-// into map form, if required.
+// into map form, if required. This is needed when converting a unmarshalled
+// yaml file into Conf object.
 
 //nolint:gocyclo //refactor later
 func toConf(log logr.Logger, input map[string]interface{}) Conf {

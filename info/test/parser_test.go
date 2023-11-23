@@ -50,6 +50,8 @@ func TestMain(m *testing.M) {
 // asinfo connection object.
 func NewAsInfo() (*info.AsInfo, error) {
 	p := aero.NewClientPolicy()
+	p.User = "admin"
+	p.Password = "admin"
 	host := AerospikeHost()
 	log := logr.Discard()
 
@@ -59,7 +61,7 @@ func NewAsInfo() (*info.AsInfo, error) {
 // AerospikeHost returns the aerospike host
 func AerospikeHost() aero.Host {
 	return aero.Host{
-		Name: "172.17.0.3",
+		Name: "172.17.0.5",
 		Port: 3000,
 	}
 }

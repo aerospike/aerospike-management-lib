@@ -19,16 +19,6 @@ type GenerateTestSuite struct {
 func (suite *GenerateTestSuite) SetupTest() {
 	suite.ctrl = gomock.NewController(suite.T())
 	suite.mockGetter = NewMockConfGetter(suite.ctrl)
-	// mockConnFact := NewMockconnectionFactory(suite.ctrl)
-	// suite.mockConn = NewMockconnection(suite.ctrl)
-	// policy := &aero.ClientPolicy{}
-	// host := &aero.Host{}
-	// mockConnFact.EXPECT().NewConnection(policy, host).Return(suite.mockConn, nil).AnyTimes()
-	// suite.mockConn.EXPECT().IsConnected().Return(true).AnyTimes()
-	// suite.mockConn.EXPECT().Login(policy).Return(nil).AnyTimes()
-	// suite.mockConn.EXPECT().SetTimeout(gomock.Any(), time.Second*100).AnyTimes()
-	// suite.mockConn.EXPECT().Close().Return().AnyTimes()
-	// suite.asinfo = NewAsInfoWithConnFactory(logr.Discard(), host, policy, mockConnFact)
 }
 
 func (suite *GenerateTestSuite) TestGenerate() {
@@ -354,16 +344,30 @@ func (suite *GenerateTestSuite) TestGenerate() {
 						"service.tls-alternate-access-port": 0,
 						"service.tls-name":                  "null",
 						"service.tls-port":                  0,
+						"service.tls-authenticate-client":   0,
 					},
 					"racks": []lib.Stats{
 						{
 							"ns":     "test",
-							"rack_0": "BB9030011AC4202",
+							"rack_1": "BB9030011AC4202",
+							"rack_0": "BB9030011AC4203",
 						},
 						{
 							"ns":     "bar",
-							"rack_0": "BB9030011AC4202",
+							"rack_2": "BB9030011AC4202",
+							"rack_0": "BB9030011AC4203",
 						},
+					},
+					"security": Conf{
+						"enable-quotas":             true,
+						"enable-security":           true,
+						"log.report-authentication": false,
+						"log.report-sys-admin":      false,
+						"log.report-user-admin":     false,
+						"log.report-violation":      false,
+						"privilege-refresh-period":  300,
+						"session-ttl":               86400,
+						"tps-weight":                2,
 					},
 					"service": Conf{
 						"advertise-ipv6":              false,
@@ -497,10 +501,12 @@ func (suite *GenerateTestSuite) TestGenerate() {
 					},
 				},
 			},
-			Conf{"metadata": Conf{"build": "7.0.0"}},
-			nil,
+			Conf{"metadata": Conf{"build": "5.7.0.0", "node_id": "BB9030011AC4202"}},
+			Conf{},
 		},
 	}
+
+	Init(logr.Discard(), "/Users/jesseschmidt/Developer/aerospike-admin/lib/live_cluster/client/config-schemas") // TODO: replace with better location. Maybe a single test schema
 
 	for _, tc := range testCases {
 		suite.Run(tc.name, func() {
@@ -508,7 +514,7 @@ func (suite *GenerateTestSuite) TestGenerate() {
 			suite.mockGetter.EXPECT().GetAsInfo("metadata").Return(tc.metadata, nil)
 			logger := logr.Discard()
 
-			actual, err := GenerateConf(&logger, suite.mockGetter)
+			actual, err := GenerateConf(logger, suite.mockGetter)
 
 			suite.Assert().Nil(err)
 			suite.Assert().Equal(tc.expected, actual)
