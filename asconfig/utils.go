@@ -1333,17 +1333,13 @@ func CreateASConfCommand(diff string, value interface{}) []string {
 	switch context {
 	case "xdr":
 		cmd = fmt.Sprintf("set-config:context=%s", context)
-		prevToken := ""
+		prevToken := context
 		for _, token := range tokens[1:] {
-			substr := ""
 			if token[0] == '{' && token[len(token)-1] == '}' {
 				switch prevToken {
-				case "dc":
-					substr = ";dc=" + strings.Trim(token, "{}")
-				case "namespace":
-					substr = ";namespace=" + strings.Trim(token, "{}")
+				case "dcs", "namespaces":
+					cmd = cmd + fmt.Sprintf(";%s=%s", SingularOf(prevToken), strings.Trim(token, "{}"))
 				}
-				cmd = cmd + substr
 			} else {
 				prevToken = token
 			}
@@ -1353,24 +1349,20 @@ func CreateASConfCommand(diff string, value interface{}) []string {
 			println(err)
 		}
 		for _, v := range val {
-			finalCMD := cmd + ";" + tokens[len(tokens)-1] + "=" + v
+			finalCMD := cmd + ";" + SingularOf(prevToken) + "=" + v
 			cmds = append(cmds, finalCMD)
 		}
 	case "namespaces":
-		if len(tokens) < 3 {
-			println("invalid diff")
-		}
-		namespaceName := strings.Trim(tokens[1], "{}")
-		cmd = fmt.Sprintf("set-config:context=namespace;id=%s", namespaceName)
-		prevToken := ""
-		for _, token := range tokens[2:] {
-			substr := ""
+		cmd = fmt.Sprintf("set-config:context=%s", SingularOf(context))
+		prevToken := context
+		for _, token := range tokens[1:] {
 			if token[0] == '{' && token[len(token)-1] == '}' {
 				switch prevToken {
-				case "set":
-					substr = ";set=" + strings.Trim(token, "{}")
+				case "sets":
+					cmd = cmd + fmt.Sprintf(";%s=%s", SingularOf(prevToken), strings.Trim(token, "{}"))
+				case "namespaces":
+					cmd = cmd + fmt.Sprintf(";id=%s", strings.Trim(token, "{}"))
 				}
-				cmd = cmd + substr
 			} else {
 				prevToken = token
 			}
@@ -1380,7 +1372,7 @@ func CreateASConfCommand(diff string, value interface{}) []string {
 			println(err)
 		}
 		for _, v := range val {
-			finalCMD := cmd + ";" + tokens[len(tokens)-1] + "=" + v
+			finalCMD := cmd + ";" + SingularOf(prevToken) + "=" + v
 			cmds = append(cmds, finalCMD)
 		}
 
