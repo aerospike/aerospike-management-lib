@@ -154,6 +154,22 @@ func GetDynamic(ver string) (map[string]bool, error) {
 	return dynMap, nil
 }
 
+// getDefaultValue returns the default value of a particular config
+func getDefaultValue(defaultMap map[string]interface{}, conf string) interface{} {
+	tokens := strings.Split(conf, ".")
+	key := ""
+	for _, token := range tokens {
+		if token[0] == '{' && token[len(token)-1] == '}' {
+			key = key + "_."
+		} else {
+			key = key + token + "."
+		}
+	}
+	key = strings.TrimSuffix(key, ".")
+
+	return defaultMap[key]
+}
+
 // GetDefault return the map of default values.
 func GetDefault(ver string) (map[string]interface{}, error) {
 	flatSchema, err := getFlatSchema(ver)

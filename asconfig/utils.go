@@ -470,7 +470,7 @@ func isValueDiff(log logr.Logger, v1, v2 interface{}) bool {
 			"compare stats", "type",
 			reflect.TypeOf(v2), "value", fmt.Sprintf("%v", v2),
 		)
-		// Ignoring changes in map type as each key is being compared separately.
+		// Ignoring changes in map type as each key is being compared separately eg. security {}.
 		return false
 
 	default:
@@ -595,11 +595,59 @@ func diff(
 
 // ConfDiff find diff between two configs;
 //
-//	diff = c1 - c2
+//		diff = c1 - c2
+//	 if any config parameter is present in c2 but not in c1, result map will contain the corresponding default value for
+//	 that config parameter.
 func ConfDiff(
-	log logr.Logger, c1 Conf, c2 Conf, isFlat, ignoreInternalFields, ignoreOrdering bool,
+	log logr.Logger, c1 Conf, c2 Conf, isFlat, ignoreInternalFields, ignoreOrdering bool, ver string,
 ) map[string]interface{} {
-	return diff(log, c1, c2, isFlat, false, ignoreInternalFields, ignoreOrdering)
+	c1ToC2Diffs := diff(log, c1, c2, isFlat, false, ignoreInternalFields, ignoreOrdering)
+	log.Info("print diff", "difference", fmt.Sprintf("%v", c1ToC2Diffs))
+
+	c2ToC1Diffs := diff(log, c2, c1, isFlat, false, ignoreInternalFields, ignoreOrdering)
+	log.Info("print c2ToC1Diffs", "difference", fmt.Sprintf("%v", c2ToC1Diffs))
+
+	if len(c2ToC1Diffs) > 0 {
+		defaultMap, err := GetDefault(ver)
+		if err != nil {
+			return nil
+		}
+		log.Info("printing default values", "default", defaultMap)
+		deleteKeys := make([]string, 0)
+		for c2ToC1DiffKey := range c2ToC1Diffs {
+			if _, ok := c1ToC2Diffs[c2ToC1DiffKey]; ok {
+				continue
+			}
+
+			setDefault := true
+			for c1ToC2DiffKey := range c1ToC2Diffs {
+				if strings.HasPrefix(c1ToC2DiffKey, c2ToC1DiffKey) {
+					setDefault = false
+					break
+				}
+
+				// If any config parameter is present in c1 and not in c2, corresponding value will be empty in diff map
+				// Need to delete keys if value is empty.
+				// Add default values to those config parameter with if available in schema.
+				// eg. c1 has security: {} c2 has security.log.report-sys-admin: true
+				// c1ToC2DiffKey: map[security] = nil, c2ToC1DiffKey: map[security.log.report-sys-admin] =  true
+				// final diff should be map[security.log.report-sys-admin] = <default value>
+				if strings.HasPrefix(c2ToC1DiffKey, c1ToC2DiffKey) {
+					deleteKeys = append(deleteKeys, c1ToC2DiffKey)
+					break
+				}
+			}
+			if setDefault {
+				c1ToC2Diffs[c2ToC1DiffKey] = getDefaultValue(defaultMap, c2ToC1DiffKey)
+			}
+		}
+		for _, k := range deleteKeys {
+			log.Info("deleting diff as value is nil", "key", k)
+			delete(c1ToC2Diffs, k)
+		}
+	}
+
+	return c1ToC2Diffs
 }
 
 // defaultDiff returns the values different from the default.
