@@ -39,6 +39,16 @@ func InfoQuiesceUndo(log logr.Logger, policy *aero.ClientPolicy, allHosts []*Hos
 	return c.InfoQuiesceUndo(getHostIDsFromHostConns(allHosts))
 }
 
+// GetQuiescedNodes returns a list of node hostIDs of all nodes that are pending_quiesce=true.
+func GetQuiescedNodes(log logr.Logger, policy *aero.ClientPolicy, allHosts []*HostConn) ([]string, error) {
+	c, err := newCluster(log, policy, allHosts, allHosts)
+	if err != nil {
+		return nil, fmt.Errorf("unable to create a cluster copy for running aeroinfo: %v", err)
+	}
+
+	return c.getQuiescedNodes(getHostIDsFromHostConns(allHosts))
+}
+
 // SetMigrateFillDelay sets the given migrate-fill-delay on all the given cluster nodes
 func SetMigrateFillDelay(log logr.Logger, policy *aero.ClientPolicy, allHosts []*HostConn, migrateFillDelay int) error {
 	c, err := newCluster(log, policy, allHosts, allHosts)

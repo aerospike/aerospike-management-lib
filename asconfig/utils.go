@@ -969,7 +969,8 @@ func isSizeOrTime(key string) (bool, humanize) {
 	case "memory-size", "filesize", "write-block-size",
 		"partition-tree-sprigs", "max-write-cache",
 		"mounts-size-limit", "index-stage-size",
-		"stop-writes-count", "stop-writes-size":
+		"stop-writes-count", "stop-writes-size",
+		"mounts-budget", "data-size":
 		return true, deHumanizeSize
 
 	default:
@@ -1051,6 +1052,9 @@ func addStorageEngineConfig(
 // TODO derive these from the schema file
 func isStringField(key string) bool {
 	switch key {
+	// NOTE: before 7.0 "debug-allocations" was a string field. Since it does not except
+	// numeric values it is safe to remove from this table so that it functions as a bool
+	// when parsing server 7.0+ config files
 	case "tls-name", "encryption", "query-user-password-file", "encryption-key-file",
 		"tls-authenticate-client", "mode", "auto-pin", "compression", "user-path",
 		"auth-user", "user", "cipher-suite", "ca-path", "write-policy", "vault-url",
@@ -1060,7 +1064,7 @@ func isStringField(key string) bool {
 		"conflict-resolution-policy", "server", "query-base-dn", "node-id-interface",
 		"auth-password-file", "feature-key-file", "read-consistency-level-override",
 		"cert-file", "user-query-pattern", "key-file-password", "protocol", "vault-path",
-		"user-dn-pattern", "debug-allocations", "scheduler-mode", "token-hash-method",
+		"user-dn-pattern", "scheduler-mode", "token-hash-method",
 		"remote-namespace", "tls-ca-file", "role-query-base-dn", "set-enable-xdr",
 		"secrets-tls-context", "secrets-uds-path", "secrets-address-port":
 		return true

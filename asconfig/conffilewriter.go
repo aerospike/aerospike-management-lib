@@ -14,8 +14,8 @@ import (
 	"sort"
 	"strings"
 
+	sets "github.com/deckarep/golang-set/v2"
 	"github.com/go-logr/logr"
-	"k8s.io/apimachinery/pkg/util/sets"
 
 	lib "github.com/aerospike/aerospike-management-lib"
 )
@@ -55,7 +55,7 @@ func writeLogContext(buf *bytes.Buffer, conf Conf, indent int) {
 
 	sort.Strings(keys)
 
-	syslogParamsSets := sets.NewString("facility", "path", "tag")
+	syslogParamsSets := sets.NewSet("facility", "path", "tag")
 
 	for _, key := range keys {
 		if key == keyName {
@@ -63,7 +63,7 @@ func writeLogContext(buf *bytes.Buffer, conf Conf, indent int) {
 			continue
 		}
 
-		if syslogParamsSets.Has(key) {
+		if syslogParamsSets.Contains(key) {
 			// This is non-context syslog specific key
 			writeField(buf, key, conf[key].(string), indent)
 		} else {
