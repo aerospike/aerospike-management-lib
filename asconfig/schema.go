@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
@@ -18,6 +19,7 @@ var schemas map[string]string
 var validVersionRe = regexp.MustCompile(`(\d+\.){2}\d+`)
 var defRegex = regexp.MustCompile("(.*).default$")
 var dynRegex = regexp.MustCompile("(.*).dynamic$")
+var reqRegex = regexp.MustCompile(`(.*?)\.?required$`)
 
 // var storageRegex = regexp.MustCompile("(.*).storage-engine$")
 
@@ -128,9 +130,28 @@ func baseVersion(ver string) (string, error) {
 	return baseVersion, nil
 }
 
-// getDynamic return the map of values which are dynamic
+func getFlatNormalizedSchema(ver string) (map[string]interface{}, error) {
+	flatSchema, err := getFlatSchema(ver)
+	if err != nil {
+		return nil, err
+	}
+
+	keys := sortKeys(flatSchema)
+	normMap := make(map[string]interface{})
+
+	for _, k := range keys {
+		v := flatSchema[k]
+		key := removeJSONSpecKeywords(k)
+
+		normMap[key] = eval(v)
+	}
+
+	return normMap, nil
+}
+
+// getDynamicSchema return the map of values which are dynamic
 // values.
-func getDynamic(ver string) (map[string]bool, error) {
+func getDynamicSchema(ver string) (map[string]bool, error) {
 	flatSchema, err := getFlatSchema(ver)
 	if err != nil {
 		return nil, err
@@ -154,25 +175,82 @@ func getDynamic(ver string) (map[string]bool, error) {
 	return dynMap, nil
 }
 
-// getDefault return the map of values which are dynamic
+// getDefaultSchema return the map of values which are dynamic
 // values.
-func getDefault(ver string) (map[string]interface{}, error) {
+func getDefaultSchema(ver string) (map[string]interface{}, error) {
 	flatSchema, err := getFlatSchema(ver)
 	if err != nil {
 		return nil, err
 	}
 
 	defMap := make(map[string]interface{})
+	removedKeys := map[string]bool{}
 
 	for k, v := range flatSchema {
 		if defRegex.MatchString(k) {
 			key := removeJSONSpecKeywords(k)
 			key = defRegex.ReplaceAllString(key, "${1}")
-			defMap[key] = eval(v)
+
+			// If the key is already in the map then we might want to remove it.
+			// If the default is always the same then we can remove it. This is
+			// helpful for many of the "type" keys which are under a "oneOf" or
+			// "anyOf" which means the default is only meaningful to a specific
+			// configuration.
+
+			if _, removed := removedKeys[key]; !removed {
+				if val, ok := defMap[key]; ok {
+					switch val.(type) {
+					case []string:
+						if !reflect.DeepEqual(val.([]string), eval(v).([]string)) {
+							removedKeys[key] = true
+							delete(defMap, key)
+						}
+					default:
+						if eval(v) != val {
+							removedKeys[key] = true
+							delete(defMap, key)
+						}
+					}
+				} else {
+					defMap[key] = eval(v)
+				}
+			}
 		}
 	}
 
 	return defMap, nil
+}
+
+// getRequiredSchema returns a slice of slices of required keys for a given context.
+// Multiple slices are required because the required keys can be different
+// depending con the "type" of the context.
+func getRequiredSchema(ver string) (map[string][][]string, error) {
+	flatSchema, err := getFlatSchema(ver)
+	if err != nil {
+		return nil, err
+	}
+
+	keys := sortKeys(flatSchema)
+	reqMap := make(map[string][][]string) // We end up with 8 keys with a 6.4 schema.
+
+	for _, k := range keys {
+		v := flatSchema[k]
+		if reqRegex.MatchString(k) {
+			key := removeJSONSpecKeywords(k)
+			key = reqRegex.ReplaceAllString(key, "${1}")
+			requiredKeys := eval(v)
+
+			if _, ok := reqMap[key]; !ok {
+				reqMap[key] = [][]string{}
+			}
+
+			// There a multiple "required" keys for a given context. Likely
+			// caused by "oneOf" or "anyOf" in the schema.
+			reqMap[key] = append(reqMap[key], requiredKeys.([]string))
+		}
+	}
+
+	return reqMap, nil
 }
 
 func flattenSchema(input map[string]interface{}, sep string) map[string]interface{} {
@@ -225,12 +303,15 @@ func flattenSchema(input map[string]interface{}, sep string) map[string]interfac
 	return res
 }
 
+var oneOfRegex = regexp.MustCompile(`\.oneOf\.\d+`)
+var anyOfRegex = regexp.MustCompile(`\.anyOf\.\d+`)
+
 func removeJSONSpecKeywords(key string) string {
 	// Cleanup json schema strings
 	key = strings.ReplaceAll(key, "items", "_")
 	key = strings.ReplaceAll(key, "properties.", "")
-	key = strings.ReplaceAll(key, ".oneOf.1", "")
-	key = strings.ReplaceAll(key, ".oneOf.0", "")
+	key = oneOfRegex.ReplaceAllString(key, "")
+	key = anyOfRegex.ReplaceAllString(key, "")
 
 	return key
 }
@@ -241,7 +322,7 @@ func eval(v interface{}) interface{} {
 	case []interface{}:
 		strList := make([]string, len(v))
 		for i := range v {
-			strList = append(strList, v[i].(string))
+			strList[i] = v[i].(string)
 		}
 
 		return strList
