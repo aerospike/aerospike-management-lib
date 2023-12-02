@@ -31,6 +31,7 @@ const (
 )
 
 const sep = "."
+const keyIndex = "<index>"
 
 var portRegex = regexp.MustCompile("port")
 
@@ -161,7 +162,7 @@ func expandConfList(log logr.Logger, input Conf) Conf {
 					}
 
 					// fetch index stored by flattenConf
-					index, ok := v2Conf["index"].(int)
+					index, ok := v2Conf[keyIndex].(int)
 					if !ok {
 						log.V(-1).Info("Index not available", "section", k, "key", k2)
 
@@ -171,7 +172,7 @@ func expandConfList(log logr.Logger, input Conf) Conf {
 					confList[index] = expandConfList(log, v2Conf)
 
 					// index is flattenConf generated field, delete it
-					delete(confList[index], "index")
+					delete(confList[index], keyIndex)
 
 					found = true
 				}
@@ -374,7 +375,7 @@ func flattenConfList(log logr.Logger, input []Conf, sep string) Conf {
 			res[name+sep+k2] = v2
 		}
 		// store index for expanding in correct order
-		res[name+sep+"index"] = i
+		res[name+sep+keyIndex] = i
 	}
 
 	return res
@@ -672,14 +673,25 @@ func getSystemProperty(log logr.Logger, c Conf, key string) (
 
 // isListField return true if passed in key representing
 // aerospike config is of type List that is can have multiple
-// entries for same config key. The separator is the delimiter
+// entries for same config key. The separator is the secondary delimiter
 // used in the .yml config and in the response returned from the server.
 // As opposed to the aerospike.conf file which uses space delimiters.
+// Example of different formats:
+//
+//	 server response:
+//			node-address-port=1.1.1.1:3000;2.2.2.2:3000
+//	 yaml config:
+//			node-address-port:
+//				- 1.1.1.1:3000
+//				- 2.2.2.2:3000
+//	 aerospike.conf:
+//			node-address-port 1.1.1.1 3000
+//			node-address-port 2.2.2.2 3000
 func isListField(key string) (exists bool, separator string) {
-	key = baseKey(key)
-	key = SingularOf(key)
+	bKey := baseKey(key)
+	bKey = SingularOf(bKey)
 
-	switch key {
+	switch bKey {
 	case "dc-node-address-port", "tls-node", "dc-int-ext-ipmap":
 		return true, "+"
 
@@ -700,39 +712,12 @@ func isListField(key string) (exists bool, separator string) {
 	default:
 		// TODO: This should use the configuration schema instead.
 		// If this field is in singularToPlural or pluralToSingular it is a list field.
-		if _, ok := singularToPlural[key]; ok {
+		if _, ok := singularToPlural[bKey]; ok && !strings.HasPrefix(key, "logging.") {
 			return true, ""
 		}
 
 		return false, ""
 	}
-}
-
-func isServerRespDelimitedListField(key string) (bool, string) {
-	key = baseKey(key)
-	key = SingularOf(key)
-
-	switch key {
-	case "multicast-group":
-		return true, ","
-	default:
-		return false, ""
-	}
-}
-
-// isDisallowedInConfigWhenSC returns true if the key is will cause aerospike to
-// fail to startup if the config is present in sc mode.
-func isDisallowedInConfigWhenSC(key string) bool {
-	key = baseKey(key)
-	key = SingularOf(key)
-
-	switch key {
-	case "read-consistency-level-override", "write-commit-level-override":
-		return true
-	default:
-		return false
-	}
-
 }
 
 // isIncompleteSetSectionFields returns true if passed in key
@@ -752,7 +737,7 @@ func isIncompleteSetSectionFields(key string) bool {
 func isInternalField(key string) bool {
 	key = baseKey(key)
 	switch key {
-	case "index", keyName:
+	case keyIndex, keyName:
 		return true
 
 	default:
@@ -914,11 +899,7 @@ func isSizeOrTime(key string) (bool, humanize) {
 }
 
 func isStorageEngineKey(key string) bool {
-	if key == "" {
-		return false
-	}
-
-	if key == keyStorageEngine || strings.HasPrefix(key, keyStorageEngine+".") {
+	if key == keyStorageEngine || strings.Contains(key, keyStorageEngine+".") {
 		return true
 	}
 
@@ -929,6 +910,7 @@ func isTypedSection(key string) bool {
 	baseKey := baseKey(key)
 	baseKey = SingularOf(baseKey)
 
+	// TODO: This should be derived from the configuration schema
 	switch baseKey {
 	case keyStorageEngine, "index-type", "sindex-type":
 		return true
