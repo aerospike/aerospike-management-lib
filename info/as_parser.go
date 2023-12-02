@@ -1519,7 +1519,17 @@ func parseIntoMap(str, del, sep string) lib.Stats {
 		}
 
 		kv := strings.Split(item, sep)
-		m[kv[0]] = getParsedValue(kv[1])
+		if m[kv[0]] != nil {
+			// If key already exists assume it is a list of strings.
+			// This was chosen rather than turning the value into []string to
+			// remove the possibility of two types (string or []string) or of
+			// maintaining a list of fields which could also be strings
+			if strKv0, ok := m[kv[0]].(string); ok {
+				m[kv[0]] = strKv0 + "," + kv[1]
+			}
+		} else {
+			m[kv[0]] = getParsedValue(kv[1])
+		}
 	}
 
 	return m
