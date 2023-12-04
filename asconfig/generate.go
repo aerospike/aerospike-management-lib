@@ -15,7 +15,7 @@ import (
 // namespaceRe is a regular expression used to match and extract namespace configurations from the config file.
 var namespaceRe = regexp.MustCompile(fmt.Sprintf(`(^namespaces\%s)(.+?)(\%s.+)`, sep, sep))
 var indexedRe = regexp.MustCompile(`(.+)\[(\d+)\](.*)`)
-var namedRe = regexp.MustCompile("({[^.]+})")
+var namedRe = regexp.MustCompile("({.+?})")
 var securityRe = regexp.MustCompile(fmt.Sprintf(`^security\%s+`, sep))
 
 // ConfGetter is an interface that defines methods for retrieving configurations.
@@ -58,8 +58,8 @@ func GenerateConf(log logr.Logger, confGetter ConfGetter, removeDefaults bool) (
 		newRenameLoggingContextsStep(log),
 		newFlattenConfStep(log),
 		newCopyEffectiveRackIDStep(log),
-		newTransformKeyValuesStep(log),
 		newRemoveSecurityIfDisabledStep(log),
+		newTransformKeyValuesStep(log),
 	})
 
 	if removeDefaults {
@@ -496,7 +496,7 @@ func (s *transformKeyValuesStep) execute(conf Conf) error {
 	scNamspaces := []string{}
 
 	for _, key := range sortedKeys {
-		// We will mutate the servers key, value response to match the schema.
+		// We will mutate the servers key, value response to match the schema
 		value := origFlatConf[key]
 		key = renameServerResponseKey(key)
 
@@ -559,6 +559,21 @@ func (s *transformKeyValuesStep) execute(conf Conf) error {
 			}
 		}
 
+		build := conf["metadata"].(Conf)["build"].(string)
+		flatSchema, err := getFlatNormalizedSchema(build)
+		normalizedKey := namedRe.ReplaceAllString(key, "_")
+
+		if err != nil {
+			return fmt.Errorf("error getting schema: %s", err)
+		}
+
+		if _, ok := flatSchema[normalizedKey+sep+"default"]; !ok && !isInternalField(normalizedKey) {
+			// Value is not found in schemas. Must be invalid config
+			// parameter which the server returns or our own internal
+			// (<index>) key.
+			continue
+		}
+
 		newFlatConf[key] = value
 	}
 
@@ -600,17 +615,24 @@ func (s *removeSecurityIfDisabledStep) execute(conf Conf) error {
 			return fmt.Errorf("enable-security is not a boolean")
 		}
 
-		if !securityEnabled {
-			for key := range contexts {
-				if securityRe.MatchString(key) {
-					delete(contexts, key)
-				}
+		cmp, err := lib.CompareVersions(build, "5.7.0")
+		if err != nil {
+			return err
+		}
+
+		if securityEnabled {
+			if cmp >= 0 {
+				delete(contexts, "security.enable-security")
 			}
 		} else {
-			if cmp, err := lib.CompareVersions(build, "5.7.0"); err != nil {
-				return err
-			} else if cmp >= 0 {
-				delete(contexts, "security.enable-security")
+			// 5.7 and newer can't have any security configs. An empty security
+			// context will enable-security.
+			if cmp >= 0 {
+				for key := range contexts {
+					if securityRe.MatchString(key) {
+						delete(contexts, key)
+					}
+				}
 			}
 		}
 	}
@@ -726,7 +748,7 @@ func (s *removeDefaultsStep) execute(conf Conf) error {
 				delete(flatConf, key)
 			}
 		} else {
-			if _, ok := flatSchema[normalizedKey]; !ok && !isInternalField(normalizedKey) {
+			if _, ok := flatSchema[normalizedKey+sep+"type"]; !ok && !isInternalField(normalizedKey) {
 				// Value is not found in schemas. Must be invalid config
 				// parameter which the server returns or our own internal
 				// (<index>) key.
