@@ -145,7 +145,9 @@ func NewAsInfo(log logr.Logger, h *aero.Host, cp *aero.ClientPolicy) *AsInfo {
 	return NewAsInfoWithConnFactory(log, h, cp, aeroConnFactory)
 }
 
-func NewAsInfoWithConnFactory(log logr.Logger, h *aero.Host, cp *aero.ClientPolicy, connFact connectionFactory) *AsInfo {
+func NewAsInfoWithConnFactory(
+	log logr.Logger, h *aero.Host, cp *aero.ClientPolicy, connFact connectionFactory,
+) *AsInfo {
 	logger := log.WithValues("node", h)
 
 	return &AsInfo{
@@ -328,6 +330,7 @@ func (info *AsInfo) GetAsConfig(contextList ...string) (lib.Stats, error) {
 
 	key := constConfigs
 	configs, err := info.execute(info.log, rawCmdList, m, key)
+
 	if err != nil {
 		return nil, fmt.Errorf(
 			"failed to get config info from aerospike server: %v", err,
@@ -607,8 +610,9 @@ func (info *AsInfo) createXDRConfigCmdList(build string, m map[string]string) ([
 		return nil, err
 	}
 
-	m = mergeDicts(m, resp)
 	var dcNames []string
+
+	m = mergeDicts(m, resp)
 	rawXDRConfig := resp[cmdConfigXDR]
 	xdrConfig := parseIntoMap(rawXDRConfig, ";", "=")
 	rawNames, ok := xdrConfig[constStatDCNames].(string)
@@ -620,12 +624,14 @@ func (info *AsInfo) createXDRConfigCmdList(build string, m map[string]string) ([
 	}
 
 	results := make(chan error, len(dcNames))
-	var wg sync.WaitGroup
 
+	var wg sync.WaitGroup
 	for _, dc := range dcNames {
 		wg.Add(1)
+
 		go func(dc string) {
 			defer wg.Done()
+
 			resp, err := info.doInfo(cmdConfigDC + dc)
 
 			if err != nil {
@@ -633,8 +639,9 @@ func (info *AsInfo) createXDRConfigCmdList(build string, m map[string]string) ([
 				return
 			}
 
-			m = mergeDicts(m, resp)
 			var nsNames []string
+
+			m = mergeDicts(m, resp)
 			rawDCConfig := resp[cmdConfigDC+dc]
 			xdrConfig := parseIntoMap(rawDCConfig, ";", "=")
 			rawNames, ok := xdrConfig[constStatNSNames].(string)
@@ -984,6 +991,7 @@ func parseConfigInfo(rawMap map[string]string) lib.Stats {
 	} else {
 		xc = parseAllXDRConfig(rawMap, cmdConfigXDR)
 	}
+
 	if len(xc) > 0 {
 		configMap[ConfigXDRContext] = xc
 	}
@@ -1089,6 +1097,7 @@ func parseAllXDRConfig(rawMap map[string]string, cmd string) lib.Stats {
 
 	dcNamesRaw := xdrConfigMap.TryString(constStatDCNames, "")
 	dcNames := strings.Split(dcNamesRaw, ",")
+
 	delete(xdrConfigMap, constStatDCNames)
 	xdrConfigMap[ConfigDCContext] = make(lib.Stats, len(dcNames))
 
@@ -1102,6 +1111,7 @@ func parseAllXDRConfig(rawMap map[string]string, cmd string) lib.Stats {
 		xdrConfigMap[ConfigDCContext].(lib.Stats)[dc] = dcMap
 		nsNamesRaw := dcMap.TryString(constStatNSNames, "")
 		nsNames := strings.Split(nsNamesRaw, ",")
+
 		delete(dcMap, constStatNSNames)
 		dcMap[ConfigNamespaceContext] = make(lib.Stats, len(nsNames))
 
@@ -1551,9 +1561,9 @@ func getParsedValue(val interface{}) interface{} {
 		return value
 	} else if value, err := strconv.ParseBool(valStr); err == nil {
 		return value
-	} else {
-		return valStr
 	}
+
+	return valStr
 }
 
 func parseIntoListOfMap(str, del1, del2, sep string) []lib.Stats {

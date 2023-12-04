@@ -22,9 +22,9 @@ func (suite *GenerateTestSuite) SetupTest() {
 
 type GenerateTC struct {
 	name           string
+	removeDefaults bool
 	allConfigs     Conf
 	metadata       Conf
-	removeDefaults bool
 	expected       Conf
 }
 
@@ -67,6 +67,7 @@ func TestGenerateTestSuiteSuite(t *testing.T) {
 
 var logging = GenerateTC{
 	"logging",
+	false,
 	Conf{
 		"config": Conf{
 			"logging": Conf{
@@ -260,7 +261,7 @@ var logging = GenerateTC{
 		},
 	},
 	Conf{"metadata": Conf{"build": "6.4.0.0", "node_id": "BB9030011AC4202"}},
-	false,
+
 	Conf{
 		"logging": []Conf{
 			{
@@ -459,6 +460,7 @@ var logging = GenerateTC{
 
 var namespaceTC = GenerateTC{
 	"namespaces",
+	false,
 	Conf{
 		"config": Conf{
 			"racks": []Conf{
@@ -654,7 +656,7 @@ var namespaceTC = GenerateTC{
 		},
 	},
 	Conf{"metadata": Conf{"build": "6.4.0.0", "node_id": "BB9030011AC4202"}},
-	false,
+
 	Conf{
 		"namespaces": []Conf{
 			{
@@ -847,6 +849,7 @@ var namespaceTC = GenerateTC{
 
 var networkTC = GenerateTC{
 	"network",
+	false,
 	Conf{
 		"config": Conf{
 			"network": Conf{
@@ -894,7 +897,7 @@ var networkTC = GenerateTC{
 		},
 	},
 	Conf{"metadata": Conf{"build": "6.4.0.0", "node_id": "BB9030011AC4202"}},
-	false,
+
 	Conf{
 		"network": Conf{
 			"fabric": Conf{
@@ -951,6 +954,7 @@ var networkTC = GenerateTC{
 
 var security57TC = GenerateTC{
 	"security post 5.7",
+	false,
 	Conf{
 		"config": Conf{
 			"security": Conf{
@@ -967,7 +971,7 @@ var security57TC = GenerateTC{
 		},
 	},
 	Conf{"metadata": Conf{"build": "6.4.0.0", "node_id": "BB9030011AC4202"}},
-	false,
+
 	Conf{
 		"security": Conf{
 			"enable-quotas": true,
@@ -986,6 +990,7 @@ var security57TC = GenerateTC{
 
 var security56TC = GenerateTC{
 	"security pre 5.7",
+	false,
 	Conf{
 		"config": Conf{
 			"security": Conf{
@@ -1002,7 +1007,7 @@ var security56TC = GenerateTC{
 		},
 	},
 	Conf{"metadata": Conf{"build": "5.6.0.0", "node_id": "BB9030011AC4202"}},
-	false,
+
 	Conf{
 		"security": Conf{
 			"enable-quotas":   true,
@@ -1022,6 +1027,7 @@ var security56TC = GenerateTC{
 
 var serviceTC = GenerateTC{
 	"service",
+	false,
 	Conf{
 		"config": Conf{
 			"service": Conf{
@@ -1079,7 +1085,7 @@ var serviceTC = GenerateTC{
 		},
 	},
 	Conf{"metadata": Conf{"build": "6.4.0.0", "node_id": "BB9030011AC4202"}},
-	false,
+
 	Conf{
 		"service": Conf{
 			"advertise-ipv6":              false,
@@ -1138,6 +1144,7 @@ var serviceTC = GenerateTC{
 
 var xdr5TC = GenerateTC{
 	"xdr5",
+	false,
 	Conf{
 		"config": Conf{
 			"xdr": Conf{
@@ -1221,7 +1228,7 @@ var xdr5TC = GenerateTC{
 		},
 	},
 	Conf{"metadata": Conf{"build": "6.4.0.0", "node_id": "BB9030011AC4202"}},
-	false,
+
 	Conf{
 		"xdr": Conf{
 			"dcs": []Conf{
@@ -1311,6 +1318,7 @@ var xdr5TC = GenerateTC{
 // Same as above but remove defaults
 var loggingDefaultsTC = GenerateTC{
 	"logging with remove default",
+	true,
 	Conf{
 		"config": Conf{
 			"logging": Conf{
@@ -1505,7 +1513,7 @@ var loggingDefaultsTC = GenerateTC{
 		},
 	},
 	Conf{"metadata": Conf{"build": "6.4.0.0", "node_id": "BB9030011AC4202"}},
-	true,
+
 	Conf{
 		"logging": []Conf{
 			{
@@ -1532,6 +1540,7 @@ var loggingDefaultsTC = GenerateTC{
 
 var namespacesDefaultsTC = GenerateTC{
 	"namespaces with remove defaults",
+	true,
 	Conf{
 		"config": Conf{
 			"racks": []Conf{
@@ -1727,7 +1736,7 @@ var namespacesDefaultsTC = GenerateTC{
 		},
 	},
 	Conf{"metadata": Conf{"build": "6.4.0.0", "node_id": "BB9030011AC4202"}},
-	true,
+
 	Conf{
 		"namespaces": []Conf{
 			{
@@ -1787,6 +1796,7 @@ var namespacesDefaultsTC = GenerateTC{
 
 var networkDefaultsTC = GenerateTC{
 	"network with remove defaults",
+	true,
 	Conf{
 		"config": Conf{
 			"network": Conf{
@@ -1834,7 +1844,7 @@ var networkDefaultsTC = GenerateTC{
 		},
 	},
 	Conf{"metadata": Conf{"build": "6.4.0.0", "node_id": "BB9030011AC4202"}},
-	true,
+
 	Conf{
 		"network": Conf{
 			"fabric": Conf{
@@ -1861,6 +1871,7 @@ var networkDefaultsTC = GenerateTC{
 
 var security57DefaultsTC = GenerateTC{
 	"security post 5.7 with remove defaults",
+	true,
 	Conf{
 		"config": Conf{
 			"security": Conf{
@@ -1877,7 +1888,7 @@ var security57DefaultsTC = GenerateTC{
 		},
 	},
 	Conf{"metadata": Conf{"build": "6.4.0.0", "node_id": "BB9030011AC4202"}},
-	true,
+
 	Conf{
 		"security": Conf{
 			"enable-quotas": true,
@@ -1887,6 +1898,7 @@ var security57DefaultsTC = GenerateTC{
 
 var serviceDefaultsTC = GenerateTC{
 	"service with remove defaults",
+	true,
 	Conf{
 		"config": Conf{
 			"service": Conf{
@@ -1944,7 +1956,7 @@ var serviceDefaultsTC = GenerateTC{
 		},
 	},
 	Conf{"metadata": Conf{"build": "6.4.0.0", "node_id": "BB9030011AC4202"}},
-	true,
+
 	Conf{
 		"service": Conf{
 			"cluster-name": "6.x-cluster-security",
@@ -1961,6 +1973,7 @@ var serviceDefaultsTC = GenerateTC{
 
 var xdr5DefaultsTC = GenerateTC{
 	"xdr5 with remove defaults",
+	true,
 	Conf{
 		"config": Conf{
 			"xdr": Conf{
@@ -2044,7 +2057,7 @@ var xdr5DefaultsTC = GenerateTC{
 		},
 	},
 	Conf{"metadata": Conf{"build": "6.4.0.0", "node_id": "BB9030011AC4202"}},
-	true,
+
 	Conf{
 		"xdr": Conf{
 			"dcs": []Conf{

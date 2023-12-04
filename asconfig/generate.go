@@ -37,6 +37,7 @@ func isSupportedGenerateVersion(version string) (bool, error) {
 	}
 
 	cmp, err := lib.CompareVersions(version, "5.0.0")
+
 	return cmp >= 0, err
 }
 
@@ -46,6 +47,7 @@ func isSupportedGenerateVersion(version string) (bool, error) {
 // default values are out of the acceptable range required by the server.
 func GenerateConf(log logr.Logger, confGetter ConfGetter, removeDefaults bool) (Conf, error) {
 	log.V(1).Info("Generating config")
+
 	validConfig := Conf{}
 
 	// Flatten the config returned from the server. Then convert it to a map
@@ -111,15 +113,15 @@ func (p *pipeline) execute(conf Conf) error {
 
 // GetConfigStep is a pipeline step that retrieves the configs and metadata.
 type GetConfigStep struct {
-	log        logr.Logger
 	confGetter ConfGetter
+	log        logr.Logger
 }
 
 // newGetConfigStep creates a new GetConfigStep with the provided log and ConfGetter.
 func newGetConfigStep(log logr.Logger, confGetter ConfGetter) *GetConfigStep {
 	return &GetConfigStep{
-		log:        log,
 		confGetter: confGetter,
+		log:        log,
 	}
 }
 
@@ -140,26 +142,28 @@ func (s *GetConfigStep) execute(conf Conf) error {
 	}
 
 	conf["metadata"] = metadata["metadata"]
+
 	return nil
 }
 
 // ServerVersionCheckStep is a pipeline step that checks if the server version is supported.
 type ServerVersionCheckStep struct {
-	log       logr.Logger
 	checkFunc func(string) (bool, error)
+	log       logr.Logger
 }
 
 // newServerVersionCheckStep creates a new ServerVersionCheckStep with the provided log and check function.
 func newServerVersionCheckStep(log logr.Logger, checkFunc func(string) (bool, error)) *ServerVersionCheckStep {
 	return &ServerVersionCheckStep{
-		log:       log,
 		checkFunc: checkFunc,
+		log:       log,
 	}
 }
 
 // execute checks if the server version is supported using the check function.
 func (s *ServerVersionCheckStep) execute(conf Conf) error {
 	s.log.V(1).Info("Checking server version")
+
 	build := conf["metadata"].(Conf)["build"].(string)
 	isSupported, err := s.checkFunc(build)
 
@@ -208,23 +212,26 @@ func (s *copyEffectiveRackIDStep) execute(conf Conf) error {
 
 		// For this ns find which rack this node belongs to
 		for rack, nodesStr := range rackInfo {
-			if strings.Contains(nodesStr.(string), nodeID) {
-				rackIDStr := rackRegex.FindStringSubmatch(rack)[1]
-				if rackIDStr == "" {
-					return fmt.Errorf("unable to find rack id for rack %s", rack)
-				}
-
-				rackID, err := strconv.Atoi(rackIDStr)
-
-				if err != nil {
-					return fmt.Errorf("unable to convert rack id %s to int", rackIDStr)
-				}
-
-				// Copy effective rack-id over the ns config
-				key := fmt.Sprintf("namespaces.{%s}.rack-id", ns)
-				flatConfig[key] = rackID
-				break
+			if !strings.Contains(nodesStr.(string), nodeID) {
+				continue
 			}
+
+			rackIDStr := rackRegex.FindStringSubmatch(rack)[1]
+			if rackIDStr == "" {
+				return fmt.Errorf("unable to find rack id for rack %s", rack)
+			}
+
+			rackID, err := strconv.Atoi(rackIDStr)
+
+			if err != nil {
+				return fmt.Errorf("unable to convert rack id %s to int", rackIDStr)
+			}
+
+			// Copy effective rack-id over the ns config
+			key := fmt.Sprintf("namespaces.{%s}.rack-id", ns)
+			flatConfig[key] = rackID
+
+			break
 		}
 	}
 
@@ -246,6 +253,7 @@ func newRenameLoggingContextsStep(log logr.Logger) *renameKeysStep {
 // execute renames logging contexts in the config.
 func (s *renameKeysStep) execute(conf Conf) error {
 	s.log.V(1).Info("Renaming keys")
+
 	config := conf["config"].(lib.Stats)
 	logging, ok := config["logging"].(lib.Stats)
 
@@ -260,12 +268,14 @@ func (s *renameKeysStep) execute(conf Conf) error {
 		case lib.Stats:
 			if key == "stderr" {
 				newLoggingEntries["console"] = value
+
 				delete(logging, key)
 			} else if !strings.HasSuffix(key, ".log") {
-				delete(logging, key)
 				newLoggingEntries["syslog"] = v
 				syslog := newLoggingEntries["syslog"].(lib.Stats)
 				syslog["path"] = key
+
+				delete(logging, key)
 			}
 		default:
 			continue
@@ -301,6 +311,7 @@ func sortKeys(config lib.Stats) []string {
 	}
 
 	sort.Strings(keys)
+
 	return keys
 }
 
@@ -320,8 +331,8 @@ func convertDictToList(config lib.Stats) []lib.Stats {
 		config2["name"] = key1
 		list[count] = config2
 		count++
-		keys2 := sortKeys(config2)
 
+		keys2 := sortKeys(config2)
 		for _, key2 := range keys2 {
 			value := config2[key2]
 
@@ -338,7 +349,7 @@ func convertDictToList(config lib.Stats) []lib.Stats {
 }
 
 // convertDictRespToConf converts a dictionary response to a Conf.
-func convertDictRespToConf(log logr.Logger, config lib.Stats, sep string) {
+func convertDictRespToConf(config lib.Stats) {
 	if _, ok := config["logging"].(lib.Stats); ok {
 		config["logging"] = convertDictToList(config["logging"].(lib.Stats))
 	}
@@ -362,10 +373,13 @@ func convertDictRespToConf(log logr.Logger, config lib.Stats, sep string) {
 // execute flattens the config.
 func (s *flattenConfStep) execute(conf Conf) error {
 	s.log.V(1).Info("Flattening config")
+
 	origConfig := conf["config"].(lib.Stats)
-	convertDictRespToConf(s.log, origConfig, sep)
+
+	convertDictRespToConf(origConfig)
 
 	conf["flat_config"] = flattenConf(s.log, conf["config"].(lib.Stats), sep)
+
 	return nil
 }
 
@@ -381,9 +395,10 @@ func newTransformKeyValuesStep(log logr.Logger) *transformKeyValuesStep {
 	}
 }
 
-func splitContextBaseKey(key string) (string, string) {
-	bKey := baseKey(key)
-	contextKey := strings.TrimSuffix(key, sep+bKey)
+func splitContextBaseKey(key string) (contextKey, bKey string) {
+	bKey = baseKey(key)
+	contextKey = strings.TrimSuffix(key, sep+bKey)
+
 	return contextKey, bKey
 }
 
@@ -427,6 +442,7 @@ func sortedKeys(m map[string]interface{}) []string {
 	}
 
 	sort.Strings(keys)
+
 	return keys
 }
 
@@ -436,39 +452,44 @@ func undefinedOrNull(val interface{}) bool {
 		lower := strings.ToLower(str)
 		return lower == "undefined" || lower == "null"
 	}
+
 	return false
 }
 
 // convertIndexedToList converts an indexed key to a list key. It returns the
 // new key, the index, and the value as a string. If the key is not indexed or the value is
 // not a string, it returns empty strings.
-func convertIndexedToList(key string, value interface{}) (string, string) {
-	if newKey, _, _, _ := parseIndexField(key); newKey != "" {
-		if strVal, ok := value.(string); ok {
+func convertIndexedToList(key string, value interface{}) (newKey, strVal string) {
+	if newKey, _, _ = parseIndexField(key); newKey != "" {
+		if str, ok := value.(string); ok {
+			strVal = str
 			return newKey, strVal
 		}
 	}
 
-	return "", ""
+	return newKey, strVal
 }
 
-func parseIndexField(key string) (string, int, string, error) {
+func parseIndexField(key string) (newKey string, index int, err error) {
 	if match := indexedRe.FindStringSubmatch(key); match != nil {
-		index, err := strconv.Atoi(match[2])
+		index, err = strconv.Atoi(match[2])
 
 		if err != nil {
-			return "", 0, "", err
+			return "", 0, err
 		}
 
-		return match[1], index, match[3], nil
+		newKey = match[1]
+
+		return newKey, index, nil
 	}
 
-	return "", 0, "", nil
+	return newKey, index, nil
 }
 
 // execute transforms key values in the config.
 func (s *transformKeyValuesStep) execute(conf Conf) error {
 	s.log.V(1).Info("Transforming key values")
+
 	origFlatConf := conf["flat_config"].(Conf)
 	newFlatConf := make(Conf, len(origFlatConf)) // we will overwrite flat_config
 	sortedKeys := sortedKeys(origFlatConf)
@@ -498,7 +519,7 @@ func (s *transformKeyValuesStep) execute(conf Conf) error {
 			newKey = getPluralKey(newKey)
 
 			if strings.HasSuffix(key, "shadow") {
-				_, index, _, err := parseIndexField(key)
+				_, index, err := parseIndexField(key)
 				if err != nil {
 					return err
 				}
@@ -568,6 +589,7 @@ func newRemoveSecurityIfDisabledStep(log logr.Logger) *removeSecurityIfDisabledS
 // execute removes security configurations if security is disabled.
 func (s *removeSecurityIfDisabledStep) execute(conf Conf) error {
 	s.log.V(1).Info("Removing security configs if security is disabled")
+
 	contexts := conf["flat_config"].(Conf)
 	build := conf["metadata"].(Conf)["build"].(string)
 
@@ -606,7 +628,7 @@ func newRemoveDefaultsStep(log logr.Logger) *removeDefaultsStep {
 	}
 }
 
-func compareDefaults(defVal interface{}, confVal interface{}) bool {
+func compareDefaults(defVal, confVal interface{}) bool {
 	switch val := defVal.(type) {
 	case []interface{}:
 		return reflect.DeepEqual(val, confVal)
@@ -625,16 +647,16 @@ func compareDefaults(defVal interface{}, confVal interface{}) bool {
 		if sliceVal, ok := confVal.([]string); ok && len(sliceVal) == 1 {
 			return sliceVal[0] == val
 		}
+
 		return defVal == confVal
 	case uint64:
 		// Schema deals with uint64 when positive but config deals with int
-		return uint64(val) == uint64(confVal.(int))
+		return val == uint64(confVal.(int))
 	case int64:
 		// Schema deals with int64 when negative but config deals with int
-		return uint64(val) == uint64(confVal.(int))
+		return val == int64(confVal.(int))
 	default:
 		return val == confVal
-
 	}
 }
 
@@ -648,6 +670,7 @@ func defaultSlice(m map[string][]string, key string) []string {
 
 func (s *removeDefaultsStep) execute(conf Conf) error {
 	s.log.V(1).Info("Removing default values")
+
 	flatConf := conf["flat_config"].(Conf)
 	build := conf["metadata"].(Conf)["build"].(string)
 
@@ -716,6 +739,7 @@ func (s *removeDefaultsStep) execute(conf Conf) error {
 	for loggingContext, levels := range loggingMap {
 		freq := "CRITICAL"
 		count := 0
+
 		for level, contexts := range levels {
 			if len(contexts) > count {
 				freq = level
@@ -729,6 +753,7 @@ func (s *removeDefaultsStep) execute(conf Conf) error {
 
 		flatConf[loggingContext+sep+"any"] = freq
 	}
+
 	return nil
 }
 
@@ -747,8 +772,8 @@ func newExpandConfStep(log logr.Logger) *expandConfStep {
 // execute expands the config.
 func (s *expandConfStep) execute(conf Conf) error {
 	s.log.V(1).Info("Expanding config")
-	flatConf := conf["flat_config"].(Conf)
 
+	flatConf := conf["flat_config"].(Conf)
 	expandedConf := expandConf(s.log, &flatConf, sep)
 
 	conf["expanded_config"] = expandedConf

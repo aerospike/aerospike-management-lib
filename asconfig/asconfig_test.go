@@ -77,8 +77,6 @@ func (suite *AsConfigTestSuite) TestAsConfigGetFlatMap() {
 		},
 	}
 
-	Init(logr.Discard(), "/Users/jesseschmidt/Developer/aerospike-admin/lib/live_cluster/client/config-schemas") // TODO: replace with better location. Maybe a single test schema
-
 	for _, tc := range testCases {
 		suite.Run(tc.name, func() {
 			logger := logr.Discard()
@@ -364,8 +362,6 @@ func (suite *AsConfigTestSuite) TestAsConfigGetExpandMap() {
 			},
 		},
 	}
-
-	Init(logr.Discard(), "/Users/jesseschmidt/Developer/aerospike-admin/lib/live_cluster/client/config-schemas") // TODO: replace with better location. Maybe a single test schema
 
 	for _, tc := range testCases {
 		suite.Run(tc.name, func() {

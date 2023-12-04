@@ -199,15 +199,17 @@ func getDefaultSchema(ver string) (map[string]interface{}, error) {
 
 			if _, removed := removedKeys[key]; !removed {
 				if val, ok := defMap[key]; ok {
-					switch val.(type) {
+					switch val := val.(type) {
 					case []string:
-						if !reflect.DeepEqual(val.([]string), eval(v).([]string)) {
+						if !reflect.DeepEqual(val, eval(v).([]string)) {
 							removedKeys[key] = true
+
 							delete(defMap, key)
 						}
 					default:
 						if eval(v) != val {
 							removedKeys[key] = true
+
 							delete(defMap, key)
 						}
 					}
@@ -235,6 +237,7 @@ func getRequiredSchema(ver string) (map[string][][]string, error) {
 
 	for _, k := range keys {
 		v := flatSchema[k]
+
 		if reqRegex.MatchString(k) {
 			key := removeJSONSpecKeywords(k)
 			key = reqRegex.ReplaceAllString(key, "${1}")
