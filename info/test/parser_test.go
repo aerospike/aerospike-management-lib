@@ -20,6 +20,9 @@ var err error
 
 var AsInfo *info.AsInfo
 
+// Running this benchmark will generate an as_info.json file against the server
+// ip address and port specified in the AerospikeHost() function. GetASInfo
+// returns "stats", "config", and "metadata" information from the server.
 func BenchmarkAsParser__map(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()

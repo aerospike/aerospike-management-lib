@@ -29,10 +29,10 @@ jobs:
       run: |
         make coverage
     # Uncomment the following lines when codecov secret is uploaded
-    # - name: Upload unit coverage to Codecov
-    #   uses: codecov/codecov-action@v3
-    #   with:
-    #     token: ${{secrets.CODECOV_TOKEN}}
-    #     flags: unit
-    #     files: coverage.cov
-    #     verbose: false
+    - name: Upload unit coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        token: ${{secrets.CODECOV_TOKEN}}
+        flags: unit
+        files: coverage.cov
+        verbose: false
