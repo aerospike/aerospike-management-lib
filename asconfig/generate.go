@@ -20,7 +20,7 @@ var securityRe = regexp.MustCompile(fmt.Sprintf(`^security\%s+`, sep))
 
 // ConfGetter is an interface that defines methods for retrieving configurations.
 type ConfGetter interface {
-	AllConfigs() (Conf, error)
+	AllConfigs() (map[string]interface{}, error)
 	GetAsInfo(cmdList ...string) (Conf, error)
 }
 
