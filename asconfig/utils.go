@@ -127,7 +127,14 @@ func expandConf(log logr.Logger, input *Conf, sep string) Conf {
 func expandConfMap(log logr.Logger, input *Conf, sep string) Conf {
 	m := make(Conf)
 
-	for k, v := range *input {
+	// generate.go adds "security": Conf{} to flatMap to ensure that an empty
+	// security context is present in the config. This is required to enable
+	// security in server >= 5.7. Sorting the keys ensures "security" is process
+	// before "security.*" keys.
+	keys := sortKeys(*input)
+
+	for _, k := range keys {
+		v := (*input)[k]
 		switch v := v.(type) {
 		case Conf:
 			m[k] = expandConfMap(log, &v, sep)

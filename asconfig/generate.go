@@ -221,7 +221,7 @@ func (s *copyEffectiveRackIDStep) execute(conf Conf) error {
 				return fmt.Errorf("unable to find rack id for rack %s", rack)
 			}
 
-			rackID, err := strconv.Atoi(rackIDStr)
+			rackID, err := strconv.ParseInt(rackIDStr, 10, 64) // Matches what is found in info/as_parser.go
 
 			if err != nil {
 				return fmt.Errorf("unable to convert rack id %s to int", rackIDStr)
@@ -612,10 +612,10 @@ func newRemoveSecurityIfDisabledStep(log logr.Logger) *removeSecurityIfDisabledS
 func (s *removeSecurityIfDisabledStep) execute(conf Conf) error {
 	s.log.V(1).Info("Removing security configs if security is disabled")
 
-	contexts := conf["flat_config"].(Conf)
+	flatConf := conf["flat_config"].(Conf)
 	build := conf["metadata"].(Conf)["asd_build"].(string)
 
-	if val, ok := contexts["security.enable-security"]; ok {
+	if val, ok := flatConf["security.enable-security"]; ok {
 		securityEnabled, ok := val.(bool)
 
 		if !ok {
@@ -629,15 +629,15 @@ func (s *removeSecurityIfDisabledStep) execute(conf Conf) error {
 
 		if securityEnabled {
 			if cmp >= 0 {
-				delete(contexts, "security.enable-security")
+				delete(flatConf, "security.enable-security")
 			}
 		} else {
 			// 5.7 and newer can't have any security configs. An empty security
 			// context will enable-security.
 			if cmp >= 0 {
-				for key := range contexts {
+				for key := range flatConf {
 					if securityRe.MatchString(key) {
-						delete(contexts, key)
+						delete(flatConf, key)
 					}
 				}
 			}
@@ -680,13 +680,33 @@ func compareDefaults(defVal, confVal interface{}) bool {
 		return defVal == confVal
 	case uint64:
 		// Schema deals with uint64 when positive but config deals with int
-		return val == uint64(confVal.(int))
+		switch confVal := confVal.(type) {
+		case int64:
+			if confVal < 0 {
+				return false
+			}
+
+			return val == uint64(confVal)
+		case uint64:
+			return val == confVal
+		}
 	case int64:
 		// Schema deals with int64 when negative but config deals with int
-		return val == int64(confVal.(int))
+		switch confVal := confVal.(type) {
+		case uint64:
+			if val < 0 {
+				return false
+			}
+
+			return val == int64(confVal)
+		case int64:
+			return val == confVal
+		}
 	default:
 		return val == confVal
 	}
+
+	return false
 }
 
 func defaultSlice(m map[string][]string, key string) []string {
@@ -717,10 +737,17 @@ func (s *removeDefaultsStep) execute(conf Conf) error {
 	// We will use this to find the most common log level in order to replace
 	// with "any".
 	loggingMap := make(map[string]map[string][]string)
+	securityFound := false
 
 	for key, value := range flatConf {
+		if strings.HasPrefix(key, "security"+sep) {
+			// We expect there to be no security keys if security is disabled in
+			// 5.7 or newer
+			securityFound = true
+		}
+
 		// Handle logging differently
-		if strings.HasPrefix(key, "logging.") {
+		if strings.HasPrefix(key, "logging"+sep) {
 			contextKey, _ := splitContextBaseKey(key)
 
 			if loggingMap[contextKey] == nil {
@@ -781,6 +808,21 @@ func (s *removeDefaultsStep) execute(conf Conf) error {
 		}
 
 		flatConf[loggingContext+sep+"any"] = freq
+	}
+
+	if securityFound {
+		build := conf["metadata"].(Conf)["asd_build"].(string)
+		cmp, err := lib.CompareVersions(build, "5.7.0")
+
+		if err != nil {
+			return err
+		}
+
+		if cmp >= 0 {
+			// Security is enabled and we are 5.7 or newer. This ensures there
+			// is at least an empry security context.
+			flatConf["security"] = make(Conf)
+		}
 	}
 
 	return nil

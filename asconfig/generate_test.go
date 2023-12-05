@@ -28,9 +28,25 @@ type GenerateTC struct {
 	expected       Conf
 }
 
+func convertIntToInt64(conf Conf) Conf {
+	for key, value := range conf {
+		switch v := value.(type) {
+		case int:
+			conf[key] = int64(v)
+		case Conf:
+			conf[key] = convertIntToInt64(v)
+		case []Conf:
+			for i, c := range v {
+				v[i] = convertIntToInt64(c)
+			}
+		}
+	}
+	return conf
+}
+
 func (suite *GenerateTestSuite) TestGenerate() {
 	testCases := []GenerateTC{
-		logging,
+		loggingTC,
 		namespaceTC,
 		networkTC,
 		serviceTC,
@@ -44,6 +60,7 @@ func (suite *GenerateTestSuite) TestGenerate() {
 		networkDefaultsTC,
 		serviceDefaultsTC,
 		security57DefaultsTC,
+		security57AllDefaultsTC,
 		xdr5DefaultsTC,
 	}
 
@@ -51,14 +68,14 @@ func (suite *GenerateTestSuite) TestGenerate() {
 
 	for _, tc := range testCases {
 		suite.Run(tc.name, func() {
-			suite.mockGetter.EXPECT().AllConfigs().Return(tc.allConfigs, nil)
+			suite.mockGetter.EXPECT().AllConfigs().Return(convertIntToInt64(tc.allConfigs), nil)
 			suite.mockGetter.EXPECT().GetAsInfo("metadata").Return(tc.metadata, nil)
 			logger := logr.Discard()
 
 			actual, err := GenerateConf(logger, suite.mockGetter, tc.removeDefaults)
 
 			suite.Assert().Nil(err)
-			suite.Assert().Equal(tc.expected, actual)
+			suite.Assert().Equal(convertIntToInt64(tc.expected), actual)
 		})
 	}
 }
@@ -67,7 +84,7 @@ func TestGenerateTestSuiteSuite(t *testing.T) {
 	suite.Run(t, new(GenerateTestSuite))
 }
 
-var logging = GenerateTC{
+var loggingTC = GenerateTC{
 	"logging",
 	false,
 	Conf{
@@ -1908,6 +1925,28 @@ var security57DefaultsTC = GenerateTC{
 		"security": Conf{
 			"enable-quotas": true,
 		},
+	},
+}
+
+var security57AllDefaultsTC = GenerateTC{
+	"security post 5.7 with remove defaults",
+	true,
+	Conf{
+		"security": Conf{
+			"enable-quotas":             false,
+			"enable-security":           true,
+			"log.report-authentication": false,
+			"log.report-sys-admin":      false,
+			"log.report-user-admin":     false,
+			"log.report-violation":      false,
+			"privilege-refresh-period":  300,
+			"session-ttl":               86400,
+			"tps-weight":                2,
+		},
+	},
+	Conf{"metadata": Conf{"asd_build": "6.4.0.0", "node_id": "BB9030011AC4202"}},
+	Conf{
+		"security": Conf{},
 	},
 }
 
