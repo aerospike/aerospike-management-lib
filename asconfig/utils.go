@@ -30,7 +30,10 @@ const (
 	NONE    sysproptype = "NONE"
 )
 
-const sep = "."
+const (
+	NAMESPACES = "namespaces"
+	sep        = "."
+)
 
 var portRegex = regexp.MustCompile("port")
 
@@ -433,11 +436,6 @@ func isValueDiff(log logr.Logger, v1, v2 interface{}) bool {
 
 	switch val2 := v2.(type) {
 	case []string:
-		log.V(1).Info(
-			"compare string array", "type",
-			reflect.TypeOf(v2),
-		)
-		println("compare string array", fmt.Sprintf("%v", v2))
 		sort.Strings(v1.([]string))
 		sort.Strings(val2)
 
@@ -446,10 +444,6 @@ func isValueDiff(log logr.Logger, v1, v2 interface{}) bool {
 		}
 
 	case string:
-		log.V(1).Info(
-			"compare string", "type",
-			fmt.Sprintf("%v", v2),
-		)
 		if isEmptyField("", v1.(string)) && isEmptyField("", val2) {
 			return false
 		}
@@ -457,19 +451,11 @@ func isValueDiff(log logr.Logger, v1, v2 interface{}) bool {
 		return v1 != v2
 
 	case bool, int, uint64, int64, float64:
-		log.V(1).Info(
-			"compare bool int", "type",
-			fmt.Sprintf("%v", v2),
-		)
 		if v1 != v2 {
 			return true
 		}
 
 	case lib.Stats:
-		log.V(1).Info(
-			"compare stats", "type",
-			reflect.TypeOf(v2), "value", fmt.Sprintf("%v", v2),
-		)
 		// Ignoring changes in map type as each key is being compared separately eg. security {}.
 		return false
 
@@ -498,9 +484,6 @@ func diff(
 	// Flatten if not flattened already.
 	if !isFlat {
 		c1 = flattenConf(log, c1, sep)
-		for k, v := range c1 {
-			println("after c1 ", fmt.Sprintf("%v	%v", k, v))
-		}
 		c2 = flattenConf(log, c2, sep)
 	}
 
@@ -553,16 +536,19 @@ func diff(
 			}
 
 			diffUpdate := false
+
 			tokens := strings.Split(k, sep)
 			for idx, token := range tokens {
 				if int32(token[0]) == sectionNameStartChar && int32(token[len(token)-1]) == sectionNameEndChar {
 					if _, okay := c2[strings.Join(tokens[:idx+1], sep)+"."+keyName]; !okay {
 						d[strings.Join(tokens[:idx+1], sep)+"."+keyName] = c1[strings.Join(tokens[:idx+1], sep)+"."+keyName]
 						diffUpdate = true
+
 						break
 					}
 				}
 			}
+
 			if !diffUpdate {
 				d[k] = c1[k]
 			}
@@ -585,6 +571,7 @@ func diff(
 			"compare", "key",
 			k, "v1", v1, "v2", v2,
 		)
+
 		if isValueDiff(log, v1, v2) {
 			d[k] = v1
 		}
@@ -612,14 +599,16 @@ func ConfDiff(
 		if err != nil {
 			return nil
 		}
-		log.Info("printing default values", "default", defaultMap)
+
 		deleteKeys := make([]string, 0)
+
 		for c2ToC1DiffKey := range c2ToC1Diffs {
 			if _, ok := c1ToC2Diffs[c2ToC1DiffKey]; ok {
 				continue
 			}
 
 			setDefault := true
+
 			for c1ToC2DiffKey := range c1ToC2Diffs {
 				if strings.HasPrefix(c1ToC2DiffKey, c2ToC1DiffKey) {
 					setDefault = false
@@ -637,10 +626,12 @@ func ConfDiff(
 					break
 				}
 			}
+
 			if setDefault {
 				c1ToC2Diffs[c2ToC1DiffKey] = getDefaultValue(defaultMap, c2ToC1DiffKey)
 			}
 		}
+
 		for _, k := range deleteKeys {
 			log.Info("deleting diff as value is nil", "key", k)
 			delete(c1ToC2Diffs, k)
@@ -1376,7 +1367,7 @@ func CompareVersionsIgnoreRevision(version1, version2 string) (int, error) {
 	return 0, nil
 }
 
-func CreateASConfCommand(diff string, value interface{}) []string {
+func CreateASConfCommand(diff string, value interface{}) ([]string, error) {
 	tokens := strings.Split(diff, ".")
 	context := tokens[0]
 	cmds := make([]string, 0)
@@ -1386,43 +1377,49 @@ func CreateASConfCommand(diff string, value interface{}) []string {
 	case "xdr":
 		cmd = fmt.Sprintf("set-config:context=%s", context)
 		prevToken := context
+
 		for _, token := range tokens[1:] {
 			if token[0] == '{' && token[len(token)-1] == '}' {
 				switch prevToken {
-				case "dcs", "namespaces":
-					cmd = cmd + fmt.Sprintf(";%s=%s", SingularOf(prevToken), strings.Trim(token, "{}"))
+				case "dcs", NAMESPACES:
+					cmd += fmt.Sprintf(";%s=%s", SingularOf(prevToken), strings.Trim(token, "{}"))
 				}
 			} else {
 				prevToken = token
 			}
 		}
+
 		val, err := convertValueToString(value)
 		if err != nil {
-			println(err)
+			return nil, err
 		}
+
 		for _, v := range val {
 			finalCMD := cmd + ";" + SingularOf(prevToken) + "=" + v
 			cmds = append(cmds, finalCMD)
 		}
-	case "namespaces":
+	case NAMESPACES:
 		cmd = fmt.Sprintf("set-config:context=%s", SingularOf(context))
 		prevToken := context
+
 		for _, token := range tokens[1:] {
 			if token[0] == '{' && token[len(token)-1] == '}' {
 				switch prevToken {
 				case "sets":
-					cmd = cmd + fmt.Sprintf(";%s=%s", SingularOf(prevToken), strings.Trim(token, "{}"))
-				case "namespaces":
-					cmd = cmd + fmt.Sprintf(";id=%s", strings.Trim(token, "{}"))
+					cmd += fmt.Sprintf(";%s=%s", SingularOf(prevToken), strings.Trim(token, "{}"))
+				case NAMESPACES:
+					cmd += fmt.Sprintf(";id=%s", strings.Trim(token, "{}"))
 				}
 			} else {
 				prevToken = token
 			}
 		}
+
 		val, err := convertValueToString(value)
 		if err != nil {
-			println(err)
+			return nil, err
 		}
+
 		for _, v := range val {
 			finalCMD := cmd + ";" + SingularOf(prevToken) + "=" + v
 			cmds = append(cmds, finalCMD)
@@ -1430,23 +1427,27 @@ func CreateASConfCommand(diff string, value interface{}) []string {
 
 	case "network", "security", "service":
 		cmd = fmt.Sprintf("set-config:context=%v;", context)
+
 		for _, token := range tokens[1:] {
 			if token[0] != '{' && token[len(token)-1] != '}' {
 				cmd = cmd + token + "."
 			}
 		}
+
 		cmd = strings.TrimSuffix(cmd, ".")
+
 		val, err := convertValueToString(value)
 		if err != nil {
-			println(err)
+			return nil, err
 		}
+
 		for _, v := range val {
 			finalCMD := cmd + "=" + v
 			cmds = append(cmds, finalCMD)
 		}
 	}
 
-	return cmds
+	return cmds, nil
 }
 
 func convertValueToString(v1 interface{}) ([]string, error) {
@@ -1456,13 +1457,12 @@ func convertValueToString(v1 interface{}) ([]string, error) {
 		return values, nil
 	}
 
-	switch v1.(type) {
+	switch val1 := v1.(type) {
 	case []string:
-		// need to discuss like how to handle if some entries has been removed.
-		return v1.([]string), nil
+		return val1, nil
 
 	case string:
-		return append(values, v1.(string)), nil
+		return append(values, val1), nil
 
 	case bool:
 		return append(values, fmt.Sprintf("%t", v1)), nil
@@ -1473,6 +1473,4 @@ func convertValueToString(v1 interface{}) ([]string, error) {
 	default:
 		return values, fmt.Errorf("format not supported")
 	}
-
-	return values, nil
 }

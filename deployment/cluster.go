@@ -473,20 +473,22 @@ func (c *cluster) skipInfoQuiesceCheck(host *host, ns string, removedNamespaceMa
 		return true, nil
 	}
 
-	isNodeInRoster, err := isNodeInRoster(host, ns)
-	if err != nil {
-		return false, err
-	}
-
 	isNamespaceSCEnabled, err := isNamespaceSCEnabled(host, ns)
 	if err != nil {
 		return false, err
 	}
 
-	if !isNodeInRoster && isNamespaceSCEnabled {
-		lg.V(1).Info("Skip quiesce verification for given node and " +
-			"namespace. Node is not in roster and namespace is sc enabled")
-		return true, nil
+	if isNamespaceSCEnabled {
+		isNodeInRoster, err := isNodeInRoster(host, ns)
+		if err != nil {
+			return false, err
+		}
+
+		if !isNodeInRoster {
+			lg.V(1).Info("Skip quiesce verification for given node and " +
+				"namespace. Node is not in roster and namespace is sc enabled")
+			return true, nil
+		}
 	}
 
 	return false, nil

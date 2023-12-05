@@ -156,15 +156,17 @@ func GetDynamic(ver string) (map[string]bool, error) {
 
 // getDefaultValue returns the default value of a particular config
 func getDefaultValue(defaultMap map[string]interface{}, conf string) interface{} {
-	tokens := strings.Split(conf, ".")
 	key := ""
+
+	tokens := strings.Split(conf, ".")
 	for _, token := range tokens {
 		if token[0] == '{' && token[len(token)-1] == '}' {
-			key = key + "_."
+			key += "_."
 		} else {
 			key = key + token + "."
 		}
 	}
+
 	key = strings.TrimSuffix(key, ".")
 
 	return defaultMap[key]
@@ -244,7 +246,7 @@ func removeJSONSpecKeywords(key string) string {
 	// Cleanup json schema strings
 	key = strings.ReplaceAll(key, "items", "_")
 	key = strings.ReplaceAll(key, "properties.", "")
-	re := regexp.MustCompile(`.oneOf.[0-9]+`)
+	re := regexp.MustCompile(`.oneOf.\d+`)
 	key = re.ReplaceAllString(key, "")
 
 	return key
