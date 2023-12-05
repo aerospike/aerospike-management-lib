@@ -961,7 +961,8 @@ func isSizeOrTime(key string) (bool, humanize) {
 		"partition-tree-sprigs", "max-write-cache",
 		"mounts-size-limit", "index-stage-size",
 		"stop-writes-count", "stop-writes-size",
-		"mounts-budget", "data-size":
+		"mounts-budget", "data-size",
+		"quarantine-allocations":
 		return true, deHumanizeSize
 
 	default:
