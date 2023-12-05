@@ -184,7 +184,7 @@ func (info *AsInfo) RequestInfo(cmd ...string) (
 // AllConfigs returns all the dynamic configurations of the node.
 //
 // The returned map can be converted to asconfig.Conf.
-func (info *AsInfo) AllConfigs() (map[string]interface{}, error) {
+func (info *AsInfo) AllConfigs() (lib.Stats, error) {
 	key := constConfigs
 
 	values, err := info.GetAsInfo(key)

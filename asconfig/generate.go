@@ -20,7 +20,7 @@ var securityRe = regexp.MustCompile(fmt.Sprintf(`^security\%s+`, sep))
 
 // ConfGetter is an interface that defines methods for retrieving configurations.
 type ConfGetter interface {
-	AllConfigs() (map[string]interface{}, error)
+	AllConfigs() (Conf, error)
 	GetAsInfo(cmdList ...string) (Conf, error)
 }
 
@@ -134,7 +134,7 @@ func (s *GetConfigStep) execute(conf Conf) error {
 		return err
 	}
 
-	conf["config"] = configs["config"]
+	conf["config"] = configs
 
 	metadata, err := s.confGetter.GetAsInfo("metadata")
 	if err != nil {
@@ -164,7 +164,7 @@ func newServerVersionCheckStep(log logr.Logger, checkFunc func(string) (bool, er
 func (s *ServerVersionCheckStep) execute(conf Conf) error {
 	s.log.V(1).Info("Checking server version")
 
-	build := conf["metadata"].(Conf)["build"].(string)
+	build := conf["metadata"].(Conf)["asd_build"].(string)
 	isSupported, err := s.checkFunc(build)
 
 	if err != nil {
@@ -254,25 +254,25 @@ func newRenameLoggingContextsStep(log logr.Logger) *renameKeysStep {
 func (s *renameKeysStep) execute(conf Conf) error {
 	s.log.V(1).Info("Renaming keys")
 
-	config := conf["config"].(lib.Stats)
-	logging, ok := config["logging"].(lib.Stats)
+	config := conf["config"].(Conf)
+	logging, ok := config["logging"].(Conf)
 
 	if !ok {
 		return nil
 	}
 
-	newLoggingEntries := lib.Stats{}
+	newLoggingEntries := Conf{}
 
 	for key, value := range logging {
 		switch v := value.(type) {
-		case lib.Stats:
+		case Conf:
 			if key == "stderr" {
 				newLoggingEntries["console"] = value
 
 				delete(logging, key)
 			} else if !strings.HasSuffix(key, ".log") {
 				newLoggingEntries["syslog"] = v
-				syslog := newLoggingEntries["syslog"].(lib.Stats)
+				syslog := newLoggingEntries["syslog"].(Conf)
 				syslog["path"] = key
 
 				delete(logging, key)
@@ -316,13 +316,13 @@ func sortKeys(config lib.Stats) []string {
 }
 
 // convertDictToList converts a dictionary configuration to a list configuration.
-func convertDictToList(config lib.Stats) []lib.Stats {
-	list := make([]lib.Stats, len(config))
+func convertDictToList(config Conf) []Conf {
+	list := make([]Conf, len(config))
 	count := 0
 	keys1 := sortKeys(config)
 
 	for _, key1 := range keys1 {
-		config2, ok := config[key1].(lib.Stats)
+		config2, ok := config[key1].(Conf)
 
 		if !ok {
 			continue
@@ -337,7 +337,7 @@ func convertDictToList(config lib.Stats) []lib.Stats {
 			value := config2[key2]
 
 			switch v := value.(type) {
-			case lib.Stats:
+			case Conf:
 				config2[key2] = convertDictToList(v)
 			default:
 				continue
@@ -349,19 +349,19 @@ func convertDictToList(config lib.Stats) []lib.Stats {
 }
 
 // convertDictRespToConf converts a dictionary response to a Conf.
-func convertDictRespToConf(config lib.Stats) {
-	if _, ok := config["logging"].(lib.Stats); ok {
-		config["logging"] = convertDictToList(config["logging"].(lib.Stats))
+func convertDictRespToConf(config Conf) {
+	if _, ok := config["logging"].(Conf); ok {
+		config["logging"] = convertDictToList(config["logging"].(Conf))
 	}
 
-	if _, ok := config["namespaces"].(lib.Stats); ok {
-		config["namespaces"] = convertDictToList(config["namespaces"].(lib.Stats))
+	if _, ok := config["namespaces"].(Conf); ok {
+		config["namespaces"] = convertDictToList(config["namespaces"].(Conf))
 	}
 
-	if xdr, ok := config["xdr"].(lib.Stats); ok {
+	if xdr, ok := config["xdr"].(Conf); ok {
 		for key, value := range xdr {
 			switch v := value.(type) {
-			case lib.Stats:
+			case Conf:
 				xdr[key] = convertDictToList(v)
 			default:
 				continue
@@ -374,11 +374,11 @@ func convertDictRespToConf(config lib.Stats) {
 func (s *flattenConfStep) execute(conf Conf) error {
 	s.log.V(1).Info("Flattening config")
 
-	origConfig := conf["config"].(lib.Stats)
+	origConfig := conf["config"].(Conf)
 
 	convertDictRespToConf(origConfig)
 
-	conf["flat_config"] = flattenConf(s.log, conf["config"].(lib.Stats), sep)
+	conf["flat_config"] = flattenConf(s.log, conf["config"].(Conf), sep)
 
 	return nil
 }
@@ -397,7 +397,8 @@ func newTransformKeyValuesStep(log logr.Logger) *transformKeyValuesStep {
 
 func splitContextBaseKey(key string) (contextKey, bKey string) {
 	bKey = baseKey(key)
-	contextKey = strings.TrimSuffix(key, sep+bKey)
+	contextKey = strings.TrimSuffix(key, bKey)
+	contextKey = strings.TrimSuffix(contextKey, sep)
 
 	return contextKey, bKey
 }
@@ -424,6 +425,12 @@ func toConfField(key string) string {
 
 func renameServerResponseKey(key string) string {
 	contextKey, bKey := splitContextBaseKey(key)
+	bKey = toConfField(bKey)
+
+	if contextKey == "" {
+		return bKey
+	}
+
 	return contextKey + sep + toConfField(bKey)
 }
 
@@ -434,8 +441,8 @@ func disallowedInConfigWhenSC() []string {
 }
 
 // sortedKeys returns the sorted keys of a map.
-func sortedKeys(m map[string]interface{}) []string {
-	keys := make([]string, len(map[string]interface{}{}))
+func sortedKeys(m Conf) []string {
+	keys := make([]string, len(Conf{}))
 
 	for key := range m {
 		keys = append(keys, key)
@@ -559,7 +566,7 @@ func (s *transformKeyValuesStep) execute(conf Conf) error {
 			}
 		}
 
-		build := conf["metadata"].(Conf)["build"].(string)
+		build := conf["metadata"].(Conf)["asd_build"].(string)
 		flatSchema, err := getFlatNormalizedSchema(build)
 		normalizedKey := namedRe.ReplaceAllString(key, "_")
 
@@ -606,7 +613,7 @@ func (s *removeSecurityIfDisabledStep) execute(conf Conf) error {
 	s.log.V(1).Info("Removing security configs if security is disabled")
 
 	contexts := conf["flat_config"].(Conf)
-	build := conf["metadata"].(Conf)["build"].(string)
+	build := conf["metadata"].(Conf)["asd_build"].(string)
 
 	if val, ok := contexts["security.enable-security"]; ok {
 		securityEnabled, ok := val.(bool)
@@ -694,7 +701,7 @@ func (s *removeDefaultsStep) execute(conf Conf) error {
 	s.log.V(1).Info("Removing default values")
 
 	flatConf := conf["flat_config"].(Conf)
-	build := conf["metadata"].(Conf)["build"].(string)
+	build := conf["metadata"].(Conf)["asd_build"].(string)
 
 	flatSchema, err := getFlatNormalizedSchema(build)
 	if err != nil {
