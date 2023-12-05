@@ -70,6 +70,7 @@ func GenerateConf(log logr.Logger, confGetter ConfGetter, removeDefaults bool) (
 
 	err := p.execute(validConfig)
 	if err != nil {
+		log.Error(err, "Error generating config")
 		return nil, err
 	}
 
@@ -131,13 +132,21 @@ func (s *GetConfigStep) execute(conf Conf) error {
 
 	configs, err := s.confGetter.AllConfigs()
 	if err != nil {
+		s.log.V(-1).Error(err, "Error getting configs from node")
 		return err
 	}
 
 	conf["config"] = configs
 
+	if _, ok := configs["racks"]; ok {
+		// We don't need the racks config. flattenConf logs an error when it sees this.
+		conf["racks"] = configs["racks"]
+		delete(configs, "racks")
+	}
+
 	metadata, err := s.confGetter.GetAsInfo("metadata")
 	if err != nil {
+		s.log.V(-1).Error(err, "Error getting metadata from node")
 		return err
 	}
 
@@ -168,10 +177,12 @@ func (s *ServerVersionCheckStep) execute(conf Conf) error {
 	isSupported, err := s.checkFunc(build)
 
 	if err != nil {
-		return fmt.Errorf("error checking for supported server version: %s", err)
+		s.log.V(-1).Error(err, "Error checking for supported server version")
+		return err
 	}
 
 	if !isSupported {
+		s.log.V(-1).Info("Unsupported server version: %s", build)
 		return fmt.Errorf("unsupported version: %s", build)
 	}
 
@@ -197,14 +208,13 @@ var rackRegex = regexp.MustCompile(`rack_(\d+)`)
 func (s *copyEffectiveRackIDStep) execute(conf Conf) error {
 	s.log.V(1).Info("Copying effective rack-id to rack-id")
 
-	flatConfig := conf["flat_config"].(Conf)
-	configs := conf["config"].(Conf)
-
-	if _, ok := configs["racks"]; !ok {
+	if _, ok := conf["racks"]; !ok {
+		s.log.V(-1).Info("No racks config found")
 		return nil
 	}
 
-	effectiveRacks := conf["config"].(Conf)["racks"].([]Conf)
+	flatConfig := conf["flat_config"].(Conf)
+	effectiveRacks := conf["racks"].([]Conf)
 	nodeID := conf["metadata"].(Conf)["node_id"].(string)
 
 	for _, rackInfo := range effectiveRacks {
@@ -218,13 +228,17 @@ func (s *copyEffectiveRackIDStep) execute(conf Conf) error {
 
 			rackIDStr := rackRegex.FindStringSubmatch(rack)[1]
 			if rackIDStr == "" {
-				return fmt.Errorf("unable to find rack id for rack %s", rack)
+				err := fmt.Errorf("unable to find rack id for rack %s", rack)
+				s.log.V(-1).Error(err, "Error copying effective rack-id to rack-id")
+				return err
 			}
 
 			rackID, err := strconv.ParseInt(rackIDStr, 10, 64) // Matches what is found in info/as_parser.go
 
 			if err != nil {
-				return fmt.Errorf("unable to convert rack id %s to int", rackIDStr)
+				err := fmt.Errorf("unable to convert rack id %s to int", rackIDStr)
+				s.log.V(-1).Error(err, "Error copying effective rack-id to rack-id")
+				return err
 			}
 
 			// Copy effective rack-id over the ns config
@@ -258,6 +272,7 @@ func (s *renameKeysStep) execute(conf Conf) error {
 	logging, ok := config["logging"].(Conf)
 
 	if !ok {
+		s.log.V(-1).Info("No logging config found")
 		return nil
 	}
 
@@ -528,12 +543,15 @@ func (s *transformKeyValuesStep) execute(conf Conf) error {
 			if strings.HasSuffix(key, "shadow") {
 				_, index, err := parseIndexField(key)
 				if err != nil {
+					s.log.V(-1).Error(err, "Error parsing index field for shadow device")
 					return err
 				}
 
 				// This should not happen because we sorted the keys
 				if val, ok := newFlatConf[newKey].([]string); !ok || len(val) <= index {
-					return fmt.Errorf("shadow key %s does not have a corresponding device yet", key)
+					err := fmt.Errorf("shadow key %s does not have a corresponding device yet", key)
+					s.log.V(-1).Error(err, "Error converting shadow device to list")
+					return err
 				}
 
 				sliceVal := newFlatConf[newKey].([]string)
@@ -571,7 +589,9 @@ func (s *transformKeyValuesStep) execute(conf Conf) error {
 		normalizedKey := namedRe.ReplaceAllString(key, "_")
 
 		if err != nil {
-			return fmt.Errorf("error getting schema: %s", err)
+			err := fmt.Errorf("error getting schema: %s", err)
+			s.log.V(-1).Error(err, "Error getting schema")
+			return err
 		}
 
 		if _, ok := flatSchema[normalizedKey+sep+"default"]; !ok && !isInternalField(normalizedKey) {
@@ -619,11 +639,14 @@ func (s *removeSecurityIfDisabledStep) execute(conf Conf) error {
 		securityEnabled, ok := val.(bool)
 
 		if !ok {
-			return fmt.Errorf("enable-security is not a boolean")
+			err := fmt.Errorf("enable-security is not a boolean")
+			s.log.V(-1).Error(err, "Error removing security configs")
+			return err
 		}
 
 		cmp, err := lib.CompareVersions(build, "5.7.0")
 		if err != nil {
+			s.log.V(-1).Error(err, "Error removing security configs")
 			return err
 		}
 
@@ -657,7 +680,7 @@ func newRemoveDefaultsStep(log logr.Logger) *removeDefaultsStep {
 	}
 }
 
-func compareDefaults(defVal, confVal interface{}) bool {
+func compareDefaults(log logr.Logger, defVal, confVal interface{}) bool {
 	switch val := defVal.(type) {
 	case []interface{}:
 		return reflect.DeepEqual(val, confVal)
@@ -701,6 +724,8 @@ func compareDefaults(defVal, confVal interface{}) bool {
 			return val == int64(confVal)
 		case int64:
 			return val == confVal
+		default:
+			log.V(-1).Info("Unexpected type when comparing default (%s) to config value (%s)", val, confVal)
 		}
 	default:
 		return val == confVal
@@ -725,12 +750,16 @@ func (s *removeDefaultsStep) execute(conf Conf) error {
 
 	flatSchema, err := getFlatNormalizedSchema(build)
 	if err != nil {
-		return fmt.Errorf("error getting schema: %s", err)
+		err := fmt.Errorf("error getting schema: %s", err)
+		s.log.V(-1).Error(err, "Error removing default values")
+		return err
 	}
 
 	defaults, err := getDefaultSchema(build)
 	if err != nil {
-		return fmt.Errorf("error getting defaults: %s", err)
+		err := fmt.Errorf("error getting defaults: %s", err)
+		s.log.V(-1).Error(err, "Error removing default values")
+		return err
 	}
 
 	// "logging.<file>" -> "log-level" -> list of contexts with that level
@@ -778,7 +807,7 @@ func (s *removeDefaultsStep) execute(conf Conf) error {
 		normalizedKey := namedRe.ReplaceAllString(key, "_")
 
 		if defVal, ok := defaults[normalizedKey]; ok {
-			if compareDefaults(defVal, value) {
+			if compareDefaults(s.log, defVal, value) {
 				delete(flatConf, key)
 			}
 		} else {
@@ -815,6 +844,7 @@ func (s *removeDefaultsStep) execute(conf Conf) error {
 		cmp, err := lib.CompareVersions(build, "5.7.0")
 
 		if err != nil {
+			s.log.V(-1).Error(err, "Error removing default values")
 			return err
 		}
 
