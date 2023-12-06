@@ -1,4 +1,4 @@
-name: Unit Test
+name: Tests
 on:
   push:
     branches-ignore:
@@ -21,18 +21,20 @@ jobs:
         go-version: ${{ env.GO_VERSION }}
     - name: Install dependencies
       run: |
+        echo "CWD=$(pwd)" >> $GITHUB_ENV
         go install github.com/golang/mock/mockgen@v1.6.0
+        git clone https://github.com/aerospike/schemas.git
     - name: Generate Mocks
       run: |
         make mocks
     - name: Test with go 
+      env:
+        TEST_SCHEMA_DIR: ${{ env.CWD }}/schemas/json/aerospike
       run: |
         make coverage
-    # Uncomment the following lines when codecov secret is uploaded
-    - name: Upload unit coverage to Codecov
+    - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v3
       with:
         token: ${{secrets.CODECOV_TOKEN}}
-        flags: unit
         files: coverage.cov
         verbose: false

@@ -22,7 +22,7 @@ var CLUSTER_NAME = "mgmt-lib-test"
 var PORT_START = 10000
 var IP = "127.0.0.1"
 var WORK_DIR_ABS = "test/work"
-var IMAGE = "aerospike/aerospike-server-enterprise:latest"
+var IMAGE = "aerospike/aerospike-server-enterprise:7.0.0.2"
 var CONTAINER_PREFIX = "aerospike_mgmt_lib_test_"
 
 var configTemplate = fmt.Sprintf(`

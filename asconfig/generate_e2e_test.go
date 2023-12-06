@@ -1,6 +1,8 @@
 package asconfig
 
 import (
+	"log"
+	"os"
 	"testing"
 
 	aero "github.com/aerospike/aerospike-client-go/v6"
@@ -20,6 +22,14 @@ func (suite *GenerateE2eTestSuite) SetupSuite() {
 	if err != nil {
 		suite.T().Fatal(err)
 	}
+
+	schemaDir := os.Getenv("TEST_SCHEMA_DIR")
+	if schemaDir == "" {
+		log.Printf("Env var TEST_SCHEMA_DIR must be set.")
+		suite.T().Fail()
+	}
+
+	Init(logr.Discard(), schemaDir)
 }
 
 // Uncomment this function to check server logs after failure
@@ -29,52 +39,44 @@ func (suite *GenerateE2eTestSuite) TearDownSuite() {
 	if err != nil {
 		suite.T().Fatal(err)
 	}
+
 }
 
 func (suite *GenerateE2eTestSuite) SetupTest() {
 }
 
 func (suite *GenerateE2eTestSuite) TestGenerate() {
-	Init(logr.Discard(), "/Users/jesseschmidt/Developer/aerospike-admin/lib/live_cluster/client/config-schemas")
 	asPolicy := aero.NewClientPolicy()
 	host := aero.NewHost(test.IP, test.PORT_START)
 	asPolicy.User = "admin"
 	asPolicy.Password = "admin"
+
 	asinfo := info.NewAsInfo(logr.Discard(), host, asPolicy)
+
 	genConf, err := GenerateConf(logr.Discard(), asinfo, true)
-
 	suite.Assert().Nil(err)
-
 	genConfWithDefaults, err := GenerateConf(logr.Discard(), asinfo, false)
-
 	suite.Assert().Nil(err)
 
 	asconf, err := NewMapAsConfig(logr.Discard(), genConf.version, genConf.conf)
-
 	suite.Assert().Nil(err)
-
 	asconfWithDefaults, err := NewMapAsConfig(logr.Discard(), genConfWithDefaults.version, genConfWithDefaults.conf)
-
 	suite.Assert().Nil(err)
 
 	test.RestartAerospikeContainer(test.GetAerospikeContainerName(0), asconf.ToConfFile())
 
 	asinfo2 := info.NewAsInfo(logr.Discard(), host, asPolicy)
+
 	genConf2, err := GenerateConf(logr.Discard(), asinfo2, true)
-
 	suite.Assert().Nil(err)
-
 	genConfWithDefaults2, err := GenerateConf(logr.Discard(), asinfo2, false)
-
 	suite.Assert().Nil(err)
 
 	asconf2, err := NewMapAsConfig(logr.Discard(), genConf2.version, genConf2.conf)
-
 	suite.Assert().Nil(err)
-
 	asconfWithDefaults2, err := NewMapAsConfig(logr.Discard(), genConfWithDefaults2.version, genConfWithDefaults2.conf)
-
 	suite.Assert().Nil(err)
+
 	suite.Assert().Equal(asconf, asconf2)
 	suite.Assert().Equal(asconfWithDefaults, asconfWithDefaults2)
 }
