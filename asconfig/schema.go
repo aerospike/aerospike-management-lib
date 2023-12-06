@@ -130,12 +130,7 @@ func baseVersion(ver string) (string, error) {
 	return baseVersion, nil
 }
 
-func getFlatNormalizedSchema(ver string) (map[string]interface{}, error) {
-	flatSchema, err := getFlatSchema(ver)
-	if err != nil {
-		return nil, err
-	}
-
+func normalizeFlatSchema(flatSchema map[string]interface{}) map[string]interface{} {
 	keys := sortKeys(flatSchema)
 	normMap := make(map[string]interface{})
 
@@ -146,17 +141,12 @@ func getFlatNormalizedSchema(ver string) (map[string]interface{}, error) {
 		normMap[key] = eval(v)
 	}
 
-	return normMap, nil
+	return normMap
 }
 
 // getDynamicSchema return the map of values which are dynamic
 // values.
-func getDynamicSchema(ver string) (map[string]bool, error) {
-	flatSchema, err := getFlatSchema(ver)
-	if err != nil {
-		return nil, err
-	}
-
+func getDynamicSchema(flatSchema map[string]interface{}) (map[string]bool, error) {
 	dynMap := make(map[string]bool)
 
 	for k, v := range flatSchema {
@@ -177,12 +167,7 @@ func getDynamicSchema(ver string) (map[string]bool, error) {
 
 // getDefaultSchema return the map of values which are dynamic
 // values.
-func getDefaultSchema(ver string) (map[string]interface{}, error) {
-	flatSchema, err := getFlatSchema(ver)
-	if err != nil {
-		return nil, err
-	}
-
+func getDefaultSchema(flatSchema map[string]interface{}) map[string]interface{} {
 	defMap := make(map[string]interface{})
 	removedKeys := map[string]bool{}
 
@@ -220,18 +205,13 @@ func getDefaultSchema(ver string) (map[string]interface{}, error) {
 		}
 	}
 
-	return defMap, nil
+	return defMap
 }
 
 // getRequiredSchema returns a slice of slices of required keys for a given context.
 // Multiple slices are required because the required keys can be different
 // depending con the "type" of the context.
-func getRequiredSchema(ver string) (map[string][][]string, error) {
-	flatSchema, err := getFlatSchema(ver)
-	if err != nil {
-		return nil, err
-	}
-
+func getRequiredSchema(flatSchema map[string]interface{}) (map[string][][]string, error) {
 	keys := sortKeys(flatSchema)
 	reqMap := make(map[string][][]string) // We end up with 8 keys with a 6.4 schema.
 

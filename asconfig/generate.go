@@ -15,6 +15,7 @@ import (
 const (
 	expandConfKey = "expanded_config"
 	flatConfKey   = "flat_config"
+	flatSchemaKey = "flat_schema"
 	metadataKey   = "metadata"
 	buildKey      = "asd_build"
 )
@@ -57,6 +58,7 @@ func GenerateConf(log logr.Logger, confGetter ConfGetter, removeDefaults bool) (
 	p := newPipeline(log, []pipelineStep{
 		newGetConfigStep(log, confGetter),
 		newServerVersionCheckStep(log, isSupportedGenerateVersion),
+		newGetFlatSchemaStep(log),
 		newRenameLoggingContextsStep(log),
 		newFlattenConfStep(log),
 		newCopyEffectiveRackIDStep(log),
@@ -127,6 +129,33 @@ func (p *pipeline) execute(conf Conf) error {
 			return err
 		}
 	}
+
+	return nil
+}
+
+// GetFlatSchema
+type GetFlatSchemaStep struct {
+	log logr.Logger
+}
+
+func newGetFlatSchemaStep(log logr.Logger) *GetFlatSchemaStep {
+	return &GetFlatSchemaStep{
+		log: log,
+	}
+}
+
+func (s *GetFlatSchemaStep) execute(conf Conf) error {
+	s.log.V(1).Info("Getting flat schema")
+
+	build := conf[metadataKey].(Conf)[buildKey].(string)
+	flatSchema, err := getFlatSchema(build)
+
+	if err != nil {
+		s.log.V(-1).Error(err, "Error getting flat schema")
+		return err
+	}
+
+	conf[flatSchemaKey] = flatSchema
 
 	return nil
 }
@@ -603,17 +632,11 @@ func (s *transformKeyValuesStep) execute(conf Conf) error {
 			}
 		}
 
-		build := conf[metadataKey].(Conf)[buildKey].(string)
-		flatSchema, err := getFlatNormalizedSchema(build)
+		flatSchema := conf[flatSchemaKey].(map[string]interface{})
+		nFlatSchema := normalizeFlatSchema(flatSchema)
 		normalizedKey := namedRe.ReplaceAllString(key, "_")
 
-		if err != nil {
-			err := fmt.Errorf("error getting schema: %s", err)
-			s.log.V(-1).Error(err, "Error getting schema")
-			return err
-		}
-
-		if _, ok := flatSchema[normalizedKey+sep+"default"]; !ok && !isInternalField(normalizedKey) {
+		if _, ok := nFlatSchema[normalizedKey+sep+"default"]; !ok && !isInternalField(normalizedKey) {
 			// Value is not found in schemas. Must be invalid config
 			// parameter which the server returns or our own internal
 			// (<index>) key.
@@ -765,21 +788,9 @@ func (s *removeDefaultsStep) execute(conf Conf) error {
 	s.log.V(1).Info("Removing default values")
 
 	flatConf := conf[flatConfKey].(Conf)
-	build := conf[metadataKey].(Conf)[buildKey].(string)
-
-	flatSchema, err := getFlatNormalizedSchema(build)
-	if err != nil {
-		err := fmt.Errorf("error getting schema: %s", err)
-		s.log.V(-1).Error(err, "Error removing default values")
-		return err
-	}
-
-	defaults, err := getDefaultSchema(build)
-	if err != nil {
-		err := fmt.Errorf("error getting defaults: %s", err)
-		s.log.V(-1).Error(err, "Error removing default values")
-		return err
-	}
+	flatSchema := conf[flatSchemaKey].(map[string]interface{})
+	nFlatSchema := normalizeFlatSchema(flatSchema)
+	defaults := getDefaultSchema(flatSchema)
 
 	// "logging.<file>" -> "log-level" -> list of contexts with that level
 	// We will use this to find the most common log level in order to replace
@@ -830,7 +841,7 @@ func (s *removeDefaultsStep) execute(conf Conf) error {
 				delete(flatConf, key)
 			}
 		} else {
-			if _, ok := flatSchema[normalizedKey+sep+"type"]; !ok && !isInternalField(normalizedKey) {
+			if _, ok := nFlatSchema[normalizedKey+sep+"type"]; !ok && !isInternalField(normalizedKey) {
 				// Value is not found in schemas. Must be invalid config
 				// parameter which the server returns or our own internal
 				// (<index>) key.
