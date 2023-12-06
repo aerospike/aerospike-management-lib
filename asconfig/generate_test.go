@@ -8,14 +8,14 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
-type GenerateTestSuite struct {
+type GenerateUnitTestSuite struct {
 	suite.Suite
 	mockGetter *MockConfGetter
 	// asinfo *AsInfo
 	ctrl *gomock.Controller
 }
 
-func (suite *GenerateTestSuite) SetupTest() {
+func (suite *GenerateUnitTestSuite) SetupTest() {
 	suite.ctrl = gomock.NewController(suite.T())
 	suite.mockGetter = NewMockConfGetter(suite.ctrl)
 }
@@ -44,7 +44,7 @@ func convertIntToInt64(conf Conf) Conf {
 	return conf
 }
 
-func (suite *GenerateTestSuite) TestGenerate() {
+func (suite *GenerateUnitTestSuite) TestGenerate() {
 	testCases := []GenerateTC{
 		loggingTC,
 		namespaceTC,
@@ -71,17 +71,18 @@ func (suite *GenerateTestSuite) TestGenerate() {
 			suite.mockGetter.EXPECT().AllConfigs().Return(convertIntToInt64(tc.allConfigs), nil)
 			suite.mockGetter.EXPECT().GetAsInfo("metadata").Return(tc.metadata, nil)
 			logger := logr.Discard()
+			expected := newGenConf(convertIntToInt64(tc.expected), tc.metadata["metadata"].(Conf)["asd_build"].(string))
 
 			actual, err := GenerateConf(logger, suite.mockGetter, tc.removeDefaults)
 
 			suite.Assert().Nil(err)
-			suite.Assert().Equal(convertIntToInt64(tc.expected), actual)
+			suite.Assert().Equal(expected, actual)
 		})
 	}
 }
 
 func TestGenerateTestSuiteSuite(t *testing.T) {
-	suite.Run(t, new(GenerateTestSuite))
+	suite.Run(t, new(GenerateUnitTestSuite))
 }
 
 var loggingTC = GenerateTC{

@@ -12,6 +12,13 @@ import (
 	"github.com/go-logr/logr"
 )
 
+const (
+	expandConfKey = "expanded_config"
+	flatConfKey   = "flat_config"
+	metadataKey   = "metadata"
+	buildKey      = "asd_build"
+)
+
 // namespaceRe is a regular expression used to match and extract namespace configurations from the config file.
 var namespaceRe = regexp.MustCompile(fmt.Sprintf(`(^namespaces\%s)(.+?)(\%s.+)`, sep, sep))
 var indexedRe = regexp.MustCompile(`(.+)\[(\d+)\](.*)`)
@@ -24,28 +31,23 @@ type ConfGetter interface {
 	GetAsInfo(cmdList ...string) (Conf, error)
 }
 
-// isSupportedGenerateVersion checks if the provided version is supported for generating the config.
-func isSupportedGenerateVersion(version string) (bool, error) {
-	s, err := IsSupportedVersion(version)
+type GenConf struct {
+	conf    Conf
+	version string
+}
 
-	if err != nil {
-		return false, err
+func newGenConf(conf Conf, version string) *GenConf {
+	return &GenConf{
+		conf:    conf,
+		version: version,
 	}
-
-	if !s {
-		return false, nil
-	}
-
-	cmp, err := lib.CompareVersions(version, "5.0.0")
-
-	return cmp >= 0, err
 }
 
 // GenerateConf generates the config based on the provided log and ConfGetter.
 // If removeDefaults is true, it will remove default values from the config.
 // Without removeDefaults, the config that is generate will not be valid. Many
 // default values are out of the acceptable range required by the server.
-func GenerateConf(log logr.Logger, confGetter ConfGetter, removeDefaults bool) (Conf, error) {
+func GenerateConf(log logr.Logger, confGetter ConfGetter, removeDefaults bool) (*GenConf, error) {
 	log.V(1).Info("Generating config")
 
 	validConfig := Conf{}
@@ -74,7 +76,24 @@ func GenerateConf(log logr.Logger, confGetter ConfGetter, removeDefaults bool) (
 		return nil, err
 	}
 
-	return validConfig["expanded_config"].(Conf), nil
+	return newGenConf(validConfig[expandConfKey].(Conf), validConfig[metadataKey].(Conf)[buildKey].(string)), nil
+}
+
+// isSupportedGenerateVersion checks if the provided version is supported for generating the config.
+func isSupportedGenerateVersion(version string) (bool, error) {
+	s, err := IsSupportedVersion(version)
+
+	if err != nil {
+		return false, err
+	}
+
+	if !s {
+		return false, nil
+	}
+
+	cmp, err := lib.CompareVersions(version, "5.0.0")
+
+	return cmp >= 0, err
 }
 
 // pipelineStep is an interface that defines a step in the pipeline for generating the config.
@@ -144,13 +163,13 @@ func (s *GetConfigStep) execute(conf Conf) error {
 		delete(configs, "racks")
 	}
 
-	metadata, err := s.confGetter.GetAsInfo("metadata")
+	metadata, err := s.confGetter.GetAsInfo(metadataKey)
 	if err != nil {
 		s.log.V(-1).Error(err, "Error getting metadata from node")
 		return err
 	}
 
-	conf["metadata"] = metadata["metadata"]
+	conf[metadataKey] = metadata[metadataKey]
 
 	return nil
 }
@@ -173,7 +192,7 @@ func newServerVersionCheckStep(log logr.Logger, checkFunc func(string) (bool, er
 func (s *ServerVersionCheckStep) execute(conf Conf) error {
 	s.log.V(1).Info("Checking server version")
 
-	build := conf["metadata"].(Conf)["asd_build"].(string)
+	build := conf[metadataKey].(Conf)[buildKey].(string)
 	isSupported, err := s.checkFunc(build)
 
 	if err != nil {
@@ -213,9 +232,9 @@ func (s *copyEffectiveRackIDStep) execute(conf Conf) error {
 		return nil
 	}
 
-	flatConfig := conf["flat_config"].(Conf)
+	flatConfig := conf[flatConfKey].(Conf)
 	effectiveRacks := conf["racks"].([]Conf)
-	nodeID := conf["metadata"].(Conf)["node_id"].(string)
+	nodeID := conf[metadataKey].(Conf)["node_id"].(string)
 
 	for _, rackInfo := range effectiveRacks {
 		ns := rackInfo["ns"].(string)
@@ -339,7 +358,7 @@ func convertDictToList(config Conf) []Conf {
 	for _, key1 := range keys1 {
 		config2, ok := config[key1].(Conf)
 
-		if !ok {
+		if !ok || config2 == nil {
 			continue
 		}
 
@@ -393,7 +412,7 @@ func (s *flattenConfStep) execute(conf Conf) error {
 
 	convertDictRespToConf(origConfig)
 
-	conf["flat_config"] = flattenConf(s.log, conf["config"].(Conf), sep)
+	conf[flatConfKey] = flattenConf(s.log, conf["config"].(Conf), sep)
 
 	return nil
 }
@@ -512,7 +531,7 @@ func parseIndexField(key string) (newKey string, index int, err error) {
 func (s *transformKeyValuesStep) execute(conf Conf) error {
 	s.log.V(1).Info("Transforming key values")
 
-	origFlatConf := conf["flat_config"].(Conf)
+	origFlatConf := conf[flatConfKey].(Conf)
 	newFlatConf := make(Conf, len(origFlatConf)) // we will overwrite flat_config
 	sortedKeys := sortedKeys(origFlatConf)
 	scNamspaces := []string{}
@@ -584,7 +603,7 @@ func (s *transformKeyValuesStep) execute(conf Conf) error {
 			}
 		}
 
-		build := conf["metadata"].(Conf)["asd_build"].(string)
+		build := conf[metadataKey].(Conf)[buildKey].(string)
 		flatSchema, err := getFlatNormalizedSchema(build)
 		normalizedKey := namedRe.ReplaceAllString(key, "_")
 
@@ -611,7 +630,7 @@ func (s *transformKeyValuesStep) execute(conf Conf) error {
 		}
 	}
 
-	conf["flat_config"] = newFlatConf
+	conf[flatConfKey] = newFlatConf
 
 	return nil
 }
@@ -632,8 +651,8 @@ func newRemoveSecurityIfDisabledStep(log logr.Logger) *removeSecurityIfDisabledS
 func (s *removeSecurityIfDisabledStep) execute(conf Conf) error {
 	s.log.V(1).Info("Removing security configs if security is disabled")
 
-	flatConf := conf["flat_config"].(Conf)
-	build := conf["metadata"].(Conf)["asd_build"].(string)
+	flatConf := conf[flatConfKey].(Conf)
+	build := conf[metadataKey].(Conf)[buildKey].(string)
 
 	if val, ok := flatConf["security.enable-security"]; ok {
 		securityEnabled, ok := val.(bool)
@@ -745,8 +764,8 @@ func defaultSlice(m map[string][]string, key string) []string {
 func (s *removeDefaultsStep) execute(conf Conf) error {
 	s.log.V(1).Info("Removing default values")
 
-	flatConf := conf["flat_config"].(Conf)
-	build := conf["metadata"].(Conf)["asd_build"].(string)
+	flatConf := conf[flatConfKey].(Conf)
+	build := conf[metadataKey].(Conf)[buildKey].(string)
 
 	flatSchema, err := getFlatNormalizedSchema(build)
 	if err != nil {
@@ -840,7 +859,7 @@ func (s *removeDefaultsStep) execute(conf Conf) error {
 	}
 
 	if securityFound {
-		build := conf["metadata"].(Conf)["asd_build"].(string)
+		build := conf[metadataKey].(Conf)[buildKey].(string)
 		cmp, err := lib.CompareVersions(build, "5.7.0")
 
 		if err != nil {
@@ -874,10 +893,10 @@ func newExpandConfStep(log logr.Logger) *expandConfStep {
 func (s *expandConfStep) execute(conf Conf) error {
 	s.log.V(1).Info("Expanding config")
 
-	flatConf := conf["flat_config"].(Conf)
+	flatConf := conf[flatConfKey].(Conf)
 	expandedConf := expandConf(s.log, &flatConf, sep)
 
-	conf["expanded_config"] = expandedConf
+	conf[expandConfKey] = expandedConf
 
 	return nil
 }
