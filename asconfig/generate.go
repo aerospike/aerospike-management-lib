@@ -13,11 +13,12 @@ import (
 )
 
 const (
-	expandConfKey = "expanded_config"
-	flatConfKey   = "flat_config"
-	flatSchemaKey = "flat_schema"
-	metadataKey   = "metadata"
-	buildKey      = "asd_build"
+	expandConfKey     = "expanded_config"
+	flatConfKey       = "flat_config"
+	flatSchemaKey     = "flat_schema"
+	normFlatSchemaKey = "normalized_flat_schema"
+	metadataKey       = "metadata"
+	buildKey          = "asd_build"
 )
 
 // namespaceRe is a regular expression used to match and extract namespace configurations from the config file.
@@ -156,6 +157,7 @@ func (s *GetFlatSchemaStep) execute(conf Conf) error {
 	}
 
 	conf[flatSchemaKey] = flatSchema
+	conf[normFlatSchemaKey] = normalizeFlatSchema(flatSchema)
 
 	return nil
 }
@@ -632,8 +634,7 @@ func (s *transformKeyValuesStep) execute(conf Conf) error {
 			}
 		}
 
-		flatSchema := conf[flatSchemaKey].(map[string]interface{})
-		nFlatSchema := normalizeFlatSchema(flatSchema)
+		nFlatSchema := conf[normFlatSchemaKey].(map[string]interface{})
 		normalizedKey := namedRe.ReplaceAllString(key, "_")
 
 		if _, ok := nFlatSchema[normalizedKey+sep+"default"]; !ok && !isInternalField(normalizedKey) {
@@ -789,7 +790,7 @@ func (s *removeDefaultsStep) execute(conf Conf) error {
 
 	flatConf := conf[flatConfKey].(Conf)
 	flatSchema := conf[flatSchemaKey].(map[string]interface{})
-	nFlatSchema := normalizeFlatSchema(flatSchema)
+	nFlatSchema := conf[normFlatSchemaKey].(map[string]interface{})
 	defaults := getDefaultSchema(flatSchema)
 
 	// "logging.<file>" -> "log-level" -> list of contexts with that level
