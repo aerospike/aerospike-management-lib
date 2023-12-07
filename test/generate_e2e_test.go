@@ -1,4 +1,4 @@
-package asconfig
+package test
 
 import (
 	"log"
@@ -6,8 +6,8 @@ import (
 	"testing"
 
 	aero "github.com/aerospike/aerospike-client-go/v6"
+	"github.com/aerospike/aerospike-management-lib/asconfig"
 	"github.com/aerospike/aerospike-management-lib/info"
-	"github.com/aerospike/aerospike-management-lib/test"
 	"github.com/go-logr/logr"
 	"github.com/stretchr/testify/suite"
 )
@@ -17,7 +17,7 @@ type GenerateE2eTestSuite struct {
 }
 
 func (suite *GenerateE2eTestSuite) SetupSuite() {
-	err := test.Start(1)
+	err := Start(1)
 
 	if err != nil {
 		suite.T().Fatal(err)
@@ -29,12 +29,12 @@ func (suite *GenerateE2eTestSuite) SetupSuite() {
 		suite.T().Fail()
 	}
 
-	Init(logr.Discard(), schemaDir)
+	asconfig.Init(logr.Discard(), schemaDir)
 }
 
 // Uncomment this function to check server logs after failure
 func (suite *GenerateE2eTestSuite) TearDownSuite() {
-	err := test.Stop()
+	err := Stop()
 
 	if err != nil {
 		suite.T().Fatal(err)
@@ -47,34 +47,34 @@ func (suite *GenerateE2eTestSuite) SetupTest() {
 
 func (suite *GenerateE2eTestSuite) TestGenerate() {
 	asPolicy := aero.NewClientPolicy()
-	host := aero.NewHost(test.IP, test.PORT_START)
+	host := aero.NewHost(IP, PORT_START)
 	asPolicy.User = "admin"
 	asPolicy.Password = "admin"
 
 	asinfo := info.NewAsInfo(logr.Discard(), host, asPolicy)
 
-	genConf, err := GenerateConf(logr.Discard(), asinfo, true)
+	genConf, err := asconfig.GenerateConf(logr.Discard(), asinfo, true)
 	suite.Assert().Nil(err)
-	genConfWithDefaults, err := GenerateConf(logr.Discard(), asinfo, false)
-	suite.Assert().Nil(err)
-
-	asconf, err := NewMapAsConfig(logr.Discard(), genConf.version, genConf.conf)
-	suite.Assert().Nil(err)
-	asconfWithDefaults, err := NewMapAsConfig(logr.Discard(), genConfWithDefaults.version, genConfWithDefaults.conf)
+	genConfWithDefaults, err := asconfig.GenerateConf(logr.Discard(), asinfo, false)
 	suite.Assert().Nil(err)
 
-	test.RestartAerospikeContainer(test.GetAerospikeContainerName(0), asconf.ToConfFile())
+	asconf, err := asconfig.NewMapAsConfig(logr.Discard(), genConf.Version, genConf.Conf)
+	suite.Assert().Nil(err)
+	asconfWithDefaults, err := asconfig.NewMapAsConfig(logr.Discard(), genConfWithDefaults.Version, genConfWithDefaults.Conf)
+	suite.Assert().Nil(err)
+
+	RestartAerospikeContainer(GetAerospikeContainerName(0), asconf.ToConfFile())
 
 	asinfo2 := info.NewAsInfo(logr.Discard(), host, asPolicy)
 
-	genConf2, err := GenerateConf(logr.Discard(), asinfo2, true)
+	genConf2, err := asconfig.GenerateConf(logr.Discard(), asinfo2, true)
 	suite.Assert().Nil(err)
-	genConfWithDefaults2, err := GenerateConf(logr.Discard(), asinfo2, false)
+	genConfWithDefaults2, err := asconfig.GenerateConf(logr.Discard(), asinfo2, false)
 	suite.Assert().Nil(err)
 
-	asconf2, err := NewMapAsConfig(logr.Discard(), genConf2.version, genConf2.conf)
+	asconf2, err := asconfig.NewMapAsConfig(logr.Discard(), genConf2.Version, genConf2.Conf)
 	suite.Assert().Nil(err)
-	asconfWithDefaults2, err := NewMapAsConfig(logr.Discard(), genConfWithDefaults2.version, genConfWithDefaults2.conf)
+	asconfWithDefaults2, err := asconfig.NewMapAsConfig(logr.Discard(), genConfWithDefaults2.Version, genConfWithDefaults2.Conf)
 	suite.Assert().Nil(err)
 
 	suite.Assert().Equal(asconf, asconf2)

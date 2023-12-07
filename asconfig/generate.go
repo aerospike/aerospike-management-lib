@@ -33,14 +33,14 @@ type ConfGetter interface {
 }
 
 type GenConf struct {
-	conf    Conf
-	version string
+	Conf    Conf
+	Version string
 }
 
 func newGenConf(conf Conf, version string) *GenConf {
 	return &GenConf{
-		conf:    conf,
-		version: version,
+		Conf:    conf,
+		Version: version,
 	}
 }
 
