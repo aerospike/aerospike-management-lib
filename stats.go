@@ -5,8 +5,6 @@ import (
 	"sort"
 	"strconv"
 	"sync"
-
-	"github.com/mohae/deepcopy"
 )
 
 const NotSupported = "N/S"
@@ -693,9 +691,4 @@ func ToStatsDeep(input Stats) Stats {
 	}
 
 	return result
-}
-
-// DeepCopy Make a deep copy from src and return it.
-func DeepCopy(src interface{}) interface{} {
-	return deepcopy.Copy(src)
 }
