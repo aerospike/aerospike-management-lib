@@ -2,12 +2,11 @@ module github.com/aerospike/aerospike-management-lib
 
 go 1.19
 
-require github.com/qdm12/reprint v0.0.0-20200326205758-722754a53494
-
 require (
 	github.com/aerospike/aerospike-client-go/v6 v6.14.0
 	github.com/deckarep/golang-set/v2 v2.3.1
 	github.com/go-logr/logr v1.2.3
+	github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826
 	github.com/xeipuuv/gojsonschema v1.2.0
 )
 
@@ -18,6 +17,7 @@ replace golang.org/x/net => golang.org/x/net v0.17.0
 replace google.golang.org/grpc => google.golang.org/grpc v1.56.3
 
 require (
+	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/xeipuuv/gojsonpointer v0.0.0-20190905194746-02993c407bfb // indirect
 	github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 // indirect
