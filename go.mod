@@ -7,7 +7,7 @@ require (
 	github.com/deckarep/golang-set/v2 v2.3.1
 	github.com/go-logr/logr v1.2.4
 	github.com/xeipuuv/gojsonschema v1.2.0
-	k8s.io/apimachinery v0.28.4
+	k8s.io/apimachinery v0.27.2
 )
 
 // Pinned this dependcy to fix vulnerbaility in `golang.org/x/net` pkg
