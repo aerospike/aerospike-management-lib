@@ -7,6 +7,7 @@ require (
 	github.com/deckarep/golang-set/v2 v2.3.1
 	github.com/go-logr/logr v1.2.4
 	github.com/xeipuuv/gojsonschema v1.2.0
+	k8s.io/apimachinery v0.28.4
 )
 
 // Pinned this dependcy to fix vulnerbaility in `golang.org/x/net` pkg
@@ -16,10 +17,9 @@ replace golang.org/x/net => golang.org/x/net v0.17.0
 replace google.golang.org/grpc => google.golang.org/grpc v1.56.3
 
 require (
+	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
-	github.com/onsi/ginkgo/v2 v2.9.4 // indirect
 	github.com/onsi/gomega v1.27.6 // indirect
-	github.com/stretchr/testify v1.8.2 // indirect
 	github.com/xeipuuv/gojsonpointer v0.0.0-20190905194746-02993c407bfb // indirect
 	github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 // indirect
 	github.com/yuin/gopher-lua v0.0.0-20220504180219-658193537a64 // indirect
@@ -30,4 +30,5 @@ require (
 	google.golang.org/genproto v0.0.0-20230410155749-daa745c078e1 // indirect
 	google.golang.org/grpc v1.54.0 // indirect
 	google.golang.org/protobuf v1.31.0 // indirect
+	gopkg.in/inf.v0 v0.9.1 // indirect
 )
