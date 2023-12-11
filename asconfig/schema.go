@@ -146,7 +146,7 @@ func normalizeFlatSchema(flatSchema map[string]interface{}) map[string]interface
 
 // getDynamicSchema return the map of values which are dynamic
 // values.
-func getDynamicSchema(flatSchema map[string]interface{}) (map[string]bool, error) {
+func getDynamicSchema(flatSchema map[string]interface{}) map[string]bool {
 	dynMap := make(map[string]bool)
 
 	for k, v := range flatSchema {
@@ -162,7 +162,7 @@ func getDynamicSchema(flatSchema map[string]interface{}) (map[string]bool, error
 		}
 	}
 
-	return dynMap, nil
+	return dynMap
 }
 
 // getDefaultSchema return the map of values which are dynamic
@@ -211,7 +211,7 @@ func getDefaultSchema(flatSchema map[string]interface{}) map[string]interface{} 
 // getRequiredSchema returns a slice of slices of required keys for a given context.
 // Multiple slices are required because the required keys can be different
 // depending con the "type" of the context.
-func getRequiredSchema(flatSchema map[string]interface{}) (map[string][][]string, error) {
+func getRequiredSchema(flatSchema map[string]interface{}) map[string][][]string {
 	keys := sortKeys(flatSchema)
 	reqMap := make(map[string][][]string) // We end up with 8 keys with a 6.4 schema.
 
@@ -233,7 +233,7 @@ func getRequiredSchema(flatSchema map[string]interface{}) (map[string][][]string
 		}
 	}
 
-	return reqMap, nil
+	return reqMap
 }
 
 func flattenSchema(input map[string]interface{}, sep string) map[string]interface{} {

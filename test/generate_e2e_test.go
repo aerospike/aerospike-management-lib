@@ -47,7 +47,7 @@ func (suite *GenerateE2eTestSuite) SetupTest() {
 
 func (suite *GenerateE2eTestSuite) TestGenerate() {
 	asPolicy := aero.NewClientPolicy()
-	host := aero.NewHost(IP, PORT_START)
+	host := aero.NewHost(IP, PortStart)
 	asPolicy.User = "admin"
 	asPolicy.Password = "admin"
 

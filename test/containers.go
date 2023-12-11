@@ -18,12 +18,14 @@ import (
 	"github.com/docker/go-connections/nat"
 )
 
-var CLUSTER_NAME = "mgmt-lib-test"
-var PORT_START = 10000
+var ClusterName = "mgmt-lib-test"
+var PortStart = 10000
 var IP = "127.0.0.1"
-var WORK_DIR_ABS = "test/work"
-var IMAGE = "aerospike/aerospike-server-enterprise:7.0.0.2"
-var CONTAINER_PREFIX = "aerospike_mgmt_lib_test_"
+var WordDirAbs = "test/work"
+var Image = "aerospike/aerospike-server-enterprise:7.0.0.2"
+var ContainerPrefix = "aerospike_mgmt_lib_test_"
+var User = "admin"
+var Password = "admin"
 
 var configTemplate = fmt.Sprintf(`
 security {
@@ -82,30 +84,30 @@ namespace test {
 		data-size 1G
 	}
 }
-`, CLUSTER_NAME)
+`, ClusterName)
 
 type AerospikeContainer struct {
 	ip         string
-	portBase   int
 	configPath string
+	portBase   int
 }
 
-type Containers_ struct {
+type Containers struct {
 	namesToContainers map[string]*AerospikeContainer
 	dockerCLI         *client.Client
 	dockerCTX         context.Context
 	workDir           string
 }
 
-var containers = &Containers_{make(map[string]*AerospikeContainer), nil, nil, ""}
+var containers = &Containers{make(map[string]*AerospikeContainer), nil, nil, ""}
 
 func Start(size int) error {
 	cli, _ := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	ctx := context.Background()
 	containers.dockerCLI = cli
 	containers.dockerCTX = ctx
-	containers.workDir, _ = filepath.Abs(WORK_DIR_ABS)
-	reader, err := cli.ImagePull(ctx, IMAGE, types.ImagePullOptions{})
+	containers.workDir, _ = filepath.Abs(WordDirAbs)
+	reader, err := cli.ImagePull(ctx, Image, types.ImagePullOptions{})
 
 	if err != nil {
 		log.Printf("Unable to pull aerospike image: %s", err)
@@ -113,19 +115,24 @@ func Start(size int) error {
 	}
 
 	defer reader.Close()
-	io.Copy(os.Stdout, reader)
+	_, err = io.Copy(os.Stdout, reader)
+
+	if err != nil {
+		log.Printf("Unable to pull aerospike image: %s", err)
+		return err
+	}
 
 	for i := 0; i < size; i++ {
 		peerConnection := ""
 
 		if i > 0 {
-			peerConnection = fmt.Sprintf("mesh-seed-address-port %s %d", IP, PORT_START+2)
+			peerConnection = fmt.Sprintf("mesh-seed-address-port %s %d", IP, PortStart+2)
 		}
 
 		name := GetAerospikeContainerName(i)
-		RmAerospikeContainer(name)
+		RmAerospikeContainer(name) //nolint:errcheck // Removing containers just in case they were left over from a previous run
 
-		asContainer, err := RunAerospikeContainer(i, name, IP, PORT_START+(i*4), peerConnection)
+		asContainer, err := RunAerospikeContainer(i, name, IP, PortStart+(i*4), peerConnection)
 
 		if err != nil {
 			log.Printf("Unable to start testing containers")
@@ -140,8 +147,14 @@ func Start(size int) error {
 
 func Stop() error {
 	log.Println("Stopping test containers")
+
 	for name := range containers.namesToContainers {
-		RmAerospikeContainer(name)
+		err := RmAerospikeContainer(name)
+
+		if err != nil {
+			log.Printf("Unable to remove container %s: %s", name, err)
+			return err
+		}
 	}
 
 	abs, _ := filepath.Abs(containers.workDir)
@@ -156,10 +169,10 @@ func Stop() error {
 }
 
 func GetAerospikeContainerName(index int) string {
-	return CONTAINER_PREFIX + fmt.Sprintf("%d", index)
+	return ContainerPrefix + fmt.Sprintf("%d", index)
 }
 
-func createConfigFile(portBase int, accessAddress string, peerConnection string) (string, error) {
+func createConfigFile(portBase int, accessAddress, peerConnection string) (string, error) {
 	templateInput := struct {
 		FeaturePath    string
 		AccessAddress  string
@@ -183,7 +196,13 @@ func createConfigFile(portBase int, accessAddress string, peerConnection string)
 
 	tmpl, _ := template.New("config").Parse(configTemplate)
 
-	os.MkdirAll(containers.workDir, 0755)
+	err := os.MkdirAll(containers.workDir, 0o755)
+
+	if err != nil {
+		log.Printf("Unable to create work directory: %s", err)
+		return "", err
+	}
+
 	file, err := os.CreateTemp(containers.workDir, "aerospike_*.conf")
 
 	if err != nil {
@@ -193,7 +212,12 @@ func createConfigFile(portBase int, accessAddress string, peerConnection string)
 
 	defer file.Close()
 
-	tmpl.Execute(file, templateInput)
+	err = tmpl.Execute(file, templateInput)
+
+	if err != nil {
+		log.Printf("Unable to create config file using template: %s", err)
+		return "", err
+	}
 
 	return file.Name(), nil
 }
@@ -216,7 +240,12 @@ func StopAerospikeContainer(name string) error {
 	return nil
 }
 
-func RunAerospikeContainer(index int, name string, ip string, portBase int, peerConnection string) (*AerospikeContainer, error) {
+func RunAerospikeContainer(
+	index int,
+	name,
+	ip string,
+	portBase int,
+	peerConnection string) (*AerospikeContainer, error) {
 	ctx := containers.dockerCTX
 	cli := containers.dockerCLI
 
@@ -232,7 +261,14 @@ func RunAerospikeContainer(index int, name string, ip string, portBase int, peer
 	containerWorkDir := "/opt/" + containers.workDir
 	containerConfFile := containerWorkDir + "/" + filepath.Base(confFile)
 
-	cmd := []string{"/usr/bin/asd", "--foreground", "--config-file", containerConfFile, "--instance", fmt.Sprintf("%d", index)}
+	cmd := []string{
+		"/usr/bin/asd",
+		"--foreground",
+		"--config-file",
+		containerConfFile,
+		"--instance",
+		fmt.Sprintf("%d", index),
+	}
 
 	// Uncomment if multi-node EE tests are needed
 	// featKey := os.Getenv("FEATKEY")
@@ -248,7 +284,7 @@ func RunAerospikeContainer(index int, name string, ip string, portBase int, peer
 	}
 
 	config := container.Config{
-		Image:    IMAGE,
+		Image:    Image,
 		Hostname: ip,
 		Cmd:      cmd,
 		Tty:      true,
@@ -286,7 +322,7 @@ func RunAerospikeContainer(index int, name string, ip string, portBase int, peer
 		},
 	}
 
-	if _, err := cli.ContainerCreate(ctx, &config, hostConfig, nil, nil, name); err != nil {
+	if _, err = cli.ContainerCreate(ctx, &config, hostConfig, nil, nil, name); err != nil {
 		log.Printf("Unable to create container %s: %s", name, err)
 		return nil, err
 	}
@@ -302,11 +338,12 @@ func RunAerospikeContainer(index int, name string, ip string, portBase int, peer
 
 	log.Printf("Started container %s with IP %s", name, inspect.NetworkSettings.IPAddress)
 	log.Printf("Waiting for asd %s to start", name)
+
 	startTime := time.Now()
 	timeout := 10 * time.Second
 	policy := aerospike.NewClientPolicy()
-	policy.User = "admin"
-	policy.Password = "admin"
+	policy.User = User
+	policy.Password = Password
 
 	for {
 		asClient, err := aerospike.NewClientWithPolicy(
@@ -316,6 +353,7 @@ func RunAerospikeContainer(index int, name string, ip string, portBase int, peer
 			if asClient.IsConnected() {
 				break
 			}
+
 			asClient.Close()
 		}
 
@@ -328,7 +366,7 @@ func RunAerospikeContainer(index int, name string, ip string, portBase int, peer
 		time.Sleep(1 * time.Second)
 	}
 
-	return &AerospikeContainer{inspect.NetworkSettings.IPAddress, portBase, confFile}, nil
+	return &AerospikeContainer{inspect.NetworkSettings.IPAddress, confFile, portBase}, nil
 }
 
 func StartAerospikeContainer(name string) (string, error) {
@@ -340,9 +378,10 @@ func StartAerospikeContainer(name string) (string, error) {
 		return "", err
 	}
 
-	inspect, _ := cli.ContainerInspect(ctx, string(name))
+	inspect, _ := cli.ContainerInspect(ctx, name)
 
 	log.Printf("Started container %s with IP %s", name, inspect.NetworkSettings.IPAddress)
+
 	return inspect.NetworkSettings.IPAddress, nil
 }
 
@@ -353,7 +392,7 @@ func RestartAerospikeContainer(name, confFileContents string) error {
 
 	if confFileContents != "" {
 		confPath := containers.namesToContainers[name].configPath
-		file, err := os.OpenFile(confPath, os.O_TRUNC|os.O_WRONLY, 0644)
+		file, err := os.OpenFile(confPath, os.O_TRUNC|os.O_WRONLY, 0o644)
 
 		if err != nil {
 			log.Printf("Unable to open config file %s: %s", confPath, err)
@@ -368,24 +407,31 @@ func RestartAerospikeContainer(name, confFileContents string) error {
 		}
 	}
 
-	cli.ContainerRestart(containers.dockerCTX, name, container.StopOptions{})
+	err := cli.ContainerRestart(containers.dockerCTX, name, container.StopOptions{})
+
+	if err != nil {
+		log.Printf("Unable to restart container %s: %s", name, err)
+		return err
+	}
 
 	log.Printf("Restarted container %s with IP %s", name, ip)
 	log.Printf("Waiting for asd %s to start", name)
+
 	startTime := time.Now()
 	timeout := 10 * time.Second
 	policy := aerospike.NewClientPolicy()
-	policy.User = "admin"
-	policy.Password = "admin"
+	policy.User = User
+	policy.Password = Password
 
 	for {
 		asClient, err := aerospike.NewClientWithPolicy(
-			policy, IP, PORT_START)
+			policy, IP, PortStart)
 
 		if err == nil {
 			if asClient.IsConnected() {
 				break
 			}
+
 			asClient.Close()
 		}
 

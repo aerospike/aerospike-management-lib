@@ -280,6 +280,7 @@ func (s *copyEffectiveRackIDStep) execute(conf Conf) error {
 			if rackIDStr == "" {
 				err := fmt.Errorf("unable to find rack id for rack %s", rack)
 				s.log.V(-1).Error(err, "Error copying effective rack-id to rack-id")
+
 				return err
 			}
 
@@ -288,6 +289,7 @@ func (s *copyEffectiveRackIDStep) execute(conf Conf) error {
 			if err != nil {
 				err := fmt.Errorf("unable to convert rack id %s to int", rackIDStr)
 				s.log.V(-1).Error(err, "Error copying effective rack-id to rack-id")
+
 				return err
 			}
 
@@ -601,6 +603,7 @@ func (s *transformKeyValuesStep) execute(conf Conf) error {
 				if val, ok := newFlatConf[newKey].([]string); !ok || len(val) <= index {
 					err := fmt.Errorf("shadow key %s does not have a corresponding device yet", key)
 					s.log.V(-1).Error(err, "Error converting shadow device to list")
+
 					return err
 				}
 
@@ -684,12 +687,14 @@ func (s *removeSecurityIfDisabledStep) execute(conf Conf) error {
 		if !ok {
 			err := fmt.Errorf("enable-security is not a boolean")
 			s.log.V(-1).Error(err, "Error removing security configs")
+
 			return err
 		}
 
 		cmp, err := lib.CompareVersions(build, "5.7.0")
 		if err != nil {
 			s.log.V(-1).Error(err, "Error removing security configs")
+
 			return err
 		}
 

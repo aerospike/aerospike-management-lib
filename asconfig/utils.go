@@ -117,7 +117,7 @@ var sectionNameStartChar = '{'
 var sectionNameEndChar = '}'
 
 // expandConf expands map with flat keys (with sep) to Conf
-func expandConf(log logr.Logger, input *Conf, sep string) Conf {
+func expandConf(log logr.Logger, input *Conf, sep string) Conf { //nolint:unparam // We should think about removing the arg 'sep'
 	m := expandConfMap(log, input, sep)
 	return expandConfList(log, m)
 }
