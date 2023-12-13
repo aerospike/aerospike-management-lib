@@ -173,13 +173,11 @@ func getDefaultValue(defaultMap map[string]interface{}, conf string) interface{}
 }
 
 // GetDefault return the map of default values.
-func GetDefault(log logr.Logger, ver string) (map[string]interface{}, error) {
+func GetDefault(ver string) (map[string]interface{}, error) {
 	flatSchema, err := getFlatSchema(ver)
 	if err != nil {
 		return nil, err
 	}
-
-	log.Info("flatSchema", "flatSchema", fmt.Sprintf("%v", flatSchema))
 
 	defMap := make(map[string]interface{})
 
@@ -190,8 +188,6 @@ func GetDefault(log logr.Logger, ver string) (map[string]interface{}, error) {
 			defMap[key] = eval(v)
 		}
 	}
-
-	log.Info("defMap", "defMap", fmt.Sprintf("%v", defMap))
 
 	return defMap, nil
 }

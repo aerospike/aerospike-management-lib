@@ -595,7 +595,7 @@ func ConfDiff(
 	log.Info("print c2ToC1Diffs", "difference", fmt.Sprintf("%v", c2ToC1Diffs))
 
 	if len(c2ToC1Diffs) > 0 {
-		defaultMap, err := GetDefault(log, ver)
+		defaultMap, err := GetDefault(ver)
 		if err != nil {
 			return nil
 		}
@@ -1412,7 +1412,12 @@ func CreateASConfCommand(diff string, value interface{}) ([]string, error) {
 					cmd += fmt.Sprintf(";id=%s", strings.Trim(token, "{}"))
 				}
 			} else {
-				prevToken = token
+				if prevToken == "index-type" || prevToken == "sindex-type" {
+					cmd += fmt.Sprintf(";%s.%s", prevToken, token)
+					prevToken = ""
+				} else {
+					prevToken = token
+				}
 			}
 		}
 
@@ -1422,7 +1427,13 @@ func CreateASConfCommand(diff string, value interface{}) ([]string, error) {
 		}
 
 		for _, v := range val {
-			finalCMD := cmd + ";" + SingularOf(prevToken) + "=" + v
+			finalCMD := ""
+			if prevToken != "" {
+				finalCMD = cmd + ";" + SingularOf(prevToken) + "=" + v
+			} else {
+				finalCMD = cmd + "=" + v
+			}
+
 			cmds = append(cmds, finalCMD)
 		}
 
