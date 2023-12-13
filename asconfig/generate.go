@@ -368,7 +368,7 @@ func newFlattenConfStep(log logr.Logger) *flattenConfStep {
 	}
 }
 
-func sortKeys(config lib.Stats) []string {
+func sortKeys(config Conf) []string {
 	keys := make([]string, len(config))
 	idx := 0
 
@@ -507,19 +507,6 @@ func disallowedInConfigWhenSC() []string {
 	}
 }
 
-// sortedKeys returns the sorted keys of a map.
-func sortedKeys(m Conf) []string {
-	keys := make([]string, len(Conf{}))
-
-	for key := range m {
-		keys = append(keys, key)
-	}
-
-	sort.Strings(keys)
-
-	return keys
-}
-
 // undefinedOrNull checks if a value is undefined or null.
 func undefinedOrNull(val interface{}) bool {
 	if str, ok := val.(string); ok {
@@ -531,7 +518,7 @@ func undefinedOrNull(val interface{}) bool {
 }
 
 // convertIndexedToList converts an indexed key to a list key. It returns the
-// new key, the index, and the value as a string. If the key is not indexed or the value is
+// new key and the value as a string. If the key is not indexed or the value is
 // not a string, it returns empty strings.
 func convertIndexedToList(key string, value interface{}) (newKey, strVal string) {
 	if newKey, _, _ = parseIndexField(key); newKey != "" {
@@ -566,7 +553,7 @@ func (s *transformKeyValuesStep) execute(conf Conf) error {
 
 	origFlatConf := conf[flatConfKey].(Conf)
 	newFlatConf := make(Conf, len(origFlatConf)) // we will overwrite flat_config
-	sortedKeys := sortedKeys(origFlatConf)
+	sortedKeys := sortKeys(origFlatConf)
 	scNamspaces := []string{}
 
 	for _, key := range sortedKeys {
@@ -750,7 +737,6 @@ func compareDefaults(log logr.Logger, defVal, confVal interface{}) bool {
 
 		return defVal == confVal
 	case uint64:
-		// Schema deals with uint64 when positive but config deals with int
 		switch confVal := confVal.(type) {
 		case int64:
 			if confVal < 0 {
@@ -760,9 +746,10 @@ func compareDefaults(log logr.Logger, defVal, confVal interface{}) bool {
 			return val == uint64(confVal)
 		case uint64:
 			return val == confVal
+		default:
+			log.V(-1).Info("Unexpected type when comparing default (%s) to config value (%s)", val, confVal)
 		}
 	case int64:
-		// Schema deals with int64 when negative but config deals with int
 		switch confVal := confVal.(type) {
 		case uint64:
 			if val < 0 {

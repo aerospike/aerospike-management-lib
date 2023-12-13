@@ -189,7 +189,7 @@ func (info *AsInfo) AllConfigs() (lib.Stats, error) {
 
 	values, err := info.GetAsInfo(key)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get config info from node: %v", err)
+		return nil, fmt.Errorf("failed to get config info from node: %w", err)
 	}
 
 	configs, ok := values[key].(lib.Stats)
@@ -252,7 +252,7 @@ func (info *AsInfo) doInfo(commands ...string) (map[string]string, error) {
 		if err == io.EOF {
 			// Peer closed connection.
 			info.conn.Close()
-			return nil, fmt.Errorf("connection reset: %v", err)
+			return nil, fmt.Errorf("connection reset: %w", err)
 		}
 		// FIXME: timeout is also closing connection
 		info.conn.Close()
@@ -289,7 +289,7 @@ func (info *AsInfo) GetAsInfo(cmdList ...string) (NodeAsStats, error) {
 	//  statNSNames, statDCNames, statSIndex, statLogIDS
 	m, err := info.getCoreInfo()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get basic ns/dc/sindex info: %v", err)
+		return nil, fmt.Errorf("failed to get basic ns/dc/sindex info: %w", err)
 	}
 
 	if len(cmdList) == 0 {
@@ -298,7 +298,7 @@ func (info *AsInfo) GetAsInfo(cmdList ...string) (NodeAsStats, error) {
 
 	rawCmdList, err := info.createCmdList(m, cmdList...)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create cmd list: %v", err)
+		return nil, fmt.Errorf("failed to create cmd list: %w", err)
 	}
 
 	return info.execute(info.log, rawCmdList, m, cmdList...)
@@ -311,7 +311,7 @@ func (info *AsInfo) GetAsConfig(contextList ...string) (lib.Stats, error) {
 	//  statNSNames, statDCNames, statSIndex, statLogIDS
 	m, err := info.getCoreInfo()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get basic ns/dc/sindex info: %v", err)
+		return nil, fmt.Errorf("failed to get basic ns/dc/sindex info: %w", err)
 	}
 
 	if len(contextList) == 0 {
@@ -325,7 +325,7 @@ func (info *AsInfo) GetAsConfig(contextList ...string) (lib.Stats, error) {
 
 	rawCmdList, err := info.createConfigCmdList(m, contextList...)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create config cmd list: %v", err)
+		return nil, fmt.Errorf("failed to create config cmd list: %w", err)
 	}
 
 	key := constConfigs
@@ -333,7 +333,7 @@ func (info *AsInfo) GetAsConfig(contextList ...string) (lib.Stats, error) {
 
 	if err != nil {
 		return nil, fmt.Errorf(
-			"failed to get config info from aerospike server: %v", err,
+			"failed to get config info from aerospike server: %w", err,
 		)
 	}
 
@@ -1633,34 +1633,3 @@ func contains(list []string, str string) bool {
 
 	return false
 }
-
-// func compareBuilds(a string, b string) int {
-// 	aSplit := strings.Split(a, ".")
-// 	bSplit := strings.Split(b, ".")
-// 	maxLen := len(bSplit)
-
-// 	if len(aSplit) > len(bSplit) {
-// 		maxLen = len(aSplit)
-// 	}
-
-// 	for i := len(aSplit); i < maxLen; i++ {
-// 		aSplit = append(aSplit, "0")
-// 	}
-
-// 	for i := len(bSplit); i < maxLen; i++ {
-// 		bSplit = append(bSplit, "0")
-// 	}
-
-// 	for i := 0; i < maxLen; i++ {
-// 		a_val, _ := strconv.Atoi(aSplit[i])
-// 		b_val, _ := strconv.Atoi(bSplit[i])
-
-// 		if a_val < b_val {
-// 			return -1
-// 		} else if b_val > a_val {
-// 			return 1
-// 		}
-// 	}
-
-// 	return 0
-// }

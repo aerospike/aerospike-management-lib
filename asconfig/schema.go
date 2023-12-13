@@ -165,7 +165,7 @@ func getDynamicSchema(flatSchema map[string]interface{}) map[string]bool {
 	return dynMap
 }
 
-// getDefaultSchema return the map of values which are dynamic
+// getDefaultSchema return the map of values which are default
 // values.
 func getDefaultSchema(flatSchema map[string]interface{}) map[string]interface{} {
 	defMap := make(map[string]interface{})
