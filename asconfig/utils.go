@@ -595,7 +595,7 @@ func ConfDiff(
 	log.Info("print c2ToC1Diffs", "difference", fmt.Sprintf("%v", c2ToC1Diffs))
 
 	if len(c2ToC1Diffs) > 0 {
-		defaultMap, err := GetDefault(ver)
+		defaultMap, err := GetDefault(log, ver)
 		if err != nil {
 			return nil
 		}
