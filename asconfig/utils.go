@@ -1368,6 +1368,7 @@ func CompareVersionsIgnoreRevision(version1, version2 string) (int, error) {
 	return 0, nil
 }
 
+/*
 func CreateASConfCommand(diff string, value interface{}) ([]string, error) {
 	tokens := strings.Split(diff, ".")
 	context := tokens[0]
@@ -1486,3 +1487,5 @@ func convertValueToString(v1 interface{}) ([]string, error) {
 		return values, fmt.Errorf("format not supported")
 	}
 }
+
+*/

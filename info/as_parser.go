@@ -75,6 +75,12 @@ const (
 	cmdMetaServicesAlternate = "services-alternate" // ServiceAlternate
 	cmdMetaFeatures          = "features"           // Features
 	cmdMetaEdition           = "edition"            // Edition
+
+	cmdSetConfigNetwork   = "set-config:context=network"       // ConfigNetwork
+	cmdSetConfigService   = "set-config:context=service"       // ConfigService
+	cmdSetConfigNamespace = "set-config:context=namespace;id=" // ConfigNamespace
+	cmdSetConfigXDR       = "set-config:context=xdr"           // ConfigXDR
+	cmdSetConfigSecurity  = "set-config:context=security"      // ConfigSecurity
 )
 
 // other meta-info
