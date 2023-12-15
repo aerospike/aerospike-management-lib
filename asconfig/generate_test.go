@@ -6,8 +6,8 @@ import (
 	"testing"
 
 	"github.com/go-logr/logr"
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/suite"
+	"go.uber.org/mock/gomock"
 )
 
 type GenerateUnitTestSuite struct {
@@ -17,20 +17,23 @@ type GenerateUnitTestSuite struct {
 	ctrl *gomock.Controller
 }
 
-func (suite *GenerateUnitTestSuite) SetupSuite() {
+func (s *GenerateUnitTestSuite) SetupSuite() {
 	schemaDir := os.Getenv("TEST_SCHEMA_DIR")
 
 	if schemaDir == "" {
 		log.Printf("Env var TEST_SCHEMA_DIR must be set.")
-		suite.T().Fail()
+		s.T().Fail()
 	}
 
-	Init(logr.Discard(), schemaDir)
+	err := Init(logr.Discard(), schemaDir)
+	if err != nil {
+		s.T().Fatal(err)
+	}
 }
 
-func (suite *GenerateUnitTestSuite) SetupTest() {
-	suite.ctrl = gomock.NewController(suite.T())
-	suite.mockGetter = NewMockConfGetter(suite.ctrl)
+func (s *GenerateUnitTestSuite) SetupTest() {
+	s.ctrl = gomock.NewController(s.T())
+	s.mockGetter = NewMockConfGetter(s.ctrl)
 }
 
 type GenerateTC struct {
@@ -54,10 +57,11 @@ func convertIntToInt64(conf Conf) Conf {
 			}
 		}
 	}
+
 	return conf
 }
 
-func (suite *GenerateUnitTestSuite) TestGenerate() {
+func (s *GenerateUnitTestSuite) TestGenerate() {
 	testCases := []GenerateTC{
 		loggingTC,
 		namespaceTC,
@@ -78,16 +82,19 @@ func (suite *GenerateUnitTestSuite) TestGenerate() {
 	}
 
 	for _, tc := range testCases {
-		suite.Run(tc.name, func() {
-			suite.mockGetter.EXPECT().AllConfigs().Return(convertIntToInt64(tc.allConfigs), nil)
-			suite.mockGetter.EXPECT().GetAsInfo("metadata").Return(tc.metadata, nil)
+		s.Run(tc.name, func() {
+			s.mockGetter.EXPECT().AllConfigs().Return(convertIntToInt64(tc.allConfigs), nil)
+			s.mockGetter.EXPECT().GetAsInfo("metadata").Return(tc.metadata, nil)
 			logger := logr.Discard()
-			expected := newGenConf(convertIntToInt64(tc.expected), tc.metadata["metadata"].(Conf)["asd_build"].(string))
+			expected := newGenConf(
+				convertIntToInt64(tc.expected),
+				tc.metadata["metadata"].(Conf)["asd_build"].(string),
+			)
 
-			actual, err := GenerateConf(logger, suite.mockGetter, tc.removeDefaults)
+			actual, err := GenerateConf(logger, s.mockGetter, tc.removeDefaults)
 
-			suite.Assert().Nil(err)
-			suite.Assert().Equal(expected, actual)
+			s.Assert().Nil(err)
+			s.Assert().Equal(expected, actual)
 		})
 	}
 }

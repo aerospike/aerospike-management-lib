@@ -688,7 +688,7 @@ func getSystemProperty(log logr.Logger, c Conf, key string) (
 //	 server response:
 //			node-address-port=1.1.1.1:3000;2.2.2.2:3000
 //	 yaml config:
-//			node-address-port:
+//			node-address-ports:
 //				- 1.1.1.1:3000
 //				- 2.2.2.2:3000
 //	 aerospike.conf:

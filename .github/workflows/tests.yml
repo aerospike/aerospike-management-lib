@@ -2,9 +2,11 @@ name: Tests
 on:
   push:
     branches:
-      - '*'
+      - "*"
+    tags:
+      - v*
   workflow_call:
-  
+
 jobs:
   tests:
     runs-on: ubuntu-latest
@@ -19,12 +21,11 @@ jobs:
     - name: Install dependencies
       run: |
         echo "CWD=$(pwd)" >> $GITHUB_ENV
-        go install github.com/golang/mock/mockgen@v1.6.0
         git clone https://github.com/aerospike/schemas.git
     - name: Generate Mocks
       run: |
         make mocks
-    - name: Test with go 
+    - name: Test with go
       env:
         TEST_SCHEMA_DIR: ${{ env.CWD }}/schemas/json/aerospike
       run: |

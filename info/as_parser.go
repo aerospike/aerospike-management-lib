@@ -29,6 +29,14 @@ var ErrInvalidNamespace = fmt.Errorf("invalid namespace")
 // ErrInvalidDC specifies that the dc is invalid on the cluster.
 var ErrInvalidDC = fmt.Errorf("invalid dc")
 
+// ASInfo top level map keys
+const (
+	ConstStat     = "statistics" // stat
+	ConstConfigs  = "configs"    // configs
+	ConstLatency  = "latency"    // latency
+	ConstMetadata = "metadata"   // metadata
+)
+
 const (
 	DefaultTimeout = 2 * time.Second
 
@@ -36,7 +44,6 @@ const (
 	// 1. string values which are not commands
 	// 2. string values which are used to generate other commands
 	// 3. string values which are both command and constant
-	constStat         = "statistics"     // stat
 	constStatXDRPre50 = "statistics/xdr" // StatXdr
 	constStatXDR      = "get-stats:context=xdr"
 	constStatNS       = "namespace/" // StatNamespace
@@ -49,7 +56,6 @@ const (
 	constStatDCNames  = "dcs"        // StatDcs need dc names
 	constStatLogIDS   = "logs"       // StatLogs need logging id
 
-	constConfigs       = "configs"                          // configs
 	cmdConfigNetwork   = "get-config:context=network"       // ConfigNetwork
 	cmdConfigService   = "get-config:context=service"       // ConfigService
 	cmdConfigNamespace = "get-config:context=namespace;id=" // ConfigNamespace
@@ -61,12 +67,10 @@ const (
 	cmdConfigRacks     = "racks:"                           // configRacks
 	cmdConfigLogging   = "log/"                             // ConfigLog
 
-	constLatency    = "latency"
 	cmdLatency      = "latency:"
 	constThroughput = "throughput"
 	cmdThroughput   = "throughput:"
 
-	constMetadata            = "metadata"           // metadata
 	cmdMetaBuild             = "build"              // Build
 	cmdMetaVersion           = "version"            // Version
 	cmdMetaBuildOS           = "build_os"           // BUILD OS
@@ -97,6 +101,21 @@ const (
 	ConfigRacksContext     = "racks"
 )
 
+// Aerospike Metadata Context
+const (
+	MetaBuild             = "asd_build"
+	MetaVersion           = cmdMetaVersion
+	MetaBuildOS           = cmdMetaBuildOS
+	MetaNodeID            = cmdMetaNodeID
+	MetaClusterName       = cmdMetaClusterName
+	MetaService           = cmdMetaService
+	MetaServices          = cmdMetaServices
+	MetaServicesAlumni    = cmdMetaServicesAlumni
+	MetaServicesAlternate = cmdMetaServicesAlternate
+	MetaFeatures          = cmdMetaFeatures
+	MetaEdition           = cmdMetaEdition
+)
+
 const (
 	ConfigDCNames        = "dc_names"
 	ConfigNamespaceNames = "namespace_names"
@@ -104,12 +123,12 @@ const (
 )
 
 var asCmds = []string{
-	constStat, constConfigs, constMetadata, constLatency, constThroughput,
+	ConstStat, ConstConfigs, ConstMetadata, ConstLatency, constThroughput,
 }
 
 var networkTLSNameRe = regexp.MustCompile(`^tls\[(\d+)].name$`)
 
-type connection interface {
+type Connection interface {
 	IsConnected() bool
 	Login(*aero.ClientPolicy) aero.Error
 	SetTimeout(time.Time, time.Duration) aero.Error
@@ -117,15 +136,15 @@ type connection interface {
 	Close()
 }
 
-type connectionFactory interface {
-	NewConnection(*aero.ClientPolicy, *aero.Host) (connection, aero.Error)
+type ConnectionFactory interface {
+	NewConnection(*aero.ClientPolicy, *aero.Host) (Connection, aero.Error)
 }
 
 type aerospikeConnFactory struct{}
 
 func (f *aerospikeConnFactory) NewConnection(
 	policy *aero.ClientPolicy, host *aero.Host,
-) (connection, aero.Error) {
+) (Connection, aero.Error) {
 	return aero.NewConnection(policy, host)
 }
 
@@ -135,8 +154,8 @@ var aeroConnFactory = &aerospikeConnFactory{}
 type AsInfo struct {
 	policy   *aero.ClientPolicy
 	host     *aero.Host
-	conn     connection
-	connFact connectionFactory
+	conn     Connection
+	connFact ConnectionFactory
 	log      logr.Logger
 	mutex    sync.Mutex
 }
@@ -146,7 +165,7 @@ func NewAsInfo(log logr.Logger, h *aero.Host, cp *aero.ClientPolicy) *AsInfo {
 }
 
 func NewAsInfoWithConnFactory(
-	log logr.Logger, h *aero.Host, cp *aero.ClientPolicy, connFact connectionFactory,
+	log logr.Logger, h *aero.Host, cp *aero.ClientPolicy, connFact ConnectionFactory,
 ) *AsInfo {
 	logger := log.WithValues("node", h)
 
@@ -185,7 +204,7 @@ func (info *AsInfo) RequestInfo(cmd ...string) (
 //
 // The returned map can be converted to asconfig.Conf.
 func (info *AsInfo) AllConfigs() (lib.Stats, error) {
-	key := constConfigs
+	key := ConstConfigs
 
 	values, err := info.GetAsInfo(key)
 	if err != nil {
@@ -328,7 +347,7 @@ func (info *AsInfo) GetAsConfig(contextList ...string) (lib.Stats, error) {
 		return nil, fmt.Errorf("failed to create config cmd list: %w", err)
 	}
 
-	key := constConfigs
+	key := ConstConfigs
 	configs, err := info.execute(info.log, rawCmdList, m, key)
 
 	if err != nil {
@@ -452,20 +471,20 @@ func (info *AsInfo) createCmdList(
 
 	for _, cmd := range cmdList {
 		switch cmd {
-		// case constStat:
-		// 	cmds := info.createStatCmdList(m)
-		// 	rawCmdList = append(rawCmdList, cmds...)
-		case constConfigs:
+		case ConstStat:
+			cmds := info.createStatCmdList(m)
+			rawCmdList = append(rawCmdList, cmds...)
+		case ConstConfigs:
 			cmds, err := info.createConfigCmdList(m)
 			if err != nil {
 				return nil, err
 			}
 
 			rawCmdList = append(rawCmdList, cmds...)
-		case constMetadata:
+		case ConstMetadata:
 			cmds := info.createMetaCmdList()
 			rawCmdList = append(rawCmdList, cmds...)
-		case constLatency:
+		case ConstLatency:
 			rawCmdList = append(rawCmdList, cmdLatency)
 		case constThroughput:
 			rawCmdList = append(rawCmdList, cmdThroughput)
@@ -479,7 +498,7 @@ func (info *AsInfo) createCmdList(
 }
 
 func (info *AsInfo) createStatCmdList(m map[string]string) []string {
-	cmdList := []string{constStat, constStatXDR, constStatNSNames, constStatDCNames}
+	cmdList := []string{ConstStat, constStatXDR, constStatNSNames, constStatDCNames}
 
 	nsNames := getNames(m[constStatNSNames])
 	for _, ns := range nsNames {
@@ -625,7 +644,11 @@ func (info *AsInfo) createXDRConfigCmdList(build string, m map[string]string) ([
 
 	results := make(chan error, len(dcNames))
 
-	var wg sync.WaitGroup
+	var (
+		wg   sync.WaitGroup
+		lock sync.Mutex
+	)
+
 	for _, dc := range dcNames {
 		wg.Add(1)
 
@@ -639,12 +662,15 @@ func (info *AsInfo) createXDRConfigCmdList(build string, m map[string]string) ([
 				return
 			}
 
+			lock.Lock()
+			m = mergeDicts(m, resp)
+			lock.Unlock()
+
 			var nsNames []string
 
-			m = mergeDicts(m, resp)
 			rawDCConfig := resp[cmdConfigDC+dc]
-			xdrConfig := parseIntoMap(rawDCConfig, ";", "=")
-			rawNames, ok := xdrConfig[constStatNSNames].(string)
+			dcConfig := parseIntoMap(rawDCConfig, ";", "=")
+			rawNames, ok := dcConfig[constStatNSNames].(string)
 
 			if ok {
 				nsNames = strings.Split(rawNames, ",")
@@ -803,13 +829,13 @@ func parseCmdResults(
 
 	for _, cmd := range cmdList {
 		switch cmd {
-		case constStat:
+		case ConstStat:
 			asMap[cmd] = parseStatInfo(rawMap)
-		case constConfigs:
+		case ConstConfigs:
 			asMap[cmd] = parseConfigInfo(rawMap)
-		case constMetadata:
+		case ConstMetadata:
 			asMap[cmd] = parseMetadataInfo(rawMap)
-		case constLatency:
+		case ConstLatency:
 			asMap[cmd] = parseLatencyInfo(log, rawMap[cmdLatency])
 		case constThroughput:
 			asMap[cmd] = parseThroughputInfo(rawMap[cmdThroughput])
@@ -819,7 +845,7 @@ func parseCmdResults(
 		}
 	}
 
-	if _, ok := asMap[constMetadata]; ok {
+	if _, ok := asMap[ConstMetadata]; ok {
 		updateExtraMetadata(asMap)
 	}
 
@@ -827,10 +853,10 @@ func parseCmdResults(
 }
 
 func updateExtraMetadata(m lib.Stats) {
-	serviceMap := m.GetInnerVal(constStat, "service")
-	nsStatMap := m.GetInnerVal(constStat, "namespace")
-	configMap := m.GetInnerVal(constConfigs, "service")
-	metaMap := m.GetInnerVal(constMetadata)
+	serviceMap := m.GetInnerVal(ConstStat, "service")
+	nsStatMap := m.GetInnerVal(ConstStat, "namespace")
+	configMap := m.GetInnerVal(ConstConfigs, "service")
+	metaMap := m.GetInnerVal(ConstMetadata)
 
 	if len(serviceMap) != 0 {
 		metaMap["cluster_size"] = serviceMap.Get("cluster_size")
@@ -872,7 +898,7 @@ func updateExtraMetadata(m lib.Stats) {
 func parseStatInfo(rawMap map[string]string) lib.Stats {
 	statMap := make(lib.Stats)
 
-	statMap["service"] = parseBasicInfo(rawMap[constStat])
+	statMap["service"] = parseBasicInfo(rawMap[ConstStat])
 	statMap["xdr"] = parseBasicInfo(rawMap[constStatXDR])
 	statMap["dc"] = parseAllDcStats(rawMap)
 	statMap["namespace"] = parseAllNsStats(rawMap)

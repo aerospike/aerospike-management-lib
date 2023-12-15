@@ -169,7 +169,7 @@ func getDynamicSchema(flatSchema map[string]interface{}) map[string]bool {
 // values.
 func getDefaultSchema(flatSchema map[string]interface{}) map[string]interface{} {
 	defMap := make(map[string]interface{})
-	removedKeys := map[string]bool{}
+	removedKeys := map[string]struct{}{}
 
 	for k, v := range flatSchema {
 		if defRegex.MatchString(k) {
@@ -187,13 +187,13 @@ func getDefaultSchema(flatSchema map[string]interface{}) map[string]interface{} 
 					switch val := val.(type) {
 					case []string:
 						if !reflect.DeepEqual(val, eval(v).([]string)) {
-							removedKeys[key] = true
+							removedKeys[key] = struct{}{}
 
 							delete(defMap, key)
 						}
 					default:
 						if eval(v) != val {
-							removedKeys[key] = true
+							removedKeys[key] = struct{}{}
 
 							delete(defMap, key)
 						}
@@ -208,9 +208,9 @@ func getDefaultSchema(flatSchema map[string]interface{}) map[string]interface{} 
 	return defMap
 }
 
-// getRequiredSchema returns a slice of slices of required keys for a given context.
+// getRequiredSchema returns a map of string to slice of slices of required keys for a given context.
 // Multiple slices are required because the required keys can be different
-// depending con the "type" of the context.
+// depending on the "type" of the context.
 func getRequiredSchema(flatSchema map[string]interface{}) map[string][][]string {
 	keys := sortKeys(flatSchema)
 	reqMap := make(map[string][][]string) // We end up with 8 keys with a 6.4 schema.

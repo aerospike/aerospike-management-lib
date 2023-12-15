@@ -5,7 +5,8 @@ else
 GOBIN=$(shell go env GOBIN)
 endif
 
-MOCKGEN = $(GOBIN)/mockgen
+MOCKGEN ?= $(GOBIN)/mockgen
+MOCKGEN_VERSION ?= v0.3.0
 GOLANGCI_LINT ?= $(GOBIN)/golangci-lint
 GOLANGCI_LINT_VERSION ?= v1.50.1
 
@@ -17,8 +18,13 @@ $(GOLANGCI_LINT): $(GOBIN)
 go-lint: golanci-lint ## Run golangci-lint against code.
 	$(GOLANGCI_LINT) run
 
+.PHONY: get-mockgen
+get-mockgen: $(MOCKGEN) ## Download golangci-lint locally if necessary.
+$(MOCKGEN): $(GOBIN)
+	go install go.uber.org/mock/mockgen@$(MOCKGEN_VERSION)
+
 .PHONY: mocks
-mocks: $(MOCKGEN)
+mocks: get-mockgen
 	$(MOCKGEN) --source info/as_parser.go --destination info/as_parser_mock.go --package info
 	$(MOCKGEN) --source asconfig/generate.go --destination asconfig/generate_mock.go --package asconfig
 

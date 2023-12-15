@@ -4,8 +4,8 @@ import (
 	"testing"
 
 	"github.com/go-logr/logr"
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/suite"
+	"go.uber.org/mock/gomock"
 )
 
 type AsConfigTestSuite struct {
@@ -14,12 +14,12 @@ type AsConfigTestSuite struct {
 	ctrl       *gomock.Controller
 }
 
-func (suite *AsConfigTestSuite) SetupTest() {
-	suite.ctrl = gomock.NewController(suite.T())
-	suite.mockGetter = NewMockConfGetter(suite.ctrl)
+func (s *AsConfigTestSuite) SetupTest() {
+	s.ctrl = gomock.NewController(s.T())
+	s.mockGetter = NewMockConfGetter(s.ctrl)
 }
 
-func (suite *AsConfigTestSuite) TestAsConfigGetFlatMap() {
+func (s *AsConfigTestSuite) TestAsConfigGetFlatMap() {
 	testCases := []struct {
 		name     string
 		version  string
@@ -78,19 +78,19 @@ func (suite *AsConfigTestSuite) TestAsConfigGetFlatMap() {
 	}
 
 	for _, tc := range testCases {
-		suite.Run(tc.name, func() {
+		s.Run(tc.name, func() {
 			logger := logr.Discard()
 
 			asConfig, err := NewMapAsConfig(logger, tc.version, tc.inputMap)
 			actual := asConfig.GetFlatMap()
 
-			suite.Assert().Nil(err)
-			suite.Assert().Equal(tc.expected, actual)
+			s.Assert().Nil(err)
+			s.Assert().Equal(tc.expected, actual)
 		})
 	}
 }
 
-func (suite *AsConfigTestSuite) TestAsConfigGetExpandMap() {
+func (s *AsConfigTestSuite) TestAsConfigGetExpandMap() {
 	testCases := []struct {
 		name     string
 		version  string
@@ -364,14 +364,14 @@ func (suite *AsConfigTestSuite) TestAsConfigGetExpandMap() {
 	}
 
 	for _, tc := range testCases {
-		suite.Run(tc.name, func() {
+		s.Run(tc.name, func() {
 			logger := logr.Discard()
 
 			asConfig, err := NewMapAsConfig(logger, tc.version, tc.inputMap)
 			actual := asConfig.ToMap()
 
-			suite.Assert().Nil(err)
-			suite.Assert().Equal(tc.expected, *actual)
+			s.Assert().Nil(err)
+			s.Assert().Equal(tc.expected, *actual)
 		})
 	}
 }

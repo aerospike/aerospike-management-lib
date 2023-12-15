@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	lib "github.com/aerospike/aerospike-management-lib"
+	"github.com/aerospike/aerospike-management-lib/info"
 	"github.com/go-logr/logr"
 )
 
@@ -17,8 +18,6 @@ const (
 	flatConfKey       = "flat_config"
 	flatSchemaKey     = "flat_schema"
 	normFlatSchemaKey = "normalized_flat_schema"
-	metadataKey       = "metadata"
-	buildKey          = "asd_build"
 )
 
 // namespaceRe is a regular expression used to match and extract namespace configurations from the config file.
@@ -79,7 +78,10 @@ func GenerateConf(log logr.Logger, confGetter ConfGetter, removeDefaults bool) (
 		return nil, err
 	}
 
-	return newGenConf(validConfig[expandConfKey].(Conf), validConfig[metadataKey].(Conf)[buildKey].(string)), nil
+	return newGenConf(
+		validConfig[expandConfKey].(Conf),
+		validConfig[info.ConstMetadata].(Conf)[info.MetaBuild].(string),
+	), nil
 }
 
 // isSupportedGenerateVersion checks if the provided version is supported for generating the config.
@@ -148,7 +150,7 @@ func newGetFlatSchemaStep(log logr.Logger) *GetFlatSchemaStep {
 func (s *GetFlatSchemaStep) execute(conf Conf) error {
 	s.log.V(1).Info("Getting flat schema")
 
-	build := conf[metadataKey].(Conf)[buildKey].(string)
+	build := conf[info.ConstMetadata].(Conf)[info.MetaBuild].(string)
 	flatSchema, err := getFlatSchema(build)
 
 	if err != nil {
@@ -186,21 +188,21 @@ func (s *GetConfigStep) execute(conf Conf) error {
 		return err
 	}
 
-	conf["config"] = configs
+	conf[info.ConstConfigs] = configs
 
-	if _, ok := configs["racks"]; ok {
+	if _, ok := configs[info.ConfigRacksContext]; ok {
 		// We don't need the racks config. flattenConf logs an error when it sees this.
-		conf["racks"] = configs["racks"]
-		delete(configs, "racks")
+		conf[info.ConfigRacksContext] = configs[info.ConfigRacksContext]
+		delete(configs, info.ConfigRacksContext)
 	}
 
-	metadata, err := s.confGetter.GetAsInfo(metadataKey)
+	metadata, err := s.confGetter.GetAsInfo(info.ConstMetadata)
 	if err != nil {
 		s.log.V(-1).Error(err, "Error getting metadata from node")
 		return err
 	}
 
-	conf[metadataKey] = metadata[metadataKey]
+	conf[info.ConstMetadata] = metadata[info.ConstMetadata]
 
 	return nil
 }
@@ -223,7 +225,7 @@ func newServerVersionCheckStep(log logr.Logger, checkFunc func(string) (bool, er
 func (s *ServerVersionCheckStep) execute(conf Conf) error {
 	s.log.V(1).Info("Checking server version")
 
-	build := conf[metadataKey].(Conf)[buildKey].(string)
+	build := conf[info.ConstMetadata].(Conf)[info.MetaBuild].(string)
 	isSupported, err := s.checkFunc(build)
 
 	if err != nil {
@@ -232,7 +234,7 @@ func (s *ServerVersionCheckStep) execute(conf Conf) error {
 	}
 
 	if !isSupported {
-		s.log.V(-1).Info("Unsupported server version: %s", build)
+		s.log.V(-1).Info("Unsupported server version", "version", build)
 		return fmt.Errorf("unsupported version: %s", build)
 	}
 
@@ -258,14 +260,14 @@ var rackRegex = regexp.MustCompile(`rack_(\d+)`)
 func (s *copyEffectiveRackIDStep) execute(conf Conf) error {
 	s.log.V(1).Info("Copying effective rack-id to rack-id")
 
-	if _, ok := conf["racks"]; !ok {
+	if _, ok := conf[info.ConfigRacksContext]; !ok {
 		s.log.V(-1).Info("No racks config found")
 		return nil
 	}
 
 	flatConfig := conf[flatConfKey].(Conf)
-	effectiveRacks := conf["racks"].([]Conf)
-	nodeID := conf[metadataKey].(Conf)["node_id"].(string)
+	effectiveRacks := conf[info.ConfigRacksContext].([]Conf)
+	nodeID := conf[info.ConstMetadata].(Conf)["node_id"].(string)
 
 	for _, rackInfo := range effectiveRacks {
 		ns := rackInfo["ns"].(string)
@@ -294,7 +296,7 @@ func (s *copyEffectiveRackIDStep) execute(conf Conf) error {
 			}
 
 			// Copy effective rack-id over the ns config
-			key := fmt.Sprintf("namespaces.{%s}.rack-id", ns)
+			key := fmt.Sprintf("namespaces%s{%s}%srack-id", sep, ns, sep)
 			flatConfig[key] = rackID
 
 			break
@@ -320,8 +322,8 @@ func newRenameLoggingContextsStep(log logr.Logger) *renameKeysStep {
 func (s *renameKeysStep) execute(conf Conf) error {
 	s.log.V(1).Info("Renaming keys")
 
-	config := conf["config"].(Conf)
-	logging, ok := config["logging"].(Conf)
+	config := conf[info.ConstConfigs].(Conf)
+	logging, ok := config[info.ConfigLoggingContext].(Conf)
 
 	if !ok {
 		s.log.V(-1).Info("No logging config found")
@@ -334,12 +336,12 @@ func (s *renameKeysStep) execute(conf Conf) error {
 		switch v := value.(type) {
 		case Conf:
 			if key == "stderr" {
-				newLoggingEntries["console"] = value
+				newLoggingEntries[constLoggingConsole] = value
 
 				delete(logging, key)
 			} else if !strings.HasSuffix(key, ".log") {
-				newLoggingEntries["syslog"] = v
-				syslog := newLoggingEntries["syslog"].(Conf)
+				newLoggingEntries[constLoggingSyslog] = v
+				syslog := newLoggingEntries[constLoggingSyslog].(Conf)
 				syslog["path"] = key
 
 				delete(logging, key)
@@ -395,7 +397,7 @@ func convertDictToList(config Conf) []Conf {
 			continue
 		}
 
-		config2["name"] = key1
+		config2[keyName] = key1
 		list[count] = config2
 		count++
 
@@ -417,8 +419,8 @@ func convertDictToList(config Conf) []Conf {
 
 // convertDictRespToConf converts a dictionary response to a Conf.
 func convertDictRespToConf(config Conf) {
-	if _, ok := config["logging"].(Conf); ok {
-		config["logging"] = convertDictToList(config["logging"].(Conf))
+	if _, ok := config[info.ConfigLoggingContext].(Conf); ok {
+		config[info.ConfigLoggingContext] = convertDictToList(config[info.ConfigLoggingContext].(Conf))
 	}
 
 	if _, ok := config["namespaces"].(Conf); ok {
@@ -441,11 +443,11 @@ func convertDictRespToConf(config Conf) {
 func (s *flattenConfStep) execute(conf Conf) error {
 	s.log.V(1).Info("Flattening config")
 
-	origConfig := conf["config"].(Conf)
+	origConfig := conf[info.ConstConfigs].(Conf)
 
 	convertDictRespToConf(origConfig)
 
-	conf[flatConfKey] = flattenConf(s.log, conf["config"].(Conf), sep)
+	conf[flatConfKey] = flattenConf(s.log, conf[info.ConstConfigs].(Conf), sep)
 
 	return nil
 }
@@ -554,7 +556,7 @@ func (s *transformKeyValuesStep) execute(conf Conf) error {
 	origFlatConf := conf[flatConfKey].(Conf)
 	newFlatConf := make(Conf, len(origFlatConf)) // we will overwrite flat_config
 	sortedKeys := sortKeys(origFlatConf)
-	scNamspaces := []string{}
+	scNamespaces := []string{}
 
 	for _, key := range sortedKeys {
 		// We will mutate the servers key, value response to match the schema
@@ -564,7 +566,7 @@ func (s *transformKeyValuesStep) execute(conf Conf) error {
 		if nsMatch := namespaceRe.FindStringSubmatch(key); nsMatch != nil {
 			if nsMatch[3] == sep+"strong-consistency" && value.(bool) {
 				ns := nsMatch[2]
-				scNamspaces = append(scNamspaces, ns)
+				scNamespaces = append(scNamespaces, ns)
 			}
 		}
 
@@ -637,7 +639,7 @@ func (s *transformKeyValuesStep) execute(conf Conf) error {
 		newFlatConf[key] = value
 	}
 
-	for _, ns := range scNamspaces {
+	for _, ns := range scNamespaces {
 		for _, disallowed := range disallowedInConfigWhenSC() {
 			key := fmt.Sprintf("namespaces%s%s%s%s", sep, ns, sep, disallowed)
 			delete(newFlatConf, key)
@@ -666,7 +668,7 @@ func (s *removeSecurityIfDisabledStep) execute(conf Conf) error {
 	s.log.V(1).Info("Removing security configs if security is disabled")
 
 	flatConf := conf[flatConfKey].(Conf)
-	build := conf[metadataKey].(Conf)[buildKey].(string)
+	build := conf[info.ConstMetadata].(Conf)[info.MetaBuild].(string)
 
 	if val, ok := flatConf["security.enable-security"]; ok {
 		securityEnabled, ok := val.(bool)
@@ -747,7 +749,7 @@ func compareDefaults(log logr.Logger, defVal, confVal interface{}) bool {
 		case uint64:
 			return val == confVal
 		default:
-			log.V(-1).Info("Unexpected type when comparing default (%s) to config value (%s)", val, confVal)
+			log.V(-1).Info("Unexpected type when comparing default to config value", "default", val, "value", confVal)
 		}
 	case int64:
 		switch confVal := confVal.(type) {
@@ -760,7 +762,7 @@ func compareDefaults(log logr.Logger, defVal, confVal interface{}) bool {
 		case int64:
 			return val == confVal
 		default:
-			log.V(-1).Info("Unexpected type when comparing default (%s) to config value (%s)", val, confVal)
+			log.V(-1).Info("Unexpected type when comparing default to config value", "default", val, "value", confVal)
 		}
 	default:
 		return val == confVal
@@ -799,7 +801,7 @@ func (s *removeDefaultsStep) execute(conf Conf) error {
 		}
 
 		// Handle logging differently
-		if strings.HasPrefix(key, "logging"+sep) {
+		if strings.HasPrefix(key, info.ConfigLoggingContext+sep) {
 			contextKey, _ := splitContextBaseKey(key)
 
 			if loggingMap[contextKey] == nil {
@@ -863,7 +865,7 @@ func (s *removeDefaultsStep) execute(conf Conf) error {
 	}
 
 	if securityFound {
-		build := conf[metadataKey].(Conf)[buildKey].(string)
+		build := conf[info.ConstMetadata].(Conf)[info.MetaBuild].(string)
 		cmp, err := lib.CompareVersions(build, "5.7.0")
 
 		if err != nil {
