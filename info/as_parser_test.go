@@ -145,7 +145,6 @@ func (s *AsParserTestSuite) TestAsInfoRequestInfo() {
 
 			s.Assert().Nil(err)
 			s.Assert().Equal(tc.expected, result)
-
 		})
 	}
 }
@@ -160,6 +159,7 @@ func (s *AsParserTestSuite) TestAsInfoRequestInfoXDR5() {
 	s.mockConn.EXPECT().RequestInfo([]string{"get-config:context=xdr;dc=DC1"}).Return(map[string]string{"get-config:context=xdr;dc=DC1": "auth-mode=none;auth-password-file=null;auth-user=null;connector=false;max-recoveries-interleaved=0;node-address-port=;period-ms=100;tls-name=null;use-alternate-access-address=false;namespaces=test"}, nil)
 	s.mockConn.EXPECT().RequestInfo([]string{"get-config:context=xdr;dc=DC2"}).Return(map[string]string{"get-config:context=xdr;dc=DC2": "auth-mode=none;auth-password-file=null;auth-user=null;connector=false;max-recoveries-interleaved=0;node-address-port=;period-ms=100;tls-name=null;use-alternate-access-address=false;namespaces=bar"}, nil)
 	s.mockConn.EXPECT().RequestInfo([]string{"get-config:context=xdr;dc=DC2;namespace=bar", "get-config:context=xdr;dc=DC1;namespace=test"}).Return(map[string]string{"get-config:context=xdr;dc=DC1;namespace=test": "enabled=true;bin-policy=all;compression-level=1;compression-threshold=128;delay-ms=0;enable-compression=false;forward=false;hot-key-ms=100;ignored-bins=", "get-config:context=xdr;dc=DC2;namespace=bar": "enabled=true;bin-policy=all;compression-level=1;compression-threshold=128;delay-ms=0;enable-compression=false;forward=false;hot-key-ms=100;ignored-bins="}, nil)
+
 	expected := lib.Stats{"xdr": lib.Stats{
 		"src-id":       int64(0),
 		"trace-sample": int64(0),
