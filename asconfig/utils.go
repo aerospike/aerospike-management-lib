@@ -114,7 +114,7 @@ func deHumanizeSize(val string) (uint64, error) {
 	return n, nil
 }
 
-// start and end charecter for section names
+// start and end character for section names
 var sectionNameStartChar = '{'
 var sectionNameEndChar = '}'
 
@@ -494,7 +494,7 @@ func diff(
 	for k, v1 := range c1 {
 		// Ignore the node specific details
 		bN := baseKey(k)
-		if !c2IsDefault && (isNodeSpecificContext(k) || isNodeSpecificField(bN)) {
+		if !c2IsDefault && isNodeSpecificField(bN) {
 			// If we need diff with defaults then we need to consider all fields
 			// otherwise ignore nodespecific details
 			continue
@@ -595,11 +595,6 @@ func ConfDiff(
 	log.Info("print c2ToC1Diffs", "difference", fmt.Sprintf("%v", c2ToC1Diffs))
 
 	if len(c2ToC1Diffs) > 0 {
-		defaultMap, err := GetDefault(ver)
-		if err != nil {
-			return nil
-		}
-
 		deleteKeys := make([]string, 0)
 
 		for c2ToC1DiffKey := range c2ToC1Diffs {
@@ -628,6 +623,11 @@ func ConfDiff(
 			}
 
 			if setDefault {
+				defaultMap, err := GetDefault(ver)
+				if err != nil {
+					return nil
+				}
+
 				c1ToC2Diffs[c2ToC1DiffKey] = getDefaultValue(defaultMap, c2ToC1DiffKey)
 			}
 		}
@@ -1080,7 +1080,6 @@ func isDelimitedStringField(key string) (exists bool, separator string) {
 // into Conf objects. Also converts the list form in conf
 // into map form, if required.
 
-//nolint:gocyclo //refactor later
 func toConf(log logr.Logger, input map[string]interface{}) Conf {
 	result := make(Conf)
 
@@ -1367,125 +1366,3 @@ func CompareVersionsIgnoreRevision(version1, version2 string) (int, error) {
 
 	return 0, nil
 }
-
-/*
-func CreateASConfCommand(diff string, value interface{}) ([]string, error) {
-	tokens := strings.Split(diff, ".")
-	context := tokens[0]
-	cmds := make([]string, 0)
-	cmd := ""
-
-	switch context {
-	case "xdr":
-		cmd = fmt.Sprintf("set-config:context=%s", context)
-		prevToken := context
-
-		for _, token := range tokens[1:] {
-			if token[0] == '{' && token[len(token)-1] == '}' {
-				switch prevToken {
-				case "dcs", NAMESPACES:
-					cmd += fmt.Sprintf(";%s=%s", SingularOf(prevToken), strings.Trim(token, "{}"))
-				}
-			} else {
-				prevToken = token
-			}
-		}
-
-		val, err := convertValueToString(value)
-		if err != nil {
-			return nil, err
-		}
-
-		for _, v := range val {
-			finalCMD := cmd + ";" + SingularOf(prevToken) + "=" + v
-			cmds = append(cmds, finalCMD)
-		}
-	case NAMESPACES:
-		cmd = fmt.Sprintf("set-config:context=%s", SingularOf(context))
-		prevToken := context
-
-		for _, token := range tokens[1:] {
-			if token[0] == '{' && token[len(token)-1] == '}' {
-				switch prevToken {
-				case "sets":
-					cmd += fmt.Sprintf(";%s=%s", SingularOf(prevToken), strings.Trim(token, "{}"))
-				case NAMESPACES:
-					cmd += fmt.Sprintf(";id=%s", strings.Trim(token, "{}"))
-				}
-			} else {
-				if prevToken == "index-type" || prevToken == "sindex-type" {
-					cmd += fmt.Sprintf(";%s.%s", prevToken, token)
-					prevToken = ""
-				} else {
-					prevToken = token
-				}
-			}
-		}
-
-		val, err := convertValueToString(value)
-		if err != nil {
-			return nil, err
-		}
-
-		for _, v := range val {
-			finalCMD := ""
-			if prevToken != "" {
-				finalCMD = cmd + ";" + SingularOf(prevToken) + "=" + v
-			} else {
-				finalCMD = cmd + "=" + v
-			}
-
-			cmds = append(cmds, finalCMD)
-		}
-
-	case "network", "security", "service":
-		cmd = fmt.Sprintf("set-config:context=%v;", context)
-
-		for _, token := range tokens[1:] {
-			if token[0] != '{' && token[len(token)-1] != '}' {
-				cmd = cmd + token + "."
-			}
-		}
-
-		cmd = strings.TrimSuffix(cmd, ".")
-
-		val, err := convertValueToString(value)
-		if err != nil {
-			return nil, err
-		}
-
-		for _, v := range val {
-			finalCMD := cmd + "=" + v
-			cmds = append(cmds, finalCMD)
-		}
-	}
-
-	return cmds, nil
-}
-
-func convertValueToString(v1 interface{}) ([]string, error) {
-	values := make([]string, 0)
-
-	if v1 == nil {
-		return values, nil
-	}
-
-	switch val1 := v1.(type) {
-	case []string:
-		return val1, nil
-
-	case string:
-		return append(values, val1), nil
-
-	case bool:
-		return append(values, fmt.Sprintf("%t", v1)), nil
-
-	case int, uint64, int64, float64:
-		return append(values, fmt.Sprintf("%v", v1)), nil
-
-	default:
-		return values, fmt.Errorf("format not supported")
-	}
-}
-
-*/

@@ -17,6 +17,10 @@ linters-settings:
   nolintlint:
     require-explanation: true
     require-specific: true
+  gocyclo:
+    # The maximal code complexity to report.
+    # Default: 40
+    min-complexity: 40
 
 linters:
   disable-all: true
