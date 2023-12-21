@@ -19,7 +19,7 @@ go-lint: golanci-lint ## Run golangci-lint against code.
 	$(GOLANGCI_LINT) run
 
 .PHONY: get-mockgen
-get-mockgen: $(MOCKGEN) ## Download golangci-lint locally if necessary.
+get-mockgen: $(MOCKGEN) ## Download mockgen locally if necessary.
 $(MOCKGEN): $(GOBIN)
 	go install go.uber.org/mock/mockgen@$(MOCKGEN_VERSION)
 

@@ -95,17 +95,15 @@ type AerospikeContainer struct {
 type Containers struct {
 	namesToContainers map[string]*AerospikeContainer
 	dockerCLI         *client.Client
-	dockerCTX         context.Context
 	workDir           string
 }
 
-var containers = &Containers{make(map[string]*AerospikeContainer), nil, nil, ""}
+var containers = &Containers{make(map[string]*AerospikeContainer), nil, ""}
 
 func Start(size int) error {
 	cli, _ := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	ctx := context.Background()
 	containers.dockerCLI = cli
-	containers.dockerCTX = ctx
 	containers.workDir, _ = filepath.Abs(WordDirAbs)
 	reader, err := cli.ImagePull(ctx, Image, types.ImagePullOptions{})
 
@@ -222,20 +220,35 @@ func createConfigFile(portBase int, accessAddress, peerConnection string) (strin
 	return file.Name(), nil
 }
 
-func StopAerospikeContainer(name string) error {
-	log.Printf("Stopping container %s", name)
+func waitForASDToStart(name string) error {
+	startTime := time.Now()
+	timeout := 10 * time.Second
+	policy := aerospike.NewClientPolicy()
+	policy.User = User
+	policy.Password = Password
 
-	if containers.dockerCLI == nil {
-		log.Printf("Unable to stop container %s: docker client not initialized", name)
-		return fmt.Errorf("unable to stop container %s: docker client not initialized", name)
+	for {
+		asClient, err := aerospike.NewClientWithPolicy(
+			policy, IP, PortStart)
+
+		if err == nil {
+			if asClient.IsConnected() {
+				break
+			}
+
+			asClient.Close()
+		}
+
+		if time.Since(startTime) > timeout {
+			log.Printf("Timed out waiting for asd %s to start %s", name, err)
+			return err
+		}
+
+		log.Printf("Waiting for asd %s to start %s", name, err)
+		time.Sleep(1 * time.Second)
 	}
 
-	cli := containers.dockerCLI
-
-	ctx := context.Background()
-	if err := cli.ContainerStop(ctx, name, container.StopOptions{}); err != nil {
-		log.Printf("Unable to stop container %s: %s", name, err)
-	}
+	log.Printf("asd %s started", name)
 
 	return nil
 }
@@ -246,7 +259,7 @@ func RunAerospikeContainer(
 	ip string,
 	portBase int,
 	peerConnection string) (*AerospikeContainer, error) {
-	ctx := containers.dockerCTX
+	ctx := context.Background()
 	cli := containers.dockerCLI
 
 	log.Printf("Starting container %s", name)
@@ -339,54 +352,16 @@ func RunAerospikeContainer(
 	log.Printf("Started container %s with IP %s", name, inspect.NetworkSettings.IPAddress)
 	log.Printf("Waiting for asd %s to start", name)
 
-	startTime := time.Now()
-	timeout := 10 * time.Second
-	policy := aerospike.NewClientPolicy()
-	policy.User = User
-	policy.Password = Password
-
-	for {
-		asClient, err := aerospike.NewClientWithPolicy(
-			policy, IP, portBase)
-
-		if err == nil {
-			if asClient.IsConnected() {
-				break
-			}
-
-			asClient.Close()
-		}
-
-		if time.Since(startTime) > timeout {
-			log.Printf("Timed out waiting for asd %s to start %s", name, err)
-			return nil, err
-		}
-
-		log.Printf("Waiting for asd %s to start %s", name, err)
-		time.Sleep(1 * time.Second)
+	if waitForASDToStart(name) != nil {
+		return nil, err
 	}
 
 	return &AerospikeContainer{inspect.NetworkSettings.IPAddress, confFile, portBase}, nil
 }
 
-func StartAerospikeContainer(name string) (string, error) {
-	ctx := context.Background()
-	cli := containers.dockerCLI
-
-	if err := cli.ContainerStart(ctx, name, types.ContainerStartOptions{}); err != nil {
-		log.Printf("Unable to start container %s: %s", name, err)
-		return "", err
-	}
-
-	inspect, _ := cli.ContainerInspect(ctx, name)
-
-	log.Printf("Started container %s with IP %s", name, inspect.NetworkSettings.IPAddress)
-
-	return inspect.NetworkSettings.IPAddress, nil
-}
-
 func RestartAerospikeContainer(name, confFileContents string) error {
 	cli := containers.dockerCLI
+	ctx := context.Background()
 	ip := containers.namesToContainers[name].ip
 	log.Printf("Restarting container %s with IP %s", name, ip)
 
@@ -407,7 +382,7 @@ func RestartAerospikeContainer(name, confFileContents string) error {
 		}
 	}
 
-	err := cli.ContainerRestart(containers.dockerCTX, name, container.StopOptions{})
+	err := cli.ContainerRestart(ctx, name, container.StopOptions{})
 
 	if err != nil {
 		log.Printf("Unable to restart container %s: %s", name, err)
@@ -417,31 +392,8 @@ func RestartAerospikeContainer(name, confFileContents string) error {
 	log.Printf("Restarted container %s with IP %s", name, ip)
 	log.Printf("Waiting for asd %s to start", name)
 
-	startTime := time.Now()
-	timeout := 10 * time.Second
-	policy := aerospike.NewClientPolicy()
-	policy.User = User
-	policy.Password = Password
-
-	for {
-		asClient, err := aerospike.NewClientWithPolicy(
-			policy, IP, PortStart)
-
-		if err == nil {
-			if asClient.IsConnected() {
-				break
-			}
-
-			asClient.Close()
-		}
-
-		if time.Since(startTime) > timeout {
-			log.Printf("Timed out waiting for asd %s to start %s", name, err)
-			return err
-		}
-
-		log.Printf("Waiting for asd %s to start %s", name, err)
-		time.Sleep(1 * time.Second)
+	if waitForASDToStart(name) != nil {
+		return err
 	}
 
 	return nil
