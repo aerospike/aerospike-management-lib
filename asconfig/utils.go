@@ -1079,7 +1079,6 @@ func isDelimitedStringField(key string) (exists bool, separator string) {
 // toConf does deep conversion of map[string]interface{}
 // into Conf objects. Also converts the list form in conf
 // into map form, if required.
-
 func toConf(log logr.Logger, input map[string]interface{}) Conf {
 	result := make(Conf)
 
@@ -1093,123 +1092,154 @@ func toConf(log logr.Logger, input map[string]interface{}) Conf {
 			continue
 		}
 
-		switch v := v.(type) {
-		case lib.Stats:
-			result[k] = toConf(log, v)
+		handleValueType(log, k, v, result)
+	}
 
-		case map[string]interface{}:
-			result[k] = toConf(log, v)
+	return result
+}
 
-		case []map[string]interface{}:
-			if len(v) == 0 {
-				result[k] = make([]Conf, 0)
-			} else {
-				temp := make([]Conf, len(v))
-				for i, m := range v {
-					temp[i] = toConf(log, m)
-				}
-				result[k] = temp
-			}
+func handleValueType(log logr.Logger, key string, value interface{}, result Conf) {
+	switch v := value.(type) {
+	case lib.Stats:
+		result[key] = toConf(log, v)
 
-		case []interface{}:
-			if len(v) == 0 {
-				if isListSection(k) || isSpecialListSection(k) {
-					result[k] = make([]Conf, 0)
-				} else if ok, _ := isListField(k); ok {
-					result[k] = make([]string, 0)
-				} else {
-					log.V(1).Info(
-						"[]interface neither list field or list section",
-						"key", k,
-					)
-				}
-			} else {
-				v1 := v[0]
-				switch v1.(type) {
-				case string:
-					temp := make([]string, len(v))
-					for i, s := range v {
-						if boolVal, isBool := s.(bool); isBool && isSpecialStringField(k) {
-							temp[i] = strconv.FormatBool(boolVal)
-						} else {
-							temp[i] = s.(string)
-						}
-					}
+	case map[string]interface{}:
+		result[key] = toConf(log, v)
 
-					result[k] = temp
+	case []map[string]interface{}:
+		result[key] = convertMapSlice(log, v)
 
-				case map[string]interface{}, lib.Stats:
-					temp := make([]Conf, len(v))
-					for i, m := range v {
-						m1, ok := m.(map[string]interface{})
-						if !ok {
-							m1, ok = m.(lib.Stats)
-						}
-						if ok {
-							temp[i] = toConf(log, m1)
-						} else {
-							log.V(1).Info("[]Conf does not have map[string]interface{}")
-							break
-						}
-					}
+	case []interface{}:
+		result[key] = convertInterfaceSlice(log, key, v)
 
-					result[k] = temp
+	case string:
+		result[key] = convertString(key, v)
 
-				default:
-					log.V(1).Info(
-						"Unexpected value",
-						"type", reflect.TypeOf(v), "key", k, "value", v,
-					)
-				}
-			}
+	case bool:
+		result[key] = convertBool(key, v)
 
+	case int64:
+		if v < 0 {
+			result[key] = v
+		} else {
+			result[key] = uint64(v)
+		}
+
+	case uint64:
+		result[key] = v
+
+	case float64:
+		// security.syslog.local can be -1
+		if v < 0 {
+			result[key] = int64(v)
+		} else {
+			result[key] = uint64(v)
+		}
+
+	default:
+		result[key] = value
+	}
+}
+
+// Add other helper functions here...
+
+func convertMapSlice(log logr.Logger, v []map[string]interface{}) (result []Conf) {
+	if len(v) == 0 {
+		result = make([]Conf, 0)
+	} else {
+		temp := make([]Conf, len(v))
+		for i, m := range v {
+			temp[i] = toConf(log, m)
+		}
+
+		result = temp
+	}
+
+	return result
+}
+
+func convertInterfaceSlice(log logr.Logger, k string, v []interface{}) (result interface{}) {
+	if len(v) == 0 {
+		if isListSection(k) || isSpecialListSection(k) {
+			result = make([]Conf, 0)
+		} else if ok, _ := isListField(k); ok {
+			result = make([]string, 0)
+		} else {
+			log.V(1).Info(
+				"[]interface neither list field or list section",
+				"key", k,
+			)
+		}
+	} else {
+		v1 := v[0]
+		switch v1.(type) {
 		case string:
-			if ok, _ := isListField(k); ok && k != keyFeatureKeyFile {
-				if k == keyTLSAuthenticateClient && (v == "any" || v == "false") {
-					result[k] = v
+			temp := make([]string, len(v))
+			for i, s := range v {
+				if boolVal, isBool := s.(bool); isBool && isSpecialStringField(k) {
+					temp[i] = strconv.FormatBool(boolVal)
 				} else {
-					result[k] = []string{v}
+					temp[i] = s.(string)
 				}
-			} else {
-				result[k] = v
 			}
 
-		case bool:
-			if isSpecialStringField(k) {
-				if ok, _ := isListField(k); ok {
-					if k == keyTLSAuthenticateClient && !v {
-						result[k] = strconv.FormatBool(v)
-					} else {
-						result[k] = []string{strconv.FormatBool(v)}
-					}
+			result = temp
+
+		case map[string]interface{}, lib.Stats:
+			temp := make([]Conf, len(v))
+			for i, m := range v {
+				m1, ok := m.(map[string]interface{})
+				if !ok {
+					m1, ok = m.(lib.Stats)
+				}
+				if ok {
+					temp[i] = toConf(log, m1)
 				} else {
-					result[k] = strconv.FormatBool(v)
+					log.V(1).Info("[]Conf does not have map[string]interface{}")
+					break
 				}
-			} else {
-				result[k] = v
 			}
 
-		case int64:
-			if v < 0 {
-				result[k] = v
-			} else {
-				result[k] = uint64(v)
-			}
-
-		case uint64:
-			result[k] = v
-
-		case float64:
-			// security.syslog.local can be -1
-			if v < 0 {
-				result[k] = int64(v)
-			} else {
-				result[k] = uint64(v)
-			}
+			result = temp
 
 		default:
-			result[k] = v
+			log.V(1).Info(
+				"Unexpected value",
+				"type", reflect.TypeOf(v), "key", k, "value", v,
+			)
 		}
+	}
+
+	return result
+}
+
+func convertString(k, v string) (result interface{}) {
+	if ok, _ := isListField(k); ok && k != keyFeatureKeyFile {
+		if k == keyTLSAuthenticateClient && (v == "any" || v == "false") {
+			result = v
+		} else {
+			result = []string{v}
+		}
+	} else {
+		result = v
+	}
+
+	return result
+}
+
+func convertBool(k string, v bool) (result interface{}) {
+	if isSpecialStringField(k) {
+		if ok, _ := isListField(k); ok {
+			if k == keyTLSAuthenticateClient && !v {
+				result = strconv.FormatBool(v)
+			} else {
+				result = []string{strconv.FormatBool(v)}
+			}
+		} else {
+			result = strconv.FormatBool(v)
+		}
+	} else {
+		result = v
 	}
 
 	return result
