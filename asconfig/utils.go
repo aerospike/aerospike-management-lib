@@ -15,6 +15,7 @@ import (
 	"strconv"
 	"strings"
 
+	sets "github.com/deckarep/golang-set/v2"
 	"github.com/go-logr/logr"
 
 	lib "github.com/aerospike/aerospike-management-lib"
@@ -479,7 +480,7 @@ func isValueDiff(log logr.Logger, v1, v2 interface{}) bool {
 // node specific information like address, device, interface etc..
 func diff(
 	log logr.Logger, c1, c2 Conf,
-	isFlat, c2IsDefault, ignoreInternalFields, ignoreOrdering bool,
+	isFlat, c2IsDefault, ignoreInternalFields bool,
 ) Conf {
 	// Flatten if not flattened already.
 	if !isFlat {
@@ -494,19 +495,14 @@ func diff(
 	for k, v1 := range c1 {
 		// Ignore the node specific details
 		bN := baseKey(k)
-		if !c2IsDefault && isNodeSpecificField(bN) {
+		if !c2IsDefault && (isNodeSpecificContext(k) || isNodeSpecificField(bN)) {
 			// If we need diff with defaults then we need to consider all fields
-			// otherwise ignore nodespecific details
+			// otherwise ignore nodespcific details
 			continue
 		}
 
 		// Ignore internal fields
 		if ignoreInternalFields && isInternalField(k) {
-			continue
-		}
-
-		// Ignore Ordering
-		if ignoreOrdering && baseKey(k) == "index" {
 			continue
 		}
 
@@ -535,23 +531,7 @@ func diff(
 				continue
 			}
 
-			diffUpdate := false
-
-			tokens := strings.Split(k, sep)
-			for idx, token := range tokens {
-				if int32(token[0]) == sectionNameStartChar && int32(token[len(token)-1]) == sectionNameEndChar {
-					if _, okay := c2[strings.Join(tokens[:idx+1], sep)+"."+keyName]; !okay {
-						d[strings.Join(tokens[:idx+1], sep)+"."+keyName] = c1[strings.Join(tokens[:idx+1], sep)+"."+keyName]
-						diffUpdate = true
-
-						break
-					}
-				}
-			}
-
-			if !diffUpdate {
-				d[k] = c1[k]
-			}
+			d[k] = c1[k]
 
 			continue
 		}
@@ -567,11 +547,6 @@ func diff(
 				diff[k] = v
 			}
 		*/
-		log.V(1).Info(
-			"compare", "key",
-			k, "v1", v1, "v2", v2,
-		)
-
 		if isValueDiff(log, v1, v2) {
 			d[k] = v1
 		}
@@ -580,63 +555,182 @@ func diff(
 	return d
 }
 
-// ConfDiff find diff between two configs;
+// detailedDiff find diff between two configs;
 //
-//		diff = c1 - c2
-//	 if any config parameter is present in c2 but not in c1, result map will contain the corresponding default value for
-//	 that config parameter.
-func ConfDiff(
-	log logr.Logger, c1 Conf, c2 Conf, isFlat, ignoreInternalFields, ignoreOrdering bool, ver string,
-) map[string]interface{} {
-	c1ToC2Diffs := diff(log, c1, c2, isFlat, false, ignoreInternalFields, ignoreOrdering)
-	log.Info("print diff", "difference", fmt.Sprintf("%v", c1ToC2Diffs))
+//	detailedDiff = c1 - c2
+//
+// Generally used to compare config current and desired. This ignores
+// node specific information like address, device, interface etc..
+func detailedDiff(log logr.Logger, c1, c2 Conf, isFlat,
+	desiredToActual bool, ver string) map[string]map[string]interface{} {
+	// Flatten if not flattened already.
+	if !isFlat {
+		c1 = flattenConf(log, c1, sep)
+		c2 = flattenConf(log, c2, sep)
+	}
 
-	c2ToC1Diffs := diff(log, c2, c1, isFlat, false, ignoreInternalFields, ignoreOrdering)
-	log.Info("print c2ToC1Diffs", "difference", fmt.Sprintf("%v", c2ToC1Diffs))
+	d := make(map[string]map[string]interface{})
 
-	if len(c2ToC1Diffs) > 0 {
-		deleteKeys := make([]string, 0)
-
-		for c2ToC1DiffKey := range c2ToC1Diffs {
-			if _, ok := c1ToC2Diffs[c2ToC1DiffKey]; ok {
-				continue
-			}
-
-			setDefault := true
-
-			for c1ToC2DiffKey := range c1ToC2Diffs {
-				if strings.HasPrefix(c1ToC2DiffKey, c2ToC1DiffKey) {
-					setDefault = false
-					break
-				}
-
-				// If any config parameter is present in c1 and not in c2, corresponding value will be empty in diff map
-				// Need to delete keys if value is empty.
-				// Add default values to those config parameter with if available in schema.
-				// eg. c1 has security: {} c2 has security.log.report-sys-admin: true
-				// c1ToC2DiffKey: map[security] = nil, c2ToC1DiffKey: map[security.log.report-sys-admin] =  true
-				// final diff should be map[security.log.report-sys-admin] = <default value>
-				if strings.HasPrefix(c2ToC1DiffKey, c1ToC2DiffKey) {
-					deleteKeys = append(deleteKeys, c1ToC2DiffKey)
-					break
-				}
-			}
-
-			if setDefault {
-				defaultMap, err := GetDefault(ver)
-				if err != nil {
-					return nil
-				}
-
-				c1ToC2Diffs[c2ToC1DiffKey] = getDefaultValue(defaultMap, c2ToC1DiffKey)
-			}
+	// For all keys in C1 if it does not exist in C2
+	// or if type or value is different add/update it
+	for k, v1 := range c1 {
+		// Ignore the node specific details and ordering
+		bN := baseKey(k)
+		if isNodeSpecificField(bN) || bN == "index" {
+			// If we need diff with defaults then we need to consider all fields
+			// otherwise ignore nodespecific details
+			continue
 		}
 
-		for _, k := range deleteKeys {
-			log.Info("deleting diff as value is nil", "key", k)
-			delete(c1ToC2Diffs, k)
+		// Add if not found in C2
+		v2, ok := c2[k]
+		if !ok {
+			diffUpdated := false
+
+			tokens := strings.Split(k, sep)
+			for idx, token := range tokens {
+				if int32(token[0]) == sectionNameStartChar && int32(token[len(token)-1]) == sectionNameEndChar {
+					if _, okay := c2[strings.Join(tokens[:idx+1], sep)+"."+keyName]; !okay {
+						valueMap := make(map[string]interface{})
+						valueMap["add"] = c1[strings.Join(tokens[:idx+1], sep)+"."+keyName]
+						d[strings.Join(tokens[:idx+1], sep)+"."+keyName] = valueMap
+						diffUpdated = true
+
+						break
+					}
+				}
+			}
+
+			// If any config parameter is present in c1 and not in c2, corresponding value will be empty in diff map
+			// Need to delete keys if value is empty.
+			// Add default values to those config parameter with if available in schema.
+			// eg. c1 has security: {} c2 has security.log.report-sys-admin: true
+			// c1ToC2DiffKey: map[security] = nil, c2ToC1DiffKey: map[security.log.report-sys-admin] =  true
+			// final diff should be map[security.log.report-sys-admin] = <default value>
+			if !diffUpdated {
+				for currentKey := range c2 {
+					if !strings.HasPrefix(currentKey, k+".") {
+						continue
+					}
+
+					if !desiredToActual {
+						diffUpdated = true
+						break
+					}
+
+					defaultMap, err := GetDefault(ver)
+					if err != nil {
+						log.Error(err, "error while getting default map")
+						return nil
+					}
+
+					defaultValue := getDefaultValue(defaultMap, currentKey)
+					valueMap := make(map[string]interface{})
+					valueMap["add"] = defaultValue
+					d[currentKey] = valueMap
+					diffUpdated = true
+				}
+			}
+
+			if !diffUpdated {
+				valueMap := make(map[string]interface{})
+
+				if reflect.ValueOf(c1[k]).Kind() == reflect.Slice {
+					if desiredToActual {
+						valueMap["add"] = c1[k].([]string)
+					} else {
+						valueMap["remove"] = c1[k].([]string)
+					}
+				} else {
+					valueMap["add"] = c1[k]
+				}
+
+				d[k] = valueMap
+			}
+
+			continue
+		}
+
+		log.V(1).Info(
+			"compare", "key",
+			k, "v1", v1, "v2", v2,
+		)
+
+		if desiredToActual && isValueDiff(log, v1, v2) {
+			valueMap := make(map[string]interface{})
+
+			if reflect.ValueOf(v1).Kind() == reflect.Slice {
+				statusSet := sets.NewSet[string]()
+				statusSet.Append(v2.([]string)...)
+
+				diffSet := sets.NewSet[string]()
+				diffSet.Append(v1.([]string)...)
+
+				removedValues := statusSet.Difference(diffSet)
+				if removedValues.Cardinality() > 0 {
+					valueMap["remove"] = removedValues.ToSlice()
+					d[k] = valueMap
+				}
+
+				addedValues := diffSet.Difference(statusSet)
+				if addedValues.Cardinality() > 0 {
+					valueMap["add"] = addedValues.ToSlice()
+					d[k] = valueMap
+				}
+			} else {
+				valueMap["add"] = v1
+				d[k] = valueMap
+			}
 		}
 	}
+
+	return d
+}
+
+// ConfDiff find diff between two configs;
+//
+//		diff = desired - current
+//	 if any config parameter is present in current but not in desired,
+//	 result map will contain the corresponding default value for
+//	 that config parameter.
+//
+// It returns a map of flatten conf key and value(which is another map of added and removed fields, mostly helps in the
+// case of list of string fields)
+func ConfDiff(
+	log logr.Logger, c1 Conf, c2 Conf, isFlat bool, ver string,
+) map[string]map[string]interface{} {
+	c1ToC2Diffs := detailedDiff(log, c1, c2, isFlat, true, ver)
+	log.Info("print diff inside", "difference", fmt.Sprintf("%v", c1ToC2Diffs))
+
+	c2ToC1Diffs := detailedDiff(log, c2, c1, isFlat, false, ver)
+	log.Info("print c2ToC1Diffs", "difference", fmt.Sprintf("%v", c2ToC1Diffs))
+
+	for c2ToC1DiffKey := range c2ToC1Diffs {
+		setDefault := true
+
+		// If whole string array type config is not present in desired config
+		if _, ok := c2ToC1Diffs[c2ToC1DiffKey]["remove"]; ok {
+			if reflect.ValueOf(c2ToC1Diffs[c2ToC1DiffKey]["remove"]).Kind() == reflect.Slice {
+				c1ToC2Diffs[c2ToC1DiffKey] = c2ToC1Diffs[c2ToC1DiffKey]
+				setDefault = false
+			}
+		}
+
+		if setDefault {
+			defaultMap, err := GetDefault(ver)
+			if err != nil {
+				log.Error(err, "error while getting default map")
+				return nil
+			}
+
+			defaultValue := getDefaultValue(defaultMap, c2ToC1DiffKey)
+			valueMap := make(map[string]interface{})
+			valueMap["add"] = defaultValue
+			c1ToC2Diffs[c2ToC1DiffKey] = valueMap
+		}
+	}
+
+	log.Info("print c1ToC2Diffs before return", "difference", fmt.Sprintf("%v", c1ToC2Diffs))
 
 	return c1ToC2Diffs
 }
@@ -649,7 +743,7 @@ func ConfDiff(
 func defaultDiff(
 	log logr.Logger, flatConf Conf, flatDefConf Conf,
 ) map[string]interface{} {
-	return diff(log, flatConf, flatDefConf, true, true, false, false)
+	return diff(log, flatConf, flatDefConf, true, true, false)
 }
 
 var nsRe = regexp.MustCompile(`namespace\.({[^.]+})\.(.+)`)

@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	sets "github.com/deckarep/golang-set/v2"
 	"github.com/go-logr/logr"
 )
 
@@ -154,14 +155,14 @@ func GetDynamic(ver string) (map[string]bool, error) {
 	return dynMap, nil
 }
 
-func IsAllDynamicConfig(configMap map[string]interface{}, version string) bool {
+func IsAllDynamicConfig(configMap map[string]map[string]interface{}, version string) bool {
 	dynamic, err := GetDynamic(version)
 	if err != nil {
 		return false
 	}
 
 	for confKey := range configMap {
-		isDynamic := isFieldDynamic(dynamic, confKey)
+		isDynamic := isFieldDynamic(dynamic, confKey, configMap[confKey])
 
 		if !isDynamic {
 			return false
@@ -171,10 +172,12 @@ func IsAllDynamicConfig(configMap map[string]interface{}, version string) bool {
 	return true
 }
 
-func isFieldDynamic(dynamic map[string]bool, conf string) bool {
+func isFieldDynamic(dynamic map[string]bool, conf string, valueMap map[string]interface{}) bool {
 	var key string
 
 	tokens := strings.Split(conf, ".")
+	baseKey := tokens[len(tokens)-1]
+
 	for _, token := range tokens {
 		if token[0] == '{' && token[len(token)-1] == '}' {
 			key += "_."
@@ -189,10 +192,15 @@ func isFieldDynamic(dynamic map[string]bool, conf string) bool {
 	}
 
 	// Marking these fields as static as corresponding set-config commands are not straight forward.
-	staticFields := []string{"rack-id", "report-data-op"}
+	staticFieldSet := sets.NewSet("rack-id")
+	conditionalStaticFieldSet := sets.NewSet("ignore-bins", "ignore-sets", "ship-bins", "ship-sets")
 
-	for _, field := range staticFields {
-		if strings.Contains(key, field) {
+	if staticFieldSet.Contains(baseKey) {
+		return false
+	}
+
+	if conditionalStaticFieldSet.Contains(baseKey) {
+		if _, ok := valueMap["remove"]; ok {
 			return false
 		}
 	}
