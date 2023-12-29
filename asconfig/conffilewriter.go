@@ -20,6 +20,11 @@ import (
 	lib "github.com/aerospike/aerospike-management-lib"
 )
 
+const (
+	constLoggingConsole = "console"
+	constLoggingSyslog  = "syslog"
+)
+
 func indentString(indent int) string {
 	return strings.Repeat(" ", indent*4)
 }
@@ -86,7 +91,7 @@ func writeLogSection(
 		}
 
 		key := name
-		if name != "console" && name != "syslog" {
+		if name != constLoggingConsole && name != constLoggingSyslog {
 			key = "file " + name
 		}
 

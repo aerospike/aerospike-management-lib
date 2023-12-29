@@ -1,0 +1,38 @@
+name: Tests
+on:
+  push:
+    branches:
+      - "*"
+    tags:
+      - v*
+  workflow_call:
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Get go version from go.mod
+      run: |
+        echo "GO_VERSION=$(grep '^go ' go.mod | cut -d " " -f 2)" >> $GITHUB_ENV
+    - uses: actions/setup-go@v3
+      with:
+        go-version: ${{ env.GO_VERSION }}
+    - name: Install dependencies
+      run: |
+        echo "CWD=$(pwd)" >> $GITHUB_ENV
+        git clone https://github.com/aerospike/schemas.git
+    - name: Generate Mocks
+      run: |
+        make mocks
+    - name: Test with go
+      env:
+        TEST_SCHEMA_DIR: ${{ env.CWD }}/schemas/json/aerospike
+      run: |
+        make coverage
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        token: ${{secrets.CODECOV_TOKEN}}
+        files: coverage.cov
+        verbose: false

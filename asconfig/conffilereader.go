@@ -232,9 +232,9 @@ func parseValue(k string, val interface{}) interface{} {
 		return value
 	} else if value, err := strconv.ParseBool(valStr); err == nil {
 		return value
-	} else {
-		return valStr
 	}
+
+	return valStr
 }
 
 func process(log logr.Logger, scanner *bufio.Scanner, conf Conf) (Conf, error) {
