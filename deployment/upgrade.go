@@ -3,6 +3,7 @@ package deployment
 import (
 	"fmt"
 
+	lib "github.com/aerospike/aerospike-management-lib"
 	"github.com/aerospike/aerospike-management-lib/asconfig"
 )
 
@@ -47,7 +48,7 @@ func IsValidUpgrade(fromVersion, toVersion string) error {
 
 // IsUpgrade returns true if it is upgrade else false
 func IsUpgrade(fromVersion, toVersion string) (bool, error) {
-	r, err := asconfig.CompareVersions(fromVersion, toVersion)
+	r, err := lib.CompareVersions(fromVersion, toVersion)
 	if err != nil {
 		return false, fmt.Errorf("failed to compare version fromVersion %s , toVersion %s: %v", fromVersion, toVersion, err)
 	}
@@ -61,8 +62,8 @@ func IsUpgrade(fromVersion, toVersion string) (bool, error) {
 
 func checkUpgradeJump(fromVersion, toVersion string) error {
 	for _, jumpVer := range unsupportedJumps {
-		r1, _ := asconfig.CompareVersionsIgnoreRevision(fromVersion, jumpVer)
-		r2, _ := asconfig.CompareVersionsIgnoreRevision(toVersion, jumpVer)
+		r1, _ := lib.CompareVersionsIgnoreRevision(fromVersion, jumpVer)
+		r2, _ := lib.CompareVersionsIgnoreRevision(toVersion, jumpVer)
 
 		if (r1 < 0 && r2 > 0) || (r2 < 0 && r1 > 0) {
 			return fmt.Errorf("version change not allowed from %s to %s - jump required to version %s",

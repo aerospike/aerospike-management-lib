@@ -20,9 +20,11 @@ jobs:
           go-version: 1.18
       - name: Checkout sources
         uses: actions/checkout@v3
+      - name: Generate Mocks
+        run: |
+          make mocks
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v3
         with:
           version: v1.50
           args: --timeout=5m
-

@@ -34,6 +34,7 @@ const (
 const (
 	NAMESPACES = "namespaces"
 	sep        = "."
+	keyIndex   = "<index>"
 )
 
 var portRegex = regexp.MustCompile("port")
@@ -120,7 +121,7 @@ var sectionNameStartChar = '{'
 var sectionNameEndChar = '}'
 
 // expandConf expands map with flat keys (with sep) to Conf
-func expandConf(log logr.Logger, input *Conf, sep string) Conf {
+func expandConf(log logr.Logger, input *Conf, sep string) Conf { //nolint:unparam // We should think about removing the arg 'sep'
 	m := expandConfMap(log, input, sep)
 	return expandConfList(log, m)
 }
@@ -130,7 +131,14 @@ func expandConf(log logr.Logger, input *Conf, sep string) Conf {
 func expandConfMap(log logr.Logger, input *Conf, sep string) Conf {
 	m := make(Conf)
 
-	for k, v := range *input {
+	// generate.go adds "security": Conf{} to flatMap to ensure that an empty
+	// security context is present in the config. This is required to enable
+	// security in server >= 5.7. Sorting the keys ensures "security" is process
+	// before "security.*" keys.
+	keys := sortKeys(*input)
+
+	for _, k := range keys {
+		v := (*input)[k]
 		switch v := v.(type) {
 		case Conf:
 			m[k] = expandConfMap(log, &v, sep)
@@ -165,7 +173,7 @@ func expandConfList(log logr.Logger, input Conf) Conf {
 					}
 
 					// fetch index stored by flattenConf
-					index, ok := v2Conf["index"].(int)
+					index, ok := v2Conf[keyIndex].(int)
 					if !ok {
 						log.V(-1).Info("Index not available", "section", k, "key", k2)
 
@@ -175,7 +183,7 @@ func expandConfList(log logr.Logger, input Conf) Conf {
 					confList[index] = expandConfList(log, v2Conf)
 
 					// index is flattenConf generated field, delete it
-					delete(confList[index], "index")
+					delete(confList[index], keyIndex)
 
 					found = true
 				}
@@ -411,7 +419,7 @@ func flattenConfList(log logr.Logger, input []Conf, sep string) Conf {
 			res[name+sep+k2] = v2
 		}
 		// store index for expanding in correct order
-		res[name+sep+"index"] = i
+		res[name+sep+keyIndex] = i
 	}
 
 	return res
@@ -883,12 +891,25 @@ func getSystemProperty(log logr.Logger, c Conf, key string) (
 
 // isListField return true if passed in key representing
 // aerospike config is of type List that is can have multiple
-// entries for same config key.
+// entries for same config key. The separator is the secondary delimiter
+// used in the .yml config and in the response returned from the server.
+// As opposed to the aerospike.conf file which uses space delimiters.
+// Example of different formats:
+//
+//	 server response:
+//			node-address-port=1.1.1.1:3000;2.2.2.2:3000
+//	 yaml config:
+//			node-address-ports:
+//				- 1.1.1.1:3000
+//				- 2.2.2.2:3000
+//	 aerospike.conf:
+//			node-address-port 1.1.1.1 3000
+//			node-address-port 2.2.2.2 3000
 func isListField(key string) (exists bool, separator string) {
-	key = baseKey(key)
-	key = SingularOf(key)
+	bKey := baseKey(key)
+	bKey = SingularOf(bKey)
 
-	switch key {
+	switch bKey {
 	case "dc-node-address-port", "tls-node", "dc-int-ext-ipmap":
 		return true, "+"
 
@@ -909,7 +930,7 @@ func isListField(key string) (exists bool, separator string) {
 	default:
 		// TODO: This should use the configuration schema instead.
 		// If this field is in singularToPlural or pluralToSingular it is a list field.
-		if _, ok := singularToPlural[key]; ok {
+		if _, ok := singularToPlural[bKey]; ok && !strings.HasPrefix(key, "logging.") {
 			return true, ""
 		}
 
@@ -934,7 +955,7 @@ func isIncompleteSetSectionFields(key string) bool {
 func isInternalField(key string) bool {
 	key = baseKey(key)
 	switch key {
-	case "index", keyName:
+	case keyIndex, keyName:
 		return true
 
 	default:
@@ -1097,11 +1118,7 @@ func isSizeOrTime(key string) (bool, humanize) {
 }
 
 func isStorageEngineKey(key string) bool {
-	if key == "" {
-		return false
-	}
-
-	if key == keyStorageEngine || strings.HasPrefix(key, keyStorageEngine+".") {
+	if key == keyStorageEngine || strings.Contains(key, keyStorageEngine+".") {
 		return true
 	}
 
@@ -1109,9 +1126,11 @@ func isStorageEngineKey(key string) bool {
 }
 
 func isTypedSection(key string) bool {
-	singular := SingularOf(key)
+	baseKey := baseKey(key)
+	baseKey = SingularOf(baseKey)
 
-	switch singular {
+	// TODO: This should be derived from the configuration schema
+	switch baseKey {
 	case keyStorageEngine, "index-type", "sindex-type":
 		return true
 	default:
@@ -1192,8 +1211,10 @@ func isStringField(key string) bool {
 }
 
 // isDelimitedStringField returns true for configuration fields that
-// are delimited strings, but not members of a list section
-// EX: secrets-address-port 127.0.0.1:3000
+// are delimited strings, but not members of a list section. The separator
+// represents the delimiter used in the .yml config as opposed to the
+// aerospike.conf file which normally uses spaces.
+// EX: secrets-address-port: 127.0.0.1:3000
 func isDelimitedStringField(key string) (exists bool, separator string) {
 	if key == "secrets-address-port" {
 		return true, ":"
@@ -1204,7 +1225,8 @@ func isDelimitedStringField(key string) (exists bool, separator string) {
 
 // toConf does deep conversion of map[string]interface{}
 // into Conf objects. Also converts the list form in conf
-// into map form, if required.
+// into map form, if required. This is needed when converting a unmarshalled
+// yaml file into Conf object.
 func toConf(log logr.Logger, input map[string]interface{}) Conf {
 	result := make(Conf)
 
@@ -1407,118 +1429,4 @@ func getContextAndName(log logr.Logger, key, _ string) (context, name string) {
 	}
 
 	return strings.Trim(ctx, "/"), keys[len(keys)-1]
-}
-
-// CompareVersions compares Aerospike Server versions
-// if version1 == version2 returns 0
-// else if version1 < version2 returns -1
-// else returns 1
-func CompareVersions(version1, version2 string) (int, error) {
-	if version1 == "" || version2 == "" {
-		return 0, fmt.Errorf("wrong versions to compare")
-	}
-
-	if version1 == version2 {
-		return 0, nil
-	}
-
-	// Ignoring extra comment tag... found in git source code build
-	v1 := strings.Split(version1, "-")[0]
-	v2 := strings.Split(version2, "-")[0]
-
-	if v1 == v2 {
-		return 0, nil
-	}
-
-	verElems1 := strings.Split(v1, ".")
-	verElems2 := strings.Split(v2, ".")
-
-	minLen := len(verElems1)
-	if len(verElems2) < minLen {
-		minLen = len(verElems2)
-	}
-
-	for i := 0; i < minLen; i++ {
-		ve1, err := strconv.Atoi(verElems1[i])
-		if err != nil {
-			return 0, fmt.Errorf("wrong version to compare")
-		}
-
-		ve2, err := strconv.Atoi(verElems2[i])
-		if err != nil {
-			return 0, fmt.Errorf("wrong version to compare")
-		}
-
-		if ve1 > ve2 {
-			return 1, nil
-		} else if ve1 < ve2 {
-			return -1, nil
-		}
-	}
-
-	if len(verElems1) > len(verElems2) {
-		return 1, nil
-	}
-
-	if len(verElems1) < len(verElems2) {
-		return -1, nil
-	}
-
-	return 0, nil
-}
-
-// CompareVersionsIgnoreRevision compares Aerospike Server versions ignoring
-// revisions and builds.
-// if version1 == version2 returns 0
-// else if version1 < version2 returns -1
-// else returns 1
-func CompareVersionsIgnoreRevision(version1, version2 string) (int, error) {
-	if version1 == "" || version2 == "" {
-		return 0, fmt.Errorf("wrong versions to compare")
-	}
-
-	if version1 == version2 {
-		return 0, nil
-	}
-
-	// Ignoring extra comment tag... found in git source code build
-	v1 := strings.Split(version1, "-")[0]
-	v2 := strings.Split(version2, "-")[0]
-
-	if v1 == v2 {
-		return 0, nil
-	}
-
-	verElems1 := strings.Split(v1, ".")
-	verElems2 := strings.Split(v2, ".")
-
-	minLen := len(verElems1)
-	if len(verElems2) < minLen {
-		minLen = len(verElems2)
-	}
-
-	if minLen > 2 {
-		// Force comparison of only major and minor version.
-		minLen = 2
-	}
-
-	for i := 0; i < minLen; i++ {
-		ve1, err := strconv.Atoi(verElems1[i])
-		if err != nil {
-			return 0, fmt.Errorf("wrong version to compare")
-		}
-
-		ve2, err := strconv.Atoi(verElems2[i])
-		if err != nil {
-			return 0, fmt.Errorf("wrong version to compare")
-		}
-
-		if ve1 > ve2 {
-			return 1, nil
-		} else if ve1 < ve2 {
-			return -1, nil
-		}
-	}
-
-	return 0, nil
 }

@@ -48,10 +48,10 @@ func (asc *ASConn) RunInfo(
 	return asinfo.RequestInfo(command...)
 }
 
-// AlumniReset runs tip clear
+// AlumniReset runs services alumni reset
 func (asc *ASConn) AlumniReset(aerospikePolicy *aero.ClientPolicy) error {
 	res, err := asc.RunInfo(aerospikePolicy, "services-alumni-reset")
-	asc.Log.Info("TipClearHostname", "res", res)
+	asc.Log.Info("AlumniReset", "res", res)
 
 	return err
 }
