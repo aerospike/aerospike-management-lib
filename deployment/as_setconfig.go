@@ -33,6 +33,10 @@ func convertValueToString(v1 map[string]interface{}) (map[string][]string, error
 			valueMap[k] = val1
 
 		case string:
+			if val1 == "" {
+				val1 = "null"
+			}
+
 			valueMap[k] = append(values, val1)
 
 		case bool:

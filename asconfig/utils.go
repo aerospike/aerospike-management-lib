@@ -343,6 +343,39 @@ func processKey(log logr.Logger, k string, keys []string, m Conf) Conf {
 	return m
 }
 
+func splitIgnoringBraces(input string) []string {
+	var (
+		parts        []string
+		currentPart  string
+		insideBraces bool
+	)
+
+	for _, char := range input {
+		switch char {
+		case '{':
+			insideBraces = true
+		case '}':
+			insideBraces = false
+		case '.':
+			if !insideBraces {
+				parts = append(parts, currentPart)
+				currentPart = ""
+
+				continue
+			}
+		}
+
+		currentPart += string(char)
+	}
+
+	// Add the last part after the loop
+	if currentPart != "" {
+		parts = append(parts, currentPart)
+	}
+
+	return parts
+}
+
 // flattenConfList flatten list and save index for expandConf
 func flattenConfList(log logr.Logger, input []Conf, sep string) Conf {
 	res := make(Conf, len(input))
@@ -560,7 +593,7 @@ func diff(
 //	detailedDiff = c1 - c2
 //
 // Generally used to compare config current and desired. This ignores
-// node specific information like address, device, interface etc..
+// node specific information like address, device, interface etc.
 func detailedDiff(log logr.Logger, c1, c2 Conf, isFlat,
 	desiredToActual bool, ver string) map[string]map[string]interface{} {
 	// Flatten if not flattened already.
@@ -577,8 +610,7 @@ func detailedDiff(log logr.Logger, c1, c2 Conf, isFlat,
 		// Ignore the node specific details and ordering
 		bN := baseKey(k)
 		if isNodeSpecificField(bN) || bN == "index" {
-			// If we need diff with defaults then we need to consider all fields
-			// otherwise ignore nodespecific details
+			// Ignore node specific details and ordering
 			continue
 		}
 
@@ -587,7 +619,7 @@ func detailedDiff(log logr.Logger, c1, c2 Conf, isFlat,
 		if !ok {
 			diffUpdated := false
 
-			tokens := strings.Split(k, sep)
+			tokens := splitIgnoringBraces(k)
 			for idx, token := range tokens {
 				if int32(token[0]) == sectionNameStartChar && int32(token[len(token)-1]) == sectionNameEndChar {
 					if _, okay := c2[strings.Join(tokens[:idx+1], sep)+"."+keyName]; !okay {
