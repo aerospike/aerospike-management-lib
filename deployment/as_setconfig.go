@@ -4,6 +4,10 @@ import (
 	"fmt"
 	"strings"
 
+	lib "github.com/aerospike/aerospike-management-lib"
+
+	"github.com/go-logr/logr"
+
 	aero "github.com/aerospike/aerospike-client-go/v6"
 	"github.com/aerospike/aerospike-management-lib/asconfig"
 	"github.com/aerospike/aerospike-management-lib/info"
@@ -16,6 +20,16 @@ const (
 	cmdSetConfigXDR       = "set-config:context=xdr"           // ConfigXDR
 	cmdSetConfigSecurity  = "set-config:context=security"      // ConfigSecurity
 	cmdSetLogging         = "log-set:id="                      // ConfigLogging
+
+	NAMESPACES       = "namespaces"
+	nodeAddressPorts = "node-address-ports"
+	name             = "name"
+
+	addOp    = "add"
+	removeOp = "remove"
+	updateOp = "update"
+	createOp = "create"
+	deleteOp = "delete"
 )
 
 func convertValueToString(v1 map[string]interface{}) (map[string][]string, error) {
@@ -54,7 +68,7 @@ func convertValueToString(v1 map[string]interface{}) (map[string][]string, error
 }
 
 func handleConfigServiceContext(tokens []string, valueMap map[string][]string) []string {
-	val := valueMap["add"]
+	val := valueMap[updateOp]
 	cmdList := make([]string, 0, len(val))
 	cmd := cmdSetConfigService + ";"
 
@@ -73,7 +87,7 @@ func handleConfigServiceContext(tokens []string, valueMap map[string][]string) [
 }
 
 func handleConfigNetworkContext(tokens []string, valueMap map[string][]string) []string {
-	val := valueMap["add"]
+	val := valueMap[updateOp]
 	cmdList := make([]string, 0, len(val))
 	cmd := cmdSetConfigNetwork + ";"
 
@@ -92,7 +106,7 @@ func handleConfigNetworkContext(tokens []string, valueMap map[string][]string) [
 }
 
 func handleConfigSecurityContext(tokens []string, valueMap map[string][]string) []string {
-	cmdList := make([]string, 0, len(valueMap["add"])+len(valueMap["remove"]))
+	cmdList := make([]string, 0, len(valueMap[addOp])+len(valueMap[removeOp])+len(valueMap[updateOp]))
 	cmd := cmdSetConfigSecurity + ";"
 
 	for _, token := range tokens[1 : len(tokens)-1] {
@@ -102,7 +116,7 @@ func handleConfigSecurityContext(tokens []string, valueMap map[string][]string) 
 	baseKey := tokens[len(tokens)-1]
 	switch baseKey {
 	case "report-data-op":
-		addedValues := valueMap["add"]
+		addedValues := valueMap[addOp]
 		for _, v := range addedValues {
 			var finalCMD string
 
@@ -113,13 +127,14 @@ func handleConfigSecurityContext(tokens []string, valueMap map[string][]string) 
 			case 1:
 				finalCMD = cmd + baseKey + "=" + "true;" + "namespace=" + namespaceAndSet[0]
 			default:
+				// TODO:error out
 				return nil
 			}
 
 			cmdList = append(cmdList, finalCMD)
 		}
 
-		removedValues := valueMap["remove"]
+		removedValues := valueMap[removeOp]
 		for _, v := range removedValues {
 			var finalCMD string
 
@@ -130,6 +145,7 @@ func handleConfigSecurityContext(tokens []string, valueMap map[string][]string) 
 			case 1:
 				finalCMD = cmd + baseKey + "=" + "false;" + "namespace=" + namespaceAndSet[0]
 			default:
+				// TODO:error out
 				return nil
 			}
 
@@ -137,26 +153,26 @@ func handleConfigSecurityContext(tokens []string, valueMap map[string][]string) 
 		}
 
 	case "report-data-op-role":
-		addedValues := valueMap["add"]
+		addedValues := valueMap[addOp]
 		for _, v := range addedValues {
 			finalCMD := cmd + "report-data-op" + "=" + "true;" + "role=" + v
 			cmdList = append(cmdList, finalCMD)
 		}
 
-		removedValues := valueMap["remove"]
+		removedValues := valueMap[removeOp]
 		for _, v := range removedValues {
 			finalCMD := cmd + "report-data-op" + "=" + "false;" + "role=" + v
 			cmdList = append(cmdList, finalCMD)
 		}
 
 	case "report-data-op-user":
-		addedValues := valueMap["add"]
+		addedValues := valueMap[addOp]
 		for _, v := range addedValues {
 			finalCMD := cmd + "report-data-op" + "=" + "true;" + "user=" + v
 			cmdList = append(cmdList, finalCMD)
 		}
 
-		removedValues := valueMap["remove"]
+		removedValues := valueMap[removeOp]
 		for _, v := range removedValues {
 			finalCMD := cmd + "report-data-op" + "=" + "false;" + "user=" + v
 			cmdList = append(cmdList, finalCMD)
@@ -164,7 +180,7 @@ func handleConfigSecurityContext(tokens []string, valueMap map[string][]string) 
 
 	default:
 		cmd += baseKey
-		for _, v := range valueMap["add"] {
+		for _, v := range valueMap[updateOp] {
 			finalCMD := cmd + "=" + v
 			cmdList = append(cmdList, finalCMD)
 		}
@@ -174,17 +190,17 @@ func handleConfigSecurityContext(tokens []string, valueMap map[string][]string) 
 }
 
 func handleConfigNamespaceContext(tokens []string, valueMap map[string][]string) []string {
-	val := valueMap["add"]
+	val := valueMap[updateOp]
 	cmdList := make([]string, 0, len(val))
 	cmd := cmdSetConfigNamespace
-	prevToken := asconfig.PluralOf(info.ConfigNamespaceContext)
+	prevToken := info.ConfigNamespaceContext
 
 	for _, token := range tokens[1:] {
 		if token[0] == '{' && token[len(token)-1] == '}' {
 			switch prevToken {
-			case asconfig.PluralOf(info.ConfigSetContext):
+			case info.ConfigSetContext:
 				cmd += fmt.Sprintf(";%s=%s", asconfig.SingularOf(prevToken), strings.Trim(token, "{}"))
-			case asconfig.PluralOf(info.ConfigNamespaceContext):
+			case info.ConfigNamespaceContext:
 				cmd += strings.Trim(token, "{}")
 			}
 		} else {
@@ -213,7 +229,7 @@ func handleConfigNamespaceContext(tokens []string, valueMap map[string][]string)
 
 func handleConfigLoggingContext(tokens []string, valueMap map[string][]string, conn *ASConn,
 	aerospikePolicy *aero.ClientPolicy) ([]string, error) {
-	val := valueMap["add"]
+	val := valueMap[updateOp]
 	cmdList := make([]string, 0, len(val))
 
 	confs, err := conn.RunInfo(aerospikePolicy, "logs")
@@ -249,24 +265,67 @@ func handleConfigLoggingContext(tokens []string, valueMap map[string][]string, c
 }
 
 func handleConfigXDRContext(tokens []string, valueMap map[string][]string) []string {
-	val := valueMap["add"]
+	val := valueMap[updateOp]
+	val = append(val, valueMap[addOp]...)
 	cmdList := make([]string, 0, len(val))
 	cmd := cmdSetConfigXDR
 	prevToken := ""
+	addDC := false
+	addNS := false
+	action := addOp
 
 	for _, token := range tokens[1:] {
-		if token[0] == '{' && token[len(token)-1] == '}' {
+		if lib.ReCurlyBraces.MatchString(token) {
 			switch prevToken {
-			case asconfig.PluralOf(info.ConfigDCContext), asconfig.PluralOf(info.ConfigNamespaceContext):
+			case info.ConfigDCContext, info.ConfigNamespaceContext:
 				cmd += fmt.Sprintf(";%s=%s", asconfig.SingularOf(prevToken), strings.Trim(token, "{}"))
 			}
 		} else {
+			if token == name {
+				if prevToken == asconfig.PluralOf(info.ConfigDCContext) {
+					addDC = true
+					if _, ok := valueMap[createOp]; ok {
+						action = createOp
+					}
+					if _, ok := valueMap[deleteOp]; ok {
+						action = deleteOp
+					}
+				}
+				if prevToken == asconfig.PluralOf(info.ConfigNamespaceContext) {
+					addNS = true
+					if _, ok := valueMap[createOp]; ok {
+						action = addOp
+					}
+					if _, ok := valueMap[deleteOp]; ok {
+						action = removeOp
+					}
+				}
+			}
 			prevToken = token
 		}
 	}
 
+	if addDC || addNS {
+		finalCMD := cmd + ";" + "action=" + action
+
+		return append(cmdList, finalCMD)
+	}
+
 	for _, v := range val {
-		finalCMD := cmd + ";" + asconfig.SingularOf(prevToken) + "=" + v
+		var finalCMD string
+
+		if asconfig.SingularOf(prevToken) == nodeAddressPorts {
+			ipAndPort := strings.Split(v, " ")
+			if len(ipAndPort) == 2 {
+				finalCMD = cmd + ";" + asconfig.SingularOf(prevToken) + "=" + ipAndPort[0] + ":" +
+					ipAndPort[1] + ";action=" + action
+			} else {
+				return nil
+			}
+		} else {
+			finalCMD = cmd + ";" + asconfig.SingularOf(prevToken) + "=" + v
+		}
+
 		cmdList = append(cmdList, finalCMD)
 	}
 
@@ -275,15 +334,17 @@ func handleConfigXDRContext(tokens []string, valueMap map[string][]string) []str
 
 // CreateConfigSetCmdList creates set-config commands for given config.
 func CreateConfigSetCmdList(
-	configMap map[string]map[string]interface{}, conn *ASConn, aerospikePolicy *aero.ClientPolicy,
+	log logr.Logger, configMap map[string]map[string]interface{}, conn *ASConn, aerospikePolicy *aero.ClientPolicy,
 ) ([]string, error) {
 	cmdList := make([]string, 0, len(configMap))
 
-	for c, v := range configMap {
+	orderedConfList := rearrangeConfigMap(log, configMap)
+
+	for _, c := range orderedConfList {
 		tokens := strings.Split(c, ".")
 		context := tokens[0]
 
-		val, err := convertValueToString(v)
+		val, err := convertValueToString(configMap[c])
 		if err != nil {
 			return nil, err
 		}
@@ -317,6 +378,39 @@ func CreateConfigSetCmdList(
 	return cmdList, nil
 }
 
+func rearrangeConfigMap(log logr.Logger, configMap map[string]map[string]interface{}) []string {
+	addXDRDCList := make([]string, 0, len(configMap))
+	addXDRNSList := make([]string, 0, len(configMap))
+	generalNSList := make([]string, 0, len(configMap))
+
+	for k, v := range configMap {
+		if _, ok := v[createOp]; ok {
+			tokens := lib.SplitKey(log, k, ".")
+			switch tokens[len(tokens)-3] {
+			case info.ConfigDCContext:
+				addXDRDCList = append(addXDRDCList, k)
+
+				nodeAddressPortsKey := strings.ReplaceAll(k, name, nodeAddressPorts)
+				if _, okay := configMap[nodeAddressPortsKey]; okay {
+					addXDRDCList = append(addXDRDCList, nodeAddressPortsKey)
+				}
+				// TODO:error out if node-address-ports is not present
+			case NAMESPACES:
+				addXDRNSList = append(addXDRNSList, k)
+			}
+		} else {
+			if asconfig.BaseKey(k) == nodeAddressPorts {
+				continue
+			}
+
+			generalNSList = append(generalNSList, k)
+		}
+	}
+
+	return append(addXDRDCList, append(addXDRNSList, generalNSList...)...)
+}
+
+/*
 // CreateConfigSetCmdsForPatch creates set-config commands for given config.
 func CreateConfigSetCmdsForPatch(
 	configMap map[string]interface{}, conn *ASConn, aerospikePolicy *aero.ClientPolicy, version string,
@@ -343,3 +437,5 @@ func CreateConfigSetCmdsForPatch(
 
 	return CreateConfigSetCmdList(asConfChange, conn, aerospikePolicy)
 }
+
+*/

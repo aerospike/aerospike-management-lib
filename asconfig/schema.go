@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"strings"
 
+	lib "github.com/aerospike/aerospike-management-lib"
+
 	sets "github.com/deckarep/golang-set/v2"
 	"github.com/go-logr/logr"
 )
@@ -143,15 +145,13 @@ func GetDynamic(ver string) (map[string]bool, error) {
 }
 
 func normalizeFlatSchema(flatSchema map[string]interface{}) map[string]interface{} {
-	keys := sortKeys(flatSchema)
 	normMap := make(map[string]interface{})
 
+	keys := sortKeys(flatSchema)
 	for _, k := range keys {
 		v := flatSchema[k]
 		key := removeJSONSpecKeywords(k)
-
 		normMap[key] = eval(v)
-
 	}
 
 	return normMap
@@ -178,16 +178,22 @@ func getDynamicSchema(flatSchema map[string]interface{}) map[string]bool {
 	return dynMap
 }
 
-func IsAllDynamicConfig(configMap map[string]map[string]interface{}, version string) bool {
+func IsAllDynamicConfig(log logr.Logger, configMap map[string]map[string]interface{}, version string) bool {
 	dynamic, err := GetDynamic(version)
 	if err != nil {
 		return false
 	}
 
 	for confKey := range configMap {
-		isDynamic := isFieldDynamic(dynamic, confKey, configMap[confKey])
+		baseKey := BaseKey(confKey)
+		if baseKey == "node-address-ports" {
+			addedDCKey := strings.ReplaceAll(confKey, baseKey, "name")
+			if _, ok := configMap[addedDCKey]; ok {
+				continue
+			}
+		}
 
-		if !isDynamic {
+		if !isFieldDynamic(log, dynamic, confKey, configMap[confKey]) {
 			return false
 		}
 	}
@@ -195,22 +201,18 @@ func IsAllDynamicConfig(configMap map[string]map[string]interface{}, version str
 	return true
 }
 
-func isFieldDynamic(dynamic map[string]bool, conf string, valueMap map[string]interface{}) bool {
+func isFieldDynamic(log logr.Logger, dynamic map[string]bool, conf string, valueMap map[string]interface{}) bool {
 	var key string
 
-	tokens := strings.Split(conf, ".")
+	tokens := lib.SplitKey(log, conf, ".")
 	baseKey := tokens[len(tokens)-1]
+	context := tokens[0]
 
-	for _, token := range tokens {
-		if token[0] == '{' && token[len(token)-1] == '}' {
-			key += "_."
-		} else {
-			key = key + token + "."
-		}
+	if baseKey == "replication-factor" {
+		return true
 	}
 
-	key = strings.TrimSuffix(key, ".")
-	if strings.Contains(key, "replication-factor") {
+	if context == "xdr" && baseKey == "name" {
 		return true
 	}
 
@@ -228,6 +230,16 @@ func isFieldDynamic(dynamic map[string]bool, conf string, valueMap map[string]in
 		}
 	}
 
+	for _, token := range tokens {
+		if lib.ReCurlyBraces.MatchString(token) {
+			key += "_."
+		} else {
+			key = key + token + "."
+		}
+	}
+
+	key = strings.TrimSuffix(key, ".")
+
 	return dynamic[key]
 }
 
@@ -237,7 +249,7 @@ func getDefaultValue(defaultMap map[string]interface{}, conf string) interface{}
 
 	tokens := strings.Split(conf, ".")
 	for _, token := range tokens {
-		if token[0] == '{' && token[len(token)-1] == '}' {
+		if lib.ReCurlyBraces.MatchString(token) {
 			key += "_."
 		} else {
 			key = key + token + "."

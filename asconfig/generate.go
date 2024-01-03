@@ -465,7 +465,7 @@ func newTransformKeyValuesStep(log logr.Logger) *transformKeyValuesStep {
 }
 
 func splitContextBaseKey(key string) (contextKey, bKey string) {
-	bKey = baseKey(key)
+	bKey = BaseKey(key)
 	contextKey = strings.TrimSuffix(key, bKey)
 	contextKey = strings.TrimSuffix(contextKey, sep)
 

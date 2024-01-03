@@ -645,7 +645,7 @@ func (c *cluster) getQuiescedNodes(hostIDs []string) ([]string, error) {
 func (c *cluster) getClusterNamespaces(hostIDs []string) (
 	map[string][]string, error,
 ) {
-	cmd := "namespaces"
+	cmd := NAMESPACES
 
 	infoResults, err := c.infoOnHosts(hostIDs, cmd)
 	if err != nil {
@@ -655,8 +655,8 @@ func (c *cluster) getClusterNamespaces(hostIDs []string) (
 	namespaces := map[string][]string{}
 
 	for hostID, info := range infoResults {
-		if len(info["namespaces"]) > 0 {
-			namespaces[hostID] = strings.Split(info["namespaces"], ";")
+		if len(info[NAMESPACES]) > 0 {
+			namespaces[hostID] = strings.Split(info[NAMESPACES], ";")
 		} else {
 			return nil, fmt.Errorf(
 				"failed to get namespaces for node %v", hostID,

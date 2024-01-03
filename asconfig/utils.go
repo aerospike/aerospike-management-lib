@@ -32,9 +32,8 @@ const (
 )
 
 const (
-	NAMESPACES = "namespaces"
-	sep        = "."
-	keyIndex   = "<index>"
+	sep      = "."
+	keyIndex = "<index>"
 )
 
 var portRegex = regexp.MustCompile("port")
@@ -116,10 +115,6 @@ func deHumanizeSize(val string) (uint64, error) {
 	return n, nil
 }
 
-// start and end character for section names
-var sectionNameStartChar = '{'
-var sectionNameEndChar = '}'
-
 // expandConf expands map with flat keys (with sep) to Conf
 func expandConf(log logr.Logger, input *Conf, sep string) Conf { //nolint:unparam // We should think about removing the arg 'sep'
 	m := expandConfMap(log, input, sep)
@@ -144,7 +139,7 @@ func expandConfMap(log logr.Logger, input *Conf, sep string) Conf {
 			m[k] = expandConfMap(log, &v, sep)
 
 		default:
-			expandKey(log, m, splitKey(log, k, sep), v)
+			expandKey(log, m, lib.SplitKey(log, k, sep), v)
 		}
 	}
 
@@ -231,7 +226,7 @@ func toAsConfigContext(context string) string {
 		// logging filename can have / - avoid further replacements
 		asConfigCtx := loggingContextRe.ReplaceAllString(
 			context,
-			fmt.Sprintf("$1.%c$3%c", sectionNameStartChar, sectionNameEndChar),
+			fmt.Sprintf("$1.%c$3%c", lib.SectionNameStartChar, lib.SectionNameEndChar),
 		)
 
 		return asConfigCtx
@@ -239,7 +234,7 @@ func toAsConfigContext(context string) string {
 
 	asConfigCtx := namedContextRe.ReplaceAllString(
 		context,
-		fmt.Sprintf("$1.%c$3%c", sectionNameStartChar, sectionNameEndChar),
+		fmt.Sprintf("$1.%c$3%c", lib.SectionNameStartChar, lib.SectionNameEndChar),
 	)
 	asConfigCtx = strings.ReplaceAll(asConfigCtx, "/", sep)
 
@@ -256,7 +251,7 @@ func toAsConfigKey(context, name string) string {
 // named context
 func getRawName(name string) string {
 	return strings.Trim(
-		name, fmt.Sprintf("%c%c", sectionNameStartChar, sectionNameEndChar),
+		name, fmt.Sprintf("%c%c", lib.SectionNameStartChar, lib.SectionNameEndChar),
 	)
 }
 
@@ -268,8 +263,8 @@ func getContainedName(log logr.Logger, fullKey, context string) (
 	ctx := toAsConfigContext(context)
 
 	if strings.Contains(fullKey, ctx) {
-		fKs := splitKey(log, fullKey, sep)
-		cKs := splitKey(log, ctx, sep)
+		fKs := lib.SplitKey(log, fullKey, sep)
+		cKs := lib.SplitKey(log, ctx, sep)
 
 		// Number of keys in fullKey should
 		// be 1 more that ctx
@@ -281,33 +276,6 @@ func getContainedName(log logr.Logger, fullKey, context string) (
 	}
 
 	return "", false
-}
-
-// splitKey splits key by using sep
-// it ignores sep inside sectionNameStartChar and sectionNameEndChar
-func splitKey(log logr.Logger, key, sep string) []string {
-	sepRunes := []rune(sep)
-	if len(sepRunes) > 1 {
-		log.Info("Split expects single char as separator")
-		return nil
-	}
-
-	openBracket := 0
-	f := func(c rune) bool {
-		if c == sepRunes[0] && openBracket == 0 {
-			return true
-		}
-
-		if c == sectionNameStartChar {
-			openBracket++
-		} else if c == sectionNameEndChar {
-			openBracket--
-		}
-
-		return false
-	}
-
-	return strings.FieldsFunc(key, f)
 }
 
 func expandKey(
@@ -351,39 +319,6 @@ func processKey(log logr.Logger, k string, keys []string, m Conf) Conf {
 	return m
 }
 
-func splitIgnoringBraces(input string) []string {
-	var (
-		parts        []string
-		currentPart  string
-		insideBraces bool
-	)
-
-	for _, char := range input {
-		switch char {
-		case '{':
-			insideBraces = true
-		case '}':
-			insideBraces = false
-		case '.':
-			if !insideBraces {
-				parts = append(parts, currentPart)
-				currentPart = ""
-
-				continue
-			}
-		}
-
-		currentPart += string(char)
-	}
-
-	// Add the last part after the loop
-	if currentPart != "" {
-		parts = append(parts, currentPart)
-	}
-
-	return parts
-}
-
 // flattenConfList flatten list and save index for expandConf
 func flattenConfList(log logr.Logger, input []Conf, sep string) Conf {
 	res := make(Conf, len(input))
@@ -413,7 +348,7 @@ func flattenConfList(log logr.Logger, input []Conf, sep string) Conf {
 		// still its not complete solution, it fails if user has section names with imbalance parenthesis
 		// for ex. namespace name -> test}.abcd
 		// but this solution will work for most of the cases and reduce most of the failure scenarios
-		name = string(sectionNameStartChar) + name + string(sectionNameEndChar)
+		name = string(lib.SectionNameStartChar) + name + string(lib.SectionNameEndChar)
 
 		for k2, v2 := range flattenConf(log, v, sep) {
 			res[name+sep+k2] = v2
@@ -453,7 +388,7 @@ func flattenConf(log logr.Logger, input Conf, sep string) Conf {
 	return res
 }
 
-func baseKey(k string) (baseKey string) {
+func BaseKey(k string) (baseKey string) {
 	s := strings.Split(k, sep)
 	return s[len(s)-1]
 }
@@ -535,7 +470,7 @@ func diff(
 	// or if type or value is different add/update it
 	for k, v1 := range c1 {
 		// Ignore the node specific details
-		bN := baseKey(k)
+		bN := BaseKey(k)
 		if !c2IsDefault && (isNodeSpecificContext(k) || isNodeSpecificField(bN)) {
 			// If we need diff with defaults then we need to consider all fields
 			// otherwise ignore nodespcific details
@@ -600,7 +535,7 @@ func diff(
 //
 //	detailedDiff = c1 - c2
 //
-// Generally used to compare config current and desired. This ignores
+// Generally used to compare current and desired config. This ignores
 // node specific information like address, device, interface etc.
 func detailedDiff(log logr.Logger, c1, c2 Conf, isFlat,
 	desiredToActual bool, ver string) map[string]map[string]interface{} {
@@ -615,8 +550,7 @@ func detailedDiff(log logr.Logger, c1, c2 Conf, isFlat,
 	// For all keys in C1 if it does not exist in C2
 	// or if type or value is different add/update it
 	for k, v1 := range c1 {
-		// Ignore the node specific details and ordering
-		bN := baseKey(k)
+		bN := BaseKey(k)
 		if isNodeSpecificField(bN) || bN == "index" {
 			// Ignore node specific details and ordering
 			continue
@@ -627,13 +561,32 @@ func detailedDiff(log logr.Logger, c1, c2 Conf, isFlat,
 		if !ok {
 			diffUpdated := false
 
-			tokens := splitIgnoringBraces(k)
+			tokens := lib.SplitKey(log, k, ".")
 			for idx, token := range tokens {
-				if int32(token[0]) == sectionNameStartChar && int32(token[len(token)-1]) == sectionNameEndChar {
+				re := regexp.MustCompile(`^\{.*\}$`)
+				if re.MatchString(token) {
+					log.Info("key with curly braces not found in c2", "key", k, "value", v1)
+					// Whole structure which has "name" as key is not present in c2
 					if _, okay := c2[strings.Join(tokens[:idx+1], sep)+"."+keyName]; !okay {
-						valueMap := make(map[string]interface{})
-						valueMap["add"] = c1[strings.Join(tokens[:idx+1], sep)+"."+keyName]
-						d[strings.Join(tokens[:idx+1], sep)+"."+keyName] = valueMap
+						if desiredToActual {
+							if _, updated := d[k]; !updated {
+								valueMap := make(map[string]interface{})
+								if tokens[len(tokens)-1] == "name" {
+									valueMap["create"] = c1[k]
+								} else {
+									valueMap["update"] = c1[k]
+								}
+
+								d[k] = valueMap
+							}
+						} else {
+							if _, updated := d[strings.Join(tokens[:idx+1], sep)+"."+keyName]; !updated {
+								valueMap := make(map[string]interface{})
+								valueMap["delete"] = c1[strings.Join(tokens[:idx+1], sep)+"."+keyName]
+								d[strings.Join(tokens[:idx+1], sep)+"."+keyName] = valueMap
+							}
+						}
+
 						diffUpdated = true
 
 						break
@@ -641,11 +594,8 @@ func detailedDiff(log logr.Logger, c1, c2 Conf, isFlat,
 				}
 			}
 
-			// If any config parameter is present in c1 and not in c2, corresponding value will be empty in diff map
-			// Need to delete keys if value is empty.
 			// Add default values to those config parameter with if available in schema.
-			// eg. c1 has security: {} c2 has security.log.report-sys-admin: true
-			// c1ToC2DiffKey: map[security] = nil, c2ToC1DiffKey: map[security.log.report-sys-admin] =  true
+			// eg. desired has security: {} current has security.log.report-sys-admin: true
 			// final diff should be map[security.log.report-sys-admin] = <default value>
 			if !diffUpdated {
 				for currentKey := range c2 {
@@ -666,7 +616,7 @@ func detailedDiff(log logr.Logger, c1, c2 Conf, isFlat,
 
 					defaultValue := getDefaultValue(defaultMap, currentKey)
 					valueMap := make(map[string]interface{})
-					valueMap["add"] = defaultValue
+					valueMap["update"] = defaultValue
 					d[currentKey] = valueMap
 					diffUpdated = true
 				}
@@ -682,7 +632,7 @@ func detailedDiff(log logr.Logger, c1, c2 Conf, isFlat,
 						valueMap["remove"] = c1[k].([]string)
 					}
 				} else {
-					valueMap["add"] = c1[k]
+					valueMap["update"] = c1[k]
 				}
 
 				d[k] = valueMap
@@ -718,7 +668,7 @@ func detailedDiff(log logr.Logger, c1, c2 Conf, isFlat,
 					d[k] = valueMap
 				}
 			} else {
-				valueMap["add"] = v1
+				valueMap["update"] = v1
 				d[k] = valueMap
 			}
 		}
@@ -737,42 +687,40 @@ func detailedDiff(log logr.Logger, c1, c2 Conf, isFlat,
 // It returns a map of flatten conf key and value(which is another map of added and removed fields, mostly helps in the
 // case of list of string fields)
 func ConfDiff(
-	log logr.Logger, c1 Conf, c2 Conf, isFlat bool, ver string,
+	log logr.Logger, desiredConf, currentConf Conf, isFlat bool, ver string,
 ) map[string]map[string]interface{} {
-	c1ToC2Diffs := detailedDiff(log, c1, c2, isFlat, true, ver)
-	log.Info("print diff inside", "difference", fmt.Sprintf("%v", c1ToC2Diffs))
+	diffs := detailedDiff(log, desiredConf, currentConf, isFlat, true, ver)
+	log.Info("print diff inside", "difference", fmt.Sprintf("%v", diffs))
 
-	c2ToC1Diffs := detailedDiff(log, c2, c1, isFlat, false, ver)
-	log.Info("print c2ToC1Diffs", "difference", fmt.Sprintf("%v", c2ToC1Diffs))
+	removedConfigs := detailedDiff(log, currentConf, desiredConf, isFlat, false, ver)
+	log.Info("print c2ToC1Diffs", "difference", fmt.Sprintf("%v", removedConfigs))
 
-	for c2ToC1DiffKey := range c2ToC1Diffs {
-		setDefault := true
+	for removedConfigKey := range removedConfigs {
+		// If whole string array or map type config is not present in desired config
+		_, removed := removedConfigs[removedConfigKey]["remove"]
+		_, deleted := removedConfigs[removedConfigKey]["delete"]
 
-		// If whole string array type config is not present in desired config
-		if _, ok := c2ToC1Diffs[c2ToC1DiffKey]["remove"]; ok {
-			if reflect.ValueOf(c2ToC1Diffs[c2ToC1DiffKey]["remove"]).Kind() == reflect.Slice {
-				c1ToC2Diffs[c2ToC1DiffKey] = c2ToC1Diffs[c2ToC1DiffKey]
-				setDefault = false
-			}
+		if removed || deleted {
+			diffs[removedConfigKey] = removedConfigs[removedConfigKey]
+			continue
 		}
 
-		if setDefault {
-			defaultMap, err := GetDefault(ver)
-			if err != nil {
-				log.Error(err, "error while getting default map")
-				return nil
-			}
-
-			defaultValue := getDefaultValue(defaultMap, c2ToC1DiffKey)
-			valueMap := make(map[string]interface{})
-			valueMap["add"] = defaultValue
-			c1ToC2Diffs[c2ToC1DiffKey] = valueMap
+		// Setting defaults for atomic keys which are not present in desired config
+		defaultMap, err := GetDefault(ver)
+		if err != nil {
+			log.Error(err, "error while getting default map")
+			return nil
 		}
+
+		defaultValue := getDefaultValue(defaultMap, removedConfigKey)
+		valueMap := make(map[string]interface{})
+		valueMap["update"] = defaultValue
+		diffs[removedConfigKey] = valueMap
 	}
 
-	log.Info("print c1ToC2Diffs before return", "difference", fmt.Sprintf("%v", c1ToC2Diffs))
+	log.Info("print diffs before return", "difference", fmt.Sprintf("%v", diffs))
 
-	return c1ToC2Diffs
+	return diffs
 }
 
 // defaultDiff returns the values different from the default.
@@ -811,7 +759,7 @@ func changeKey(key string) string {
 func getSystemProperty(log logr.Logger, c Conf, key string) (
 	stype sysproptype, value []string,
 ) {
-	baseKey := baseKey(key)
+	baseKey := BaseKey(key)
 	baseKey = SingularOf(baseKey)
 	value = make([]string, 0)
 
@@ -906,7 +854,7 @@ func getSystemProperty(log logr.Logger, c Conf, key string) (
 //			node-address-port 1.1.1.1 3000
 //			node-address-port 2.2.2.2 3000
 func isListField(key string) (exists bool, separator string) {
-	bKey := baseKey(key)
+	bKey := BaseKey(key)
 	bKey = SingularOf(bKey)
 
 	switch bKey {
@@ -942,7 +890,7 @@ func isListField(key string) (exists bool, separator string) {
 // representing aerospike set config which is incomplete and needs
 // 'set-' prefix
 func isIncompleteSetSectionFields(key string) bool {
-	key = baseKey(key)
+	key = BaseKey(key)
 	switch key {
 	case "disable-eviction", "enable-xdr", "stop-writes-count":
 		return true
@@ -953,7 +901,7 @@ func isIncompleteSetSectionFields(key string) bool {
 }
 
 func isInternalField(key string) bool {
-	key = baseKey(key)
+	key = BaseKey(key)
 	switch key {
 	case keyIndex, keyName:
 		return true
@@ -964,7 +912,7 @@ func isInternalField(key string) bool {
 }
 
 func isListSection(section string) bool {
-	section = baseKey(section)
+	section = BaseKey(section)
 	section = SingularOf(section)
 
 	switch section {
@@ -979,7 +927,7 @@ func isListSection(section string) bool {
 // section without name but should consider as list
 // for ex. logging
 func isSpecialListSection(section string) bool {
-	section = baseKey(section)
+	section = BaseKey(section)
 	section = SingularOf(section)
 
 	switch section {
@@ -996,7 +944,7 @@ func isSpecialListSection(section string) bool {
 // virtue of it generated from the config form. Forms are the
 // JSON schema for nice form layout in UI.
 func isFormField(key string) bool {
-	key = baseKey(key)
+	key = BaseKey(key)
 	// "name" is id for named sections
 	// "storage-engine-type" is type of storage engine.
 	switch key {
@@ -1060,7 +1008,7 @@ func isSpecialBoolField(key string) bool {
 // bool value also
 // e.g. tls-authenticate-client
 func isSpecialStringField(key string) bool {
-	key = baseKey(key)
+	key = BaseKey(key)
 	switch key {
 	case keyTLSAuthenticateClient:
 		return true
@@ -1126,7 +1074,7 @@ func isStorageEngineKey(key string) bool {
 }
 
 func isTypedSection(key string) bool {
-	baseKey := baseKey(key)
+	baseKey := BaseKey(key)
 	baseKey = SingularOf(baseKey)
 
 	// TODO: This should be derived from the configuration schema
@@ -1412,7 +1360,7 @@ func getCfgValue(log logr.Logger, diffKeys []string, flatConf Conf) []CfgValue {
 }
 
 func getContextAndName(log logr.Logger, key, _ string) (context, name string) {
-	keys := splitKey(log, key, sep)
+	keys := lib.SplitKey(log, key, sep)
 	if len(keys) == 1 {
 		return "", ""
 	}
