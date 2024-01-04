@@ -410,7 +410,6 @@ func rearrangeConfigMap(log logr.Logger, configMap map[string]map[string]interfa
 	return append(addXDRDCList, append(addXDRNSList, generalNSList...)...)
 }
 
-/*
 // CreateConfigSetCmdsForPatch creates set-config commands for given config.
 func CreateConfigSetCmdsForPatch(
 	configMap map[string]interface{}, conn *ASConn, aerospikePolicy *aero.ClientPolicy, version string,
@@ -430,12 +429,10 @@ func CreateConfigSetCmdsForPatch(
 		asConfChange[k] = valueMap
 	}
 
-	isDynamic := asconfig.IsAllDynamicConfig(asConfChange, version)
+	isDynamic := asconfig.IsAllDynamicConfig(conn.Log, asConfChange, version)
 	if !isDynamic {
 		return nil, fmt.Errorf("static field has been changed, cannot change config dynamically")
 	}
 
-	return CreateConfigSetCmdList(asConfChange, conn, aerospikePolicy)
+	return CreateConfigSetCmdList(conn.Log, asConfChange, conn, aerospikePolicy)
 }
-
-*/
