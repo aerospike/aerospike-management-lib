@@ -9,8 +9,8 @@ import (
 
 // AsConfig is wrapper over Conf
 type AsConfig struct {
-	log      logr.Logger
 	baseConf *Conf
+	log      logr.Logger
 }
 
 func New(log logr.Logger, bconf *Conf) *AsConfig {
