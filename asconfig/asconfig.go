@@ -11,12 +11,10 @@ import (
 type AsConfig struct {
 	log      logr.Logger
 	baseConf *Conf
-	version  string
 }
 
-func New(log logr.Logger, version string, bconf *Conf) *AsConfig {
+func New(log logr.Logger, bconf *Conf) *AsConfig {
 	return &AsConfig{
-		version:  version,
 		baseConf: bconf,
 		log:      log,
 	}
@@ -33,14 +31,13 @@ type ValidationErr struct {
 
 // NewMapAsConfig creates AsConfig. Typically an unmarshalled yaml file is passed in
 func NewMapAsConfig(
-	log logr.Logger, version string, configMap map[string]interface{},
+	log logr.Logger, configMap map[string]interface{},
 ) (*AsConfig, error) {
 	baseConf := newMap(log, configMap)
 
 	return &AsConfig{
 		log:      log,
 		baseConf: &baseConf,
-		version:  version,
 	}, nil
 }
 
@@ -87,7 +84,7 @@ func FromConfFile(log logr.Logger, version string, in io.Reader) (*AsConfig, err
 		return nil, err
 	}
 
-	return NewMapAsConfig(log, version, configMap)
+	return NewMapAsConfig(log, configMap)
 }
 
 // IsSupportedVersion returns true if version supported else false

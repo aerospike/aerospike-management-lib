@@ -57,11 +57,10 @@ func (s *GenerateE2eTestSuite) TestGenerate() {
 	genConfWithDefaults, err := asconfig.GenerateConf(logr.Discard(), asinfo, false)
 	s.Assert().Nil(err)
 
-	asconf, err := asconfig.NewMapAsConfig(logr.Discard(), genConf.Version, genConf.Conf)
+	asconf, err := asconfig.NewMapAsConfig(logr.Discard(), genConf.Conf)
 	s.Assert().Nil(err)
 	asconfWithDefaults, err := asconfig.NewMapAsConfig(
 		logr.Discard(),
-		genConfWithDefaults.Version,
 		genConfWithDefaults.Conf,
 	)
 	s.Assert().Nil(err)
@@ -76,11 +75,10 @@ func (s *GenerateE2eTestSuite) TestGenerate() {
 	genConfWithDefaults2, err := asconfig.GenerateConf(logr.Discard(), asinfo2, false)
 	s.Assert().Nil(err)
 
-	asconf2, err := asconfig.NewMapAsConfig(logr.Discard(), genConf2.Version, genConf2.Conf)
+	asconf2, err := asconfig.NewMapAsConfig(logr.Discard(), genConf2.Conf)
 	s.Assert().Nil(err)
 	asconfWithDefaults2, err := asconfig.NewMapAsConfig(
 		logr.Discard(),
-		genConfWithDefaults2.Version,
 		genConfWithDefaults2.Conf,
 	)
 	s.Assert().Nil(err)
