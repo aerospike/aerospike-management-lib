@@ -14,6 +14,7 @@ import (
 )
 
 const constTrue = "true"
+const NAMESPACES = "namespaces"
 
 // cluster represents an aerospike cluster
 type cluster struct {
@@ -887,11 +888,11 @@ func (c *cluster) setConfigCommandsOnHosts(cmds []string, hosts []*HostConn) err
 			output, err := info.toString(cmd)
 			if err != nil {
 				return fmt.Errorf(
-					"failed to execute set-config command on node %s: %v", id, err)
+					"ServerError: failed to execute set-config command on node %s: %v", id, err)
 			}
 
 			if !strings.EqualFold(output, "ok") {
-				return fmt.Errorf("failed to execute set-config"+
+				return fmt.Errorf("ServerError: failed to execute set-config"+
 					" command on node %s: %v", id, output)
 			}
 		}

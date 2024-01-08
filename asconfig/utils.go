@@ -19,6 +19,7 @@ import (
 	"github.com/go-logr/logr"
 
 	lib "github.com/aerospike/aerospike-management-lib"
+	"github.com/aerospike/aerospike-management-lib/commons"
 )
 
 type sysproptype string
@@ -139,7 +140,7 @@ func expandConfMap(log logr.Logger, input *Conf, sep string) Conf {
 			m[k] = expandConfMap(log, &v, sep)
 
 		default:
-			expandKey(log, m, lib.SplitKey(log, k, sep), v)
+			expandKey(log, m, commons.SplitKey(log, k, sep), v)
 		}
 	}
 
@@ -226,7 +227,7 @@ func toAsConfigContext(context string) string {
 		// logging filename can have / - avoid further replacements
 		asConfigCtx := loggingContextRe.ReplaceAllString(
 			context,
-			fmt.Sprintf("$1.%c$3%c", lib.SectionNameStartChar, lib.SectionNameEndChar),
+			fmt.Sprintf("$1.%c$3%c", commons.SectionNameStartChar, commons.SectionNameEndChar),
 		)
 
 		return asConfigCtx
@@ -234,7 +235,7 @@ func toAsConfigContext(context string) string {
 
 	asConfigCtx := namedContextRe.ReplaceAllString(
 		context,
-		fmt.Sprintf("$1.%c$3%c", lib.SectionNameStartChar, lib.SectionNameEndChar),
+		fmt.Sprintf("$1.%c$3%c", commons.SectionNameStartChar, commons.SectionNameEndChar),
 	)
 	asConfigCtx = strings.ReplaceAll(asConfigCtx, "/", sep)
 
@@ -251,7 +252,7 @@ func toAsConfigKey(context, name string) string {
 // named context
 func getRawName(name string) string {
 	return strings.Trim(
-		name, fmt.Sprintf("%c%c", lib.SectionNameStartChar, lib.SectionNameEndChar),
+		name, fmt.Sprintf("%c%c", commons.SectionNameStartChar, commons.SectionNameEndChar),
 	)
 }
 
@@ -263,8 +264,8 @@ func getContainedName(log logr.Logger, fullKey, context string) (
 	ctx := toAsConfigContext(context)
 
 	if strings.Contains(fullKey, ctx) {
-		fKs := lib.SplitKey(log, fullKey, sep)
-		cKs := lib.SplitKey(log, ctx, sep)
+		fKs := commons.SplitKey(log, fullKey, sep)
+		cKs := commons.SplitKey(log, ctx, sep)
 
 		// Number of keys in fullKey should
 		// be 1 more that ctx
@@ -328,7 +329,7 @@ func flattenConfList(log logr.Logger, input []Conf, sep string) Conf {
 			continue
 		}
 
-		name, ok := v[keyName].(string)
+		name, ok := v[KeyName].(string)
 		if !ok {
 			// Some lists like for storage-engine, index-type, and sindex-type use "type" instead
 			// of "name" in order to be compatible with the schema files.
@@ -348,7 +349,7 @@ func flattenConfList(log logr.Logger, input []Conf, sep string) Conf {
 		// still its not complete solution, it fails if user has section names with imbalance parenthesis
 		// for ex. namespace name -> test}.abcd
 		// but this solution will work for most of the cases and reduce most of the failure scenarios
-		name = string(lib.SectionNameStartChar) + name + string(lib.SectionNameEndChar)
+		name = string(commons.SectionNameStartChar) + name + string(commons.SectionNameEndChar)
 
 		for k2, v2 := range flattenConf(log, v, sep) {
 			res[name+sep+k2] = v2
@@ -391,6 +392,16 @@ func flattenConf(log logr.Logger, input Conf, sep string) Conf {
 func BaseKey(k string) (baseKey string) {
 	s := strings.Split(k, sep)
 	return s[len(s)-1]
+}
+
+func ContextKey(k string) (contextKey string) {
+	s := strings.Split(k, sep)
+	if len(s) > 1 {
+		// Extract the prefix (before the first dot)
+		contextKey = s[0]
+	}
+
+	return contextKey
 }
 
 // Conf is of following values types.
@@ -538,7 +549,7 @@ func diff(
 // Generally used to compare current and desired config. This ignores
 // node specific information like address, device, interface etc.
 func detailedDiff(log logr.Logger, c1, c2 Conf, isFlat,
-	desiredToActual bool, ver string) map[string]map[string]interface{} {
+	desiredToActual bool, ver string) (map[string]map[string]interface{}, error) {
 	// Flatten if not flattened already.
 	if !isFlat {
 		c1 = flattenConf(log, c1, sep)
@@ -561,29 +572,27 @@ func detailedDiff(log logr.Logger, c1, c2 Conf, isFlat,
 		if !ok {
 			diffUpdated := false
 
-			tokens := lib.SplitKey(log, k, ".")
+			tokens := commons.SplitKey(log, k, ".")
 			for idx, token := range tokens {
-				re := regexp.MustCompile(`^\{.*\}$`)
-				if re.MatchString(token) {
-					log.Info("key with curly braces not found in c2", "key", k, "value", v1)
+				if commons.ReCurlyBraces.MatchString(token) {
 					// Whole structure which has "name" as key is not present in c2
-					if _, okay := c2[strings.Join(tokens[:idx+1], sep)+"."+keyName]; !okay {
+					if _, okay := c2[strings.Join(tokens[:idx+1], sep)+"."+KeyName]; !okay {
 						if desiredToActual {
 							if _, updated := d[k]; !updated {
 								valueMap := make(map[string]interface{})
-								if tokens[len(tokens)-1] == "name" {
-									valueMap["create"] = c1[k]
+								if tokens[len(tokens)-1] == KeyName {
+									valueMap[commons.AddOp] = c1[k]
 								} else {
-									valueMap["update"] = c1[k]
+									valueMap[commons.UpdateOp] = c1[k]
 								}
 
 								d[k] = valueMap
 							}
 						} else {
-							if _, updated := d[strings.Join(tokens[:idx+1], sep)+"."+keyName]; !updated {
+							if _, updated := d[strings.Join(tokens[:idx+1], sep)+"."+KeyName]; !updated {
 								valueMap := make(map[string]interface{})
-								valueMap["delete"] = c1[strings.Join(tokens[:idx+1], sep)+"."+keyName]
-								d[strings.Join(tokens[:idx+1], sep)+"."+keyName] = valueMap
+								valueMap[commons.RemoveOp] = c1[strings.Join(tokens[:idx+1], sep)+"."+KeyName]
+								d[strings.Join(tokens[:idx+1], sep)+"."+KeyName] = valueMap
 							}
 						}
 
@@ -610,13 +619,13 @@ func detailedDiff(log logr.Logger, c1, c2 Conf, isFlat,
 
 					defaultMap, err := GetDefault(ver)
 					if err != nil {
-						log.Error(err, "error while getting default map")
-						return nil
+						// retry error fall back to rolling restart.
+						return nil, err
 					}
 
 					defaultValue := getDefaultValue(defaultMap, currentKey)
 					valueMap := make(map[string]interface{})
-					valueMap["update"] = defaultValue
+					valueMap[commons.UpdateOp] = defaultValue
 					d[currentKey] = valueMap
 					diffUpdated = true
 				}
@@ -627,12 +636,12 @@ func detailedDiff(log logr.Logger, c1, c2 Conf, isFlat,
 
 				if reflect.ValueOf(c1[k]).Kind() == reflect.Slice {
 					if desiredToActual {
-						valueMap["add"] = c1[k].([]string)
+						valueMap[commons.AddOp] = c1[k].([]string)
 					} else {
-						valueMap["remove"] = c1[k].([]string)
+						valueMap[commons.RemoveOp] = c1[k].([]string)
 					}
 				} else {
-					valueMap["update"] = c1[k]
+					valueMap[commons.UpdateOp] = c1[k]
 				}
 
 				d[k] = valueMap
@@ -658,23 +667,23 @@ func detailedDiff(log logr.Logger, c1, c2 Conf, isFlat,
 
 				removedValues := statusSet.Difference(diffSet)
 				if removedValues.Cardinality() > 0 {
-					valueMap["remove"] = removedValues.ToSlice()
+					valueMap[commons.RemoveOp] = removedValues.ToSlice()
 					d[k] = valueMap
 				}
 
 				addedValues := diffSet.Difference(statusSet)
 				if addedValues.Cardinality() > 0 {
-					valueMap["add"] = addedValues.ToSlice()
+					valueMap[commons.AddOp] = addedValues.ToSlice()
 					d[k] = valueMap
 				}
 			} else {
-				valueMap["update"] = v1
+				valueMap[commons.UpdateOp] = v1
 				d[k] = valueMap
 			}
 		}
 	}
 
-	return d
+	return d, nil
 }
 
 // ConfDiff find diff between two configs;
@@ -688,19 +697,26 @@ func detailedDiff(log logr.Logger, c1, c2 Conf, isFlat,
 // case of list of string fields)
 func ConfDiff(
 	log logr.Logger, desiredConf, currentConf Conf, isFlat bool, ver string,
-) map[string]map[string]interface{} {
-	diffs := detailedDiff(log, desiredConf, currentConf, isFlat, true, ver)
+) (map[string]map[string]interface{}, error) {
+	diffs, err := detailedDiff(log, desiredConf, currentConf, isFlat, true, ver)
+	if err != nil {
+		return nil, err
+	}
+
 	log.Info("print diff inside", "difference", fmt.Sprintf("%v", diffs))
 
-	removedConfigs := detailedDiff(log, currentConf, desiredConf, isFlat, false, ver)
+	removedConfigs, err := detailedDiff(log, currentConf, desiredConf, isFlat, false, ver)
+	if err != nil {
+		return nil, err
+	}
+
 	log.Info("print c2ToC1Diffs", "difference", fmt.Sprintf("%v", removedConfigs))
 
 	for removedConfigKey := range removedConfigs {
-		// If whole string array or map type config is not present in desired config
-		_, removed := removedConfigs[removedConfigKey]["remove"]
-		_, deleted := removedConfigs[removedConfigKey]["delete"]
+		// If whole string array or map type config is not present in desired config.
+		_, removed := removedConfigs[removedConfigKey][commons.RemoveOp]
 
-		if removed || deleted {
+		if removed {
 			diffs[removedConfigKey] = removedConfigs[removedConfigKey]
 			continue
 		}
@@ -708,19 +724,19 @@ func ConfDiff(
 		// Setting defaults for atomic keys which are not present in desired config
 		defaultMap, err := GetDefault(ver)
 		if err != nil {
-			log.Error(err, "error while getting default map")
-			return nil
+			// retry error fall back to rolling restart.
+			return nil, err
 		}
 
 		defaultValue := getDefaultValue(defaultMap, removedConfigKey)
 		valueMap := make(map[string]interface{})
-		valueMap["update"] = defaultValue
+		valueMap[commons.UpdateOp] = defaultValue
 		diffs[removedConfigKey] = valueMap
 	}
 
 	log.Info("print diffs before return", "difference", fmt.Sprintf("%v", diffs))
 
-	return diffs
+	return diffs, nil
 }
 
 // defaultDiff returns the values different from the default.
@@ -903,7 +919,7 @@ func isIncompleteSetSectionFields(key string) bool {
 func isInternalField(key string) bool {
 	key = BaseKey(key)
 	switch key {
-	case keyIndex, keyName:
+	case keyIndex, KeyName:
 		return true
 
 	default:
@@ -948,7 +964,7 @@ func isFormField(key string) bool {
 	// "name" is id for named sections
 	// "storage-engine-type" is type of storage engine.
 	switch key {
-	case keyName, "storage-engine-type":
+	case KeyName, "storage-engine-type":
 		return true
 
 	default:
@@ -1360,7 +1376,7 @@ func getCfgValue(log logr.Logger, diffKeys []string, flatConf Conf) []CfgValue {
 }
 
 func getContextAndName(log logr.Logger, key, _ string) (context, name string) {
-	keys := lib.SplitKey(log, key, sep)
+	keys := commons.SplitKey(log, key, sep)
 	if len(keys) == 1 {
 		return "", ""
 	}

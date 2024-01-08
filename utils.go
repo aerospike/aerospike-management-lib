@@ -2,20 +2,9 @@ package lib
 
 import (
 	"fmt"
-	"regexp"
 	"strconv"
 	"strings"
-
-	"github.com/go-logr/logr"
 )
-
-// start and end character for section names
-const (
-	SectionNameStartChar = '{'
-	SectionNameEndChar   = '}'
-)
-
-var ReCurlyBraces = regexp.MustCompile(`^\{.*\}$`)
 
 // CompareVersions compares Aerospike Server versions
 // if version1 == version2 returns 0
@@ -129,31 +118,4 @@ func CompareVersionsIgnoreRevision(version1, version2 string) (int, error) {
 	}
 
 	return 0, nil
-}
-
-// SplitKey splits key by using sep
-// it ignores sep inside sectionNameStartChar and sectionNameEndChar
-func SplitKey(log logr.Logger, key, sep string) []string {
-	sepRunes := []rune(sep)
-	if len(sepRunes) > 1 {
-		log.Info("Split expects single char as separator")
-		return nil
-	}
-
-	openBracket := 0
-	f := func(c rune) bool {
-		if c == sepRunes[0] && openBracket == 0 {
-			return true
-		}
-
-		if c == SectionNameStartChar {
-			openBracket++
-		} else if c == SectionNameEndChar {
-			openBracket--
-		}
-
-		return false
-	}
-
-	return strings.FieldsFunc(key, f)
 }

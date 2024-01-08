@@ -10,10 +10,11 @@ import (
 	"strconv"
 	"strings"
 
-	lib "github.com/aerospike/aerospike-management-lib"
-
 	sets "github.com/deckarep/golang-set/v2"
 	"github.com/go-logr/logr"
+
+	"github.com/aerospike/aerospike-management-lib/commons"
+	"github.com/aerospike/aerospike-management-lib/info"
 )
 
 // map of version to schema
@@ -178,33 +179,34 @@ func getDynamicSchema(flatSchema map[string]interface{}) map[string]bool {
 	return dynMap
 }
 
-func IsAllDynamicConfig(log logr.Logger, configMap map[string]map[string]interface{}, version string) bool {
+func IsAllDynamicConfig(log logr.Logger, configMap map[string]map[string]interface{}, version string) (bool, error) {
 	dynamic, err := GetDynamic(version)
 	if err != nil {
-		return false
+		// retry error fall back to rolling restart.
+		return false, err
 	}
 
 	for confKey := range configMap {
 		baseKey := BaseKey(confKey)
 		if baseKey == "node-address-ports" {
-			addedDCKey := strings.ReplaceAll(confKey, baseKey, "name")
+			addedDCKey := strings.ReplaceAll(confKey, baseKey, KeyName)
 			if _, ok := configMap[addedDCKey]; ok {
 				continue
 			}
 		}
 
 		if !isFieldDynamic(log, dynamic, confKey, configMap[confKey]) {
-			return false
+			return false, nil
 		}
 	}
 
-	return true
+	return true, nil
 }
 
 func isFieldDynamic(log logr.Logger, dynamic map[string]bool, conf string, valueMap map[string]interface{}) bool {
 	var key string
 
-	tokens := lib.SplitKey(log, conf, ".")
+	tokens := commons.SplitKey(log, conf, ".")
 	baseKey := tokens[len(tokens)-1]
 	context := tokens[0]
 
@@ -212,7 +214,7 @@ func isFieldDynamic(log logr.Logger, dynamic map[string]bool, conf string, value
 		return true
 	}
 
-	if context == "xdr" && baseKey == "name" {
+	if context == info.ConfigXDRContext && baseKey == KeyName {
 		return true
 	}
 
@@ -225,13 +227,13 @@ func isFieldDynamic(log logr.Logger, dynamic map[string]bool, conf string, value
 	}
 
 	if conditionalStaticFieldSet.Contains(baseKey) {
-		if _, ok := valueMap["remove"]; ok {
+		if _, ok := valueMap[commons.RemoveOp]; ok {
 			return false
 		}
 	}
 
 	for _, token := range tokens {
-		if lib.ReCurlyBraces.MatchString(token) {
+		if commons.ReCurlyBraces.MatchString(token) {
 			key += "_."
 		} else {
 			key = key + token + "."
@@ -249,7 +251,7 @@ func getDefaultValue(defaultMap map[string]interface{}, conf string) interface{}
 
 	tokens := strings.Split(conf, ".")
 	for _, token := range tokens {
-		if lib.ReCurlyBraces.MatchString(token) {
+		if commons.ReCurlyBraces.MatchString(token) {
 			key += "_."
 		} else {
 			key = key + token + "."

@@ -5,7 +5,7 @@ const (
 	keyFeatureKeyFile = "feature-key-file"
 	keyDevice         = "device"
 	keyFile           = "file"
-	keyName           = "name"
+	KeyName           = "name"
 	keyType           = "type"
 
 	keyStorageEngine             = "storage-engine"

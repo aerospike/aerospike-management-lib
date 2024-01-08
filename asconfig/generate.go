@@ -397,7 +397,7 @@ func convertDictToList(config Conf) []Conf {
 			continue
 		}
 
-		config2[keyName] = key1
+		config2[KeyName] = key1
 		list[count] = config2
 		count++
 
