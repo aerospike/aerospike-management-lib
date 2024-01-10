@@ -71,7 +71,7 @@ func GetClusterNamespaces(log logr.Logger, policy *aero.ClientPolicy,
 }
 
 // GetInfoStatistics returns output from 'asinfo statistics' on each node
-func GetInfoStatistics(log logr.Logger, policy *aero.ClientPolicy, allHosts []*HostConn) (map[string]infoResult, error) {
+func GetInfoStatistics(log logr.Logger, policy *aero.ClientPolicy, allHosts []*HostConn) (InfoResults, error) {
 	c, err := newCluster(log, policy, allHosts, allHosts)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create a cluster copy for running aeroinfo: %v", err)

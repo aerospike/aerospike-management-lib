@@ -10,6 +10,8 @@ import (
 
 type infoResult map[string]string
 
+type InfoResults map[string]infoResult
+
 func (ir infoResult) toInt(key string) (int, error) {
 	val, ok := ir[key]
 	if !ok {
