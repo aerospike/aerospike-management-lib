@@ -789,7 +789,8 @@ func (c *cluster) infoOnHosts(
 	wg.Wait()
 
 	if len(infos) != len(hostIDs) {
-		return nil, fmt.Errorf(
+		// We are still interested in the info of hosts we could get
+		return infos, fmt.Errorf(
 			"failed to fetch aerospike info `%s` for all hosts %v", cmd,
 			hostIDs,
 		)
@@ -827,7 +828,8 @@ func (c *cluster) infoCmdsOnHosts(hostIDCmdMap map[string]string) (
 	wg.Wait()
 
 	if len(infos) != len(hostIDCmdMap) {
-		return nil, fmt.Errorf(
+		// We are still interested in the info of hosts we could get
+		return infos, fmt.Errorf(
 			"failed to fetch aerospike info for all hosts %v", hostIDCmdMap,
 		)
 	}
