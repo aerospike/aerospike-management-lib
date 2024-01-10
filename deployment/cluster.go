@@ -132,12 +132,9 @@ func (c *cluster) IsClusterAndStable(hostIDs []string) (bool, error) {
 		}
 
 		if size != len(hostIDs) {
-			c.log.V(1).Info(
-				"Cluster size not equal", "infoSize", size, "desiredSize",
-				len(hostIDs),
+			return false, fmt.Errorf(
+				"cluster size does not equal expected: %d, actual: %d", size, len(hostIDs),
 			)
-
-			return false, nil
 		}
 
 		allowed, err := info.toBool("migrate_allowed")
@@ -148,8 +145,7 @@ func (c *cluster) IsClusterAndStable(hostIDs []string) (bool, error) {
 		}
 
 		if !allowed {
-			c.log.V(1).Info("Cluster not stable, migration not allowed")
-			return false, nil
+			return false, fmt.Errorf("migrate_allowed is false, migration not allowed")
 		}
 
 		integrity, err := info.toBool("cluster_integrity")
@@ -160,8 +156,7 @@ func (c *cluster) IsClusterAndStable(hostIDs []string) (bool, error) {
 		}
 
 		if !integrity {
-			c.log.V(1).Info("Cluster not stable, cluster integrity false")
-			return false, nil
+			return false, fmt.Errorf("cluster_integrity is false")
 		}
 
 		remaining, err := info.toInt("migrate_partitions_remaining")
@@ -173,17 +168,15 @@ func (c *cluster) IsClusterAndStable(hostIDs []string) (bool, error) {
 		}
 
 		if remaining > 0 {
-			c.log.V(1).Info(
-				"Cluster not stable, migrate partitions remaining",
-				"remaining", remaining,
+			return false, fmt.Errorf(
+				"migrate partitions remaining on host %s: %v remaining: %d",
+				id, err, remaining,
 			)
-
-			return false, nil
 		}
 	}
 	// it assumes that cluster is running, len(hostIDs) == 0 has bailed out early
-	if len(clusterKeys) != 1 { // cluster key not unique
-		return false, nil
+	if len(clusterKeys) != 1 {
+		return false, fmt.Errorf("cluster key is not unique")
 	}
 
 	lg.V(1).Info("Finished running IsClusterAndStable")
