@@ -69,3 +69,12 @@ func GetClusterNamespaces(log logr.Logger, policy *aero.ClientPolicy,
 
 	return c.getClusterNamespaces(getHostIDsFromHostConns(allHosts))
 }
+
+func GetInfoOnHosts(log logr.Logger, policy *aero.ClientPolicy, allHosts []*HostConn, cmd string) (map[string]InfoResult, error) {
+	c, err := newCluster(log, policy, allHosts, allHosts)
+	if err != nil {
+		return nil, fmt.Errorf("unable to create a cluster copy for running aeroinfo: %v", err)
+	}
+
+	return c.infoOnHosts(getHostIDsFromHostConns(allHosts), cmd)
+}
