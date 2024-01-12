@@ -314,7 +314,6 @@ func CreateConfigSetCmdList(
 	cmdList := make([]string, 0, len(configMap))
 
 	orderedConfList := rearrangeConfigMap(log, configMap)
-
 	for _, c := range orderedConfList {
 		tokens := strings.Split(c, ".")
 		context := tokens[0]

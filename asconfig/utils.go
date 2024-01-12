@@ -394,7 +394,8 @@ func BaseKey(k string) (baseKey string) {
 	return s[len(s)-1]
 }
 
-func ContextKey(k string) (contextKey string) {
+func ContextKey(k string) string {
+	contextKey := k
 	s := strings.Split(k, sep)
 	if len(s) > 1 {
 		// Extract the prefix (before the first dot)

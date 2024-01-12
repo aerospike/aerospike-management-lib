@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/go-logr/logr"
 	"github.com/xeipuuv/gojsonschema"
@@ -66,6 +67,79 @@ func confIsValid(log logr.Logger, flatConf *Conf, ver string) (bool, []*Validati
 	}
 
 	return false, vErrs, ErrConfigSchema
+}
+
+func ConfValuesValid(flatConf *Conf) []*ValidationErr {
+	vErrs := make([]*ValidationErr, 0)
+	var vErr *ValidationErr
+	for key, value := range *flatConf {
+		baseKey := BaseKey(key)
+
+		switch val := value.(type) {
+		case []string:
+			vErrs = append(vErrs, validateSlice(baseKey, val)...)
+
+		case string:
+			vErrs = append(vErrs, validateString(baseKey, val))
+
+		case bool, int, uint64, int64, float64:
+
+		case lib.Stats:
+			// Ignoring changes in map type as each key is being compared separately eg. security {}.
+
+		default:
+			vErr = &ValidationErr{
+				Description: "Unhandled value type in config",
+				Field:       key,
+				Value:       val,
+			}
+			vErrs = append(vErrs, vErr)
+
+		}
+	}
+
+	return vErrs
+}
+
+func validateSlice(baseKey string, val []string) []*ValidationErr {
+	vErrs := make([]*ValidationErr, 0)
+	for _, v := range val {
+		vErrs = append(vErrs, validateString(baseKey, v))
+	}
+
+	return vErrs
+}
+
+func validateString(baseKey string, v string) *ValidationErr {
+	literals := strings.Split(v, " ")
+	switch baseKey {
+	case "node-address-ports":
+		if len(literals) > 3 {
+			return &ValidationErr{
+				Description: "Invalid node-address-ports",
+				Field:       baseKey,
+				Value:       v,
+			}
+		}
+	case "report-data-op":
+		if len(literals) > 2 {
+			return &ValidationErr{
+				Description: "Invalid report-data-op",
+				Field:       baseKey,
+				Value:       v,
+			}
+		}
+	default:
+		if len(literals) > 1 {
+			return &ValidationErr{
+				Description: "Invalid value",
+				Field:       baseKey,
+				Value:       v,
+			}
+		}
+	}
+
+	return nil
 }
 
 // confToDotConf takes Conf as parameter and returns server
