@@ -186,12 +186,12 @@ func (s *AsParserTestSuite) TestAsInfoGetAsConfigXDR5Disabled() {
 	// Call GetAsInfo with the input from the test case
 	s.mockConn.EXPECT().RequestInfo([]string{"namespaces", "dcs", "sindex/", "logs", "build"}).Return(coreInfoResp, nil)
 	s.mockConn.EXPECT().RequestInfo([]string{"get-config:context=xdr"}).Return(map[string]string{"get-config:context=xdr": "dcs=;src-id=0;trace-sample=0"}, nil)
+
 	expected := lib.Stats{"xdr": lib.Stats{
 		"src-id":       int64(0),
 		"trace-sample": int64(0),
 		"dcs":          lib.Stats{},
 	}}
-
 	result, err := s.asinfo.GetAsConfig(context)
 
 	s.Assert().Nil(err)
