@@ -71,7 +71,9 @@ func confIsValid(log logr.Logger, flatConf *Conf, ver string) (bool, []*Validati
 
 func ConfValuesValid(flatConf *Conf) []*ValidationErr {
 	vErrs := make([]*ValidationErr, 0)
+
 	var vErr *ValidationErr
+
 	for key, value := range *flatConf {
 		baseKey := BaseKey(key)
 
@@ -83,9 +85,11 @@ func ConfValuesValid(flatConf *Conf) []*ValidationErr {
 			vErrs = append(vErrs, validateString(baseKey, val))
 
 		case bool, int, uint64, int64, float64:
+			continue
 
 		case lib.Stats:
 			// Ignoring changes in map type as each key is being compared separately eg. security {}.
+			continue
 
 		default:
 			vErr = &ValidationErr{
@@ -94,7 +98,6 @@ func ConfValuesValid(flatConf *Conf) []*ValidationErr {
 				Value:       val,
 			}
 			vErrs = append(vErrs, vErr)
-
 		}
 	}
 
@@ -110,8 +113,9 @@ func validateSlice(baseKey string, val []string) []*ValidationErr {
 	return vErrs
 }
 
-func validateString(baseKey string, v string) *ValidationErr {
+func validateString(baseKey, v string) *ValidationErr {
 	literals := strings.Split(v, " ")
+
 	switch baseKey {
 	case "node-address-ports":
 		if len(literals) > 3 {
@@ -121,6 +125,7 @@ func validateString(baseKey string, v string) *ValidationErr {
 				Value:       v,
 			}
 		}
+
 	case "report-data-op":
 		if len(literals) > 2 {
 			return &ValidationErr{
@@ -129,6 +134,7 @@ func validateString(baseKey string, v string) *ValidationErr {
 				Value:       v,
 			}
 		}
+
 	default:
 		if len(literals) > 1 {
 			return &ValidationErr{

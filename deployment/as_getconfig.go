@@ -1,12 +1,13 @@
 package deployment
 
 import (
+	"strings"
+
 	aero "github.com/aerospike/aerospike-client-go/v6"
 	lib "github.com/aerospike/aerospike-management-lib"
 	"github.com/aerospike/aerospike-management-lib/asconfig"
 	"github.com/aerospike/aerospike-management-lib/commons"
 	"github.com/aerospike/aerospike-management-lib/info"
-	"strings"
 )
 
 func GetASConfig(path string, conn *ASConn, aerospikePolicy *aero.ClientPolicy) (confToReturn interface{}, err error) {
@@ -25,6 +26,7 @@ func GetASConfig(path string, conn *ASConn, aerospikePolicy *aero.ClientPolicy) 
 	}
 
 	namesInCurlyBraces := make([]string, 0)
+
 	tokens := strings.Split(path, ".")
 	for _, token := range tokens[1:] {
 		if commons.ReCurlyBraces.MatchString(token) {
