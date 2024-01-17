@@ -44,9 +44,10 @@ const (
 	// 1. string values which are not commands
 	// 2. string values which are used to generate other commands
 	// 3. string values which are both command and constant
-	constStatXDRPre50 = "statistics/xdr" // StatXdr, there is no equivalent command in 5.0
-	constStatNS       = "namespace/"     // StatNamespace
-	constStatDCpre50  = "dc/"            // statDC
+	constStatXDRPre50 = "statistics/xdr" // StatXdr
+	constStatXDR      = "get-stats:context=xdr"
+	constStatNS       = "namespace/" // StatNamespace
+	constStatDCpre50  = "dc/"        // statDC
 	constStatDC       = "get-stats:context=xdr;dc="
 	constStatSet      = "sets/"      // StatSets
 	constStatBin      = "bins/"      // StatBins
@@ -636,7 +637,11 @@ func (info *AsInfo) createXDRConfigCmdList(build string, m map[string]string) ([
 	rawNames, ok := xdrConfig[constStatDCNames].(string)
 
 	if ok {
-		dcNames = strings.Split(rawNames, ",")
+		if rawNames == "" {
+			dcNames = []string{}
+		} else {
+			dcNames = strings.Split(rawNames, ",")
+		}
 	} else {
 		dcNames = []string{}
 	}
@@ -697,6 +702,10 @@ func (info *AsInfo) createXDRConfigCmdList(build string, m map[string]string) ([
 
 // createDCConfigCmdList creates get-config command for DC
 func (info *AsInfo) createDCNamespaceConfigCmdList(dc string, namespaces ...string) []string {
+	if dc == "" {
+		return nil
+	}
+
 	cmdList := make([]string, 0, len(namespaces))
 
 	for _, ns := range namespaces {
@@ -898,7 +907,7 @@ func parseStatInfo(rawMap map[string]string) lib.Stats {
 	statMap := make(lib.Stats)
 
 	statMap["service"] = parseBasicInfo(rawMap[ConstStat])
-	statMap["xdr"] = parseBasicInfo(rawMap[constStatXDRPre50])
+	statMap["xdr"] = parseBasicInfo(rawMap[constStatXDR])
 	statMap["dc"] = parseAllDcStats(rawMap)
 	statMap["namespace"] = parseAllNsStats(rawMap)
 

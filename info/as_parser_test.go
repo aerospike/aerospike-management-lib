@@ -32,7 +32,7 @@ func (s *AsParserTestSuite) SetupTest() {
 	s.asinfo = NewAsInfoWithConnFactory(logr.Discard(), host, policy, mockConnFact)
 }
 
-func (s *AsParserTestSuite) TestAsInfoRequestInfo() {
+func (s *AsParserTestSuite) TestAsInfoGetAsConfig() {
 	testCases := []struct {
 		context      string
 		coreInfoResp map[string]string
@@ -149,7 +149,7 @@ func (s *AsParserTestSuite) TestAsInfoRequestInfo() {
 	}
 }
 
-func (s *AsParserTestSuite) TestAsInfoRequestInfoXDR5() {
+func (s *AsParserTestSuite) TestAsInfoGetAsConfigXDR5Enabled() {
 	context := "xdr"
 	coreInfoResp := map[string]string{"build": "5.0.0.0"}
 
@@ -171,6 +171,25 @@ func (s *AsParserTestSuite) TestAsInfoRequestInfoXDR5() {
 				"bar": lib.Stats{"enabled": true, "bin-policy": "all", "compression-level": int64(1), "compression-threshold": int64(128), "delay-ms": int64(0), "enable-compression": false, "forward": false, "hot-key-ms": int64(100), "ignored-bins": ""},
 			}},
 		},
+	}}
+
+	result, err := s.asinfo.GetAsConfig(context)
+
+	s.Assert().Nil(err)
+	s.Assert().Equal(expected, result)
+}
+
+func (s *AsParserTestSuite) TestAsInfoGetAsConfigXDR5Disabled() {
+	context := "xdr"
+	coreInfoResp := map[string]string{"build": "5.0.0.0"}
+
+	// Call GetAsInfo with the input from the test case
+	s.mockConn.EXPECT().RequestInfo([]string{"namespaces", "dcs", "sindex/", "logs", "build"}).Return(coreInfoResp, nil)
+	s.mockConn.EXPECT().RequestInfo([]string{"get-config:context=xdr"}).Return(map[string]string{"get-config:context=xdr": "dcs=;src-id=0;trace-sample=0"}, nil)
+	expected := lib.Stats{"xdr": lib.Stats{
+		"src-id":       int64(0),
+		"trace-sample": int64(0),
+		"dcs":          lib.Stats{},
 	}}
 
 	result, err := s.asinfo.GetAsConfig(context)
