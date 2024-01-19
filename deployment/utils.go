@@ -8,9 +8,9 @@ import (
 	as "github.com/aerospike/aerospike-client-go/v6"
 )
 
-type infoResult map[string]string
+type InfoResult map[string]string
 
-func (ir infoResult) toInt(key string) (int, error) {
+func (ir InfoResult) toInt(key string) (int, error) {
 	val, ok := ir[key]
 	if !ok {
 		return 0, fmt.Errorf("field %s missing", key)
@@ -24,7 +24,7 @@ func (ir infoResult) toInt(key string) (int, error) {
 	return n, nil
 }
 
-func (ir infoResult) toString(key string) (string, error) {
+func (ir InfoResult) toString(key string) (string, error) {
 	val, ok := ir[key]
 	if !ok {
 		return "", fmt.Errorf("field %s missing", key)
@@ -33,7 +33,7 @@ func (ir infoResult) toString(key string) (string, error) {
 	return val, nil
 }
 
-func (ir infoResult) toBool(key string) (bool, error) {
+func (ir InfoResult) toBool(key string) (bool, error) {
 	val, ok := ir[key]
 	if !ok {
 		return false, fmt.Errorf("field %s missing", key)
