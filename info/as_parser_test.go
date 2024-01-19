@@ -194,7 +194,7 @@ func TestNewAsInfo_ConnectionError(t *testing.T) {
 
 	asinfo := NewAsInfoWithConnFactory(logr.Discard(), host, policy, mockConnFact)
 
-	r, acutalErr := asinfo.RequestInfo("connection will fail")
+	r, actualErr := asinfo.RequestInfo("connection will fail")
 
 	if r != nil {
 		t.Errorf("Expected nil response, got %v", r)
