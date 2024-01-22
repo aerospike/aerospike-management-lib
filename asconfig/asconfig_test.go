@@ -1,6 +1,8 @@
 package asconfig
 
 import (
+	"log"
+	"os"
 	"testing"
 
 	"github.com/go-logr/logr"
@@ -12,6 +14,19 @@ type AsConfigTestSuite struct {
 	suite.Suite
 	mockGetter *MockConfGetter
 	ctrl       *gomock.Controller
+}
+
+func (s *AsConfigTestSuite) SetupSuite() {
+	schemaDir := os.Getenv("TEST_SCHEMA_DIR")
+	if schemaDir == "" {
+		log.Printf("Env var TEST_SCHEMA_DIR must be set.")
+		s.T().Fail()
+	}
+
+	err := Init(logr.Discard(), schemaDir)
+	if err != nil {
+		s.T().Fatal(err)
+	}
 }
 
 func (s *AsConfigTestSuite) SetupTest() {
@@ -86,6 +101,166 @@ func (s *AsConfigTestSuite) TestAsConfigGetFlatMap() {
 
 			s.Assert().Nil(err)
 			s.Assert().Equal(tc.expected, actual)
+		})
+	}
+}
+
+func (s *AsConfigTestSuite) TestAsConfigGetDiff() {
+	testCases := []struct {
+		name       string
+		version    string
+		inputConf1 map[string]interface{}
+		inputConf2 map[string]interface{}
+		expected   map[string]map[string]interface{}
+	}{
+		{
+			"namespace context",
+			"7.0.0",
+			map[string]interface{}{
+				"namespaces": []map[string]interface{}{
+					{
+						"name": "test",
+						"storage-engine": map[string]interface{}{
+							"type": "device",
+						},
+					},
+					{
+						"name": "bar",
+						"storage-engine": map[string]interface{}{
+							"type": "memory",
+						},
+					},
+				},
+				"xdr": map[string]interface{}{
+					"dcs": []map[string]interface{}{
+						{
+							"name":               "DC1",
+							"node-address-ports": "1.1.1.1 3000",
+							"namespaces": []map[string]interface{}{
+								{
+									"name":       "ns1",
+									"bin-policy": "no-bins",
+								},
+							},
+						},
+					},
+				},
+				"security": map[string]interface{}{
+					"log": map[string]interface{}{
+						"report-data-op": []string{"ns1 set1", "ns3 set2"},
+					},
+				},
+			},
+			map[string]interface{}{
+				"namespaces": []map[string]interface{}{
+					{
+						"name": "test",
+						"storage-engine": map[string]interface{}{
+							"type": "memory",
+						},
+					},
+					{
+						"name": "bar",
+						"storage-engine": map[string]interface{}{
+							"type": "memory",
+						},
+					},
+				},
+				"xdr": map[string]interface{}{
+					"dcs": []map[string]interface{}{
+						{
+							"name":               "DC3",
+							"node-address-ports": "1.1.1.1 3000",
+							"namespaces": []map[string]interface{}{
+								{
+									"name":       "ns1",
+									"bin-policy": "all",
+								},
+							},
+						},
+					},
+				},
+				"security": map[string]interface{}{
+					"log": map[string]interface{}{
+						"report-data-op": []string{"ns1 set1", "ns2 set2"},
+					},
+				},
+			},
+
+			map[string]map[string]interface{}{
+				"namespaces.{test}.storage-engine.type":     {"update": "device"},
+				"xdr.dcs.{DC1}.namespaces.{ns1}.bin-policy": {"update": "no-bins"},
+				"security.log.report-data-op":               {"add": []string{"ns3 set2"}, "remove": []string{"ns2 set2"}},
+				"xdr.dcs.{DC3}.name":                        {"remove": "DC3"},
+				"xdr.dcs.{DC1}.node-address-ports":          {"update": []string{"1.1.1.1 3000"}},
+				"xdr.dcs.{DC1}.namespaces.{ns1}.name":       {"add": "ns1"},
+				"xdr.dcs.{DC1}.name":                        {"add": "DC1"},
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		s.Run(tc.name, func() {
+			logger := logr.Discard()
+
+			asConfig1, err := NewMapAsConfig(logger, tc.version, tc.inputConf1)
+			s.Assert().Nil(err)
+			asConfig2, err := NewMapAsConfig(logger, tc.version, tc.inputConf2)
+			s.Assert().Nil(err)
+			diff, err := ConfDiff(logger, *asConfig1.baseConf, *asConfig2.baseConf, false, "7.0.0")
+
+			s.Assert().Nil(err)
+			s.Assert().Equal(tc.expected, diff)
+		})
+	}
+}
+
+func (s *AsConfigTestSuite) TestAsConfigIsDynamic() {
+	testCases := []struct {
+		name      string
+		version   string
+		inputConf map[string]map[string]interface{}
+		expected  bool
+	}{
+		{
+			"static fields",
+			"7.0.0",
+			map[string]map[string]interface{}{
+				"namespaces.{test}.storage-engine.type":     {"update": "device"},
+				"xdr.dcs.{DC1}.namespaces.{ns1}.bin-policy": {"update": "no-bins"},
+				"security.log.report-data-op":               {"add": []string{"ns3 set2"}, "remove": []string{"ns2 set2"}},
+				"xdr.dcs.{DC3}.name":                        {"remove": "DC3"},
+				"xdr.dcs.{DC1}.node-address-ports":          {"update": []string{"1.1.1.1 3000"}},
+				"xdr.dcs.{DC1}.namespaces.{ns1}.name":       {"add": "ns1"},
+				"xdr.dcs.{DC1}.name":                        {"add": "DC1"},
+			},
+
+			false,
+		},
+		{
+			"dynamic fields",
+			"7.0.0",
+			map[string]map[string]interface{}{
+				"xdr.dcs.{DC1}.namespaces.{ns1}.bin-policy": {"update": "no-bins"},
+				"security.log.report-data-op":               {"add": []string{"ns3 set2"}, "remove": []string{"ns2 set2"}},
+				"xdr.dcs.{DC3}.name":                        {"remove": "DC3"},
+				"xdr.dcs.{DC1}.node-address-ports":          {"update": []string{"1.1.1.1 3000"}},
+				"xdr.dcs.{DC1}.namespaces.{ns1}.name":       {"add": "ns1"},
+				"xdr.dcs.{DC1}.name":                        {"add": "DC1"},
+			},
+
+			true,
+		},
+	}
+
+	for _, tc := range testCases {
+		s.Run(tc.name, func() {
+			logger := logr.Discard()
+
+			isDynamic, err := IsAllDynamicConfig(logger, tc.inputConf, "7.0.0")
+
+			s.Assert().Nil(err)
+			s.Assert().Equal(tc.expected, isDynamic)
 		})
 	}
 }

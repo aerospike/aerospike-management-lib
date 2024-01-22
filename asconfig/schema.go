@@ -187,14 +187,6 @@ func IsAllDynamicConfig(log logr.Logger, configMap map[string]map[string]interfa
 	}
 
 	for confKey := range configMap {
-		baseKey := BaseKey(confKey)
-		if baseKey == "node-address-ports" {
-			addedDCKey := strings.ReplaceAll(confKey, baseKey, KeyName)
-			if _, ok := configMap[addedDCKey]; ok {
-				continue
-			}
-		}
-
 		if !isFieldDynamic(log, dynamic, confKey, configMap[confKey]) {
 			return false, nil
 		}
@@ -210,7 +202,7 @@ func isFieldDynamic(log logr.Logger, dynamic map[string]bool, conf string, value
 	baseKey := tokens[len(tokens)-1]
 	context := tokens[0]
 
-	if baseKey == "replication-factor" {
+	if baseKey == "replication-factor" || baseKey == "node-address-ports" {
 		return true
 	}
 

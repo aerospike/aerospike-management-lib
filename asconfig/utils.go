@@ -562,33 +562,33 @@ func detailedDiff(log logr.Logger, c1, c2 Conf, isFlat,
 
 	// For all keys in C1 if it does not exist in C2
 	// or if type or value is different add/update it
-	for k, v1 := range c1 {
-		bN := BaseKey(k)
+	for k1, v1 := range c1 {
+		bN := BaseKey(k1)
 		if isNodeSpecificField(bN) || bN == keyIndex {
 			// Ignore node specific details and ordering
 			continue
 		}
 
 		// Add if not found in C2
-		v2, ok := c2[k]
+		v2, ok := c2[k1]
 		if !ok {
 			diffUpdated := false
 
-			tokens := commons.SplitKey(log, k, ".")
+			tokens := commons.SplitKey(log, k1, ".")
 			for idx, token := range tokens {
 				if commons.ReCurlyBraces.MatchString(token) {
 					// Whole structure which has "name" as key is not present in c2
 					if _, okay := c2[strings.Join(tokens[:idx+1], sep)+"."+KeyName]; !okay {
 						if desiredToActual {
-							if _, updated := d[k]; !updated {
+							if _, updated := d[k1]; !updated {
 								valueMap := make(map[string]interface{})
 								if tokens[len(tokens)-1] == KeyName {
-									valueMap[commons.AddOp] = c1[k]
+									valueMap[commons.AddOp] = c1[k1]
 								} else {
-									valueMap[commons.UpdateOp] = c1[k]
+									valueMap[commons.UpdateOp] = c1[k1]
 								}
 
-								d[k] = valueMap
+								d[k1] = valueMap
 							}
 						} else {
 							if _, updated := d[strings.Join(tokens[:idx+1], sep)+"."+KeyName]; !updated {
@@ -605,12 +605,12 @@ func detailedDiff(log logr.Logger, c1, c2 Conf, isFlat,
 				}
 			}
 
-			// Add default values to those config parameter with if available in schema.
-			// eg. desired has security: {} current has security.log.report-sys-admin: true
+			// Add default values to config parameter if available in schema.
+			// eg. c1 has security: {} c2 has security.log.report-sys-admin: true
 			// final diff should be map[security.log.report-sys-admin] = <default value>
 			if !diffUpdated {
-				for currentKey := range c2 {
-					if !strings.HasPrefix(currentKey, k+".") {
+				for k2 := range c2 {
+					if !strings.HasPrefix(k2, k1+".") {
 						continue
 					}
 
@@ -625,10 +625,10 @@ func detailedDiff(log logr.Logger, c1, c2 Conf, isFlat,
 						return nil, err
 					}
 
-					defaultValue := getDefaultValue(defaultMap, currentKey)
+					defaultValue := getDefaultValue(defaultMap, k2)
 					valueMap := make(map[string]interface{})
 					valueMap[commons.UpdateOp] = defaultValue
-					d[currentKey] = valueMap
+					d[k2] = valueMap
 					diffUpdated = true
 				}
 			}
@@ -636,17 +636,17 @@ func detailedDiff(log logr.Logger, c1, c2 Conf, isFlat,
 			if !diffUpdated {
 				valueMap := make(map[string]interface{})
 
-				if reflect.ValueOf(c1[k]).Kind() == reflect.Slice {
+				if reflect.ValueOf(c1[k1]).Kind() == reflect.Slice {
 					if desiredToActual {
-						valueMap[commons.AddOp] = c1[k].([]string)
+						valueMap[commons.AddOp] = c1[k1].([]string)
 					} else {
-						valueMap[commons.RemoveOp] = c1[k].([]string)
+						valueMap[commons.RemoveOp] = c1[k1].([]string)
 					}
 				} else {
-					valueMap[commons.UpdateOp] = c1[k]
+					valueMap[commons.UpdateOp] = c1[k1]
 				}
 
-				d[k] = valueMap
+				d[k1] = valueMap
 			}
 
 			continue
@@ -654,7 +654,7 @@ func detailedDiff(log logr.Logger, c1, c2 Conf, isFlat,
 
 		log.V(1).Info(
 			"compare", "key",
-			k, "v1", v1, "v2", v2,
+			k1, "v1", v1, "v2", v2,
 		)
 
 		if desiredToActual && isValueDiff(log, v1, v2) {
@@ -670,17 +670,17 @@ func detailedDiff(log logr.Logger, c1, c2 Conf, isFlat,
 				removedValues := statusSet.Difference(diffSet)
 				if removedValues.Cardinality() > 0 {
 					valueMap[commons.RemoveOp] = removedValues.ToSlice()
-					d[k] = valueMap
+					d[k1] = valueMap
 				}
 
 				addedValues := diffSet.Difference(statusSet)
 				if addedValues.Cardinality() > 0 {
 					valueMap[commons.AddOp] = addedValues.ToSlice()
-					d[k] = valueMap
+					d[k1] = valueMap
 				}
 			} else {
 				valueMap[commons.UpdateOp] = v1
-				d[k] = valueMap
+				d[k1] = valueMap
 			}
 		}
 	}
@@ -735,8 +735,6 @@ func ConfDiff(
 		valueMap[commons.UpdateOp] = defaultValue
 		diffs[removedConfigKey] = valueMap
 	}
-
-	log.Info("print diffs before return", "difference", fmt.Sprintf("%v", diffs))
 
 	return diffs, nil
 }

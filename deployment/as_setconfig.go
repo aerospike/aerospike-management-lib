@@ -1,6 +1,7 @@
 package deployment
 
 import (
+	"container/list"
 	"fmt"
 	"strings"
 
@@ -243,9 +244,8 @@ func handleConfigLoggingContext(tokens []string, valueMap map[string][]string, c
 }
 
 func handleConfigXDRContext(tokens []string, valueMap map[string][]string) []string {
-	val := valueMap[commons.UpdateOp]
-	val = append(val, valueMap[commons.AddOp]...)
-	cmdList := make([]string, 0, len(val))
+	cmdList := make([]string, 0, len(valueMap[commons.AddOp])+len(valueMap[commons.RemoveOp])+
+		len(valueMap[commons.UpdateOp]))
 	cmd := cmdSetConfigXDR
 	prevToken := ""
 	objectAddedOrRemoved := false
@@ -288,20 +288,22 @@ func handleConfigXDRContext(tokens []string, valueMap map[string][]string) []str
 		return append(cmdList, finalCMD)
 	}
 
-	for _, v := range val {
-		var finalCMD string
+	for op, val := range valueMap {
+		for _, v := range val {
+			var finalCMD string
 
-		if prevToken == nodeAddressPorts {
-			ipAndPort := strings.Split(v, " ")
-			if len(ipAndPort) >= 2 && len(ipAndPort) <= 3 {
-				finalCMD = cmd + ";" + asconfig.SingularOf(prevToken) + "=" + ipAndPort[0] + ":" +
-					ipAndPort[1] + ";action=" + action
+			if prevToken == nodeAddressPorts {
+				ipAndPort := strings.Split(v, " ")
+				if len(ipAndPort) >= 2 && len(ipAndPort) <= 3 {
+					finalCMD = cmd + ";" + asconfig.SingularOf(prevToken) + "=" + ipAndPort[0] + ":" +
+						ipAndPort[1] + ";action=" + op
+				}
+			} else {
+				finalCMD = cmd + ";" + asconfig.SingularOf(prevToken) + "=" + v
 			}
-		} else {
-			finalCMD = cmd + ";" + asconfig.SingularOf(prevToken) + "=" + v
-		}
 
-		cmdList = append(cmdList, finalCMD)
+			cmdList = append(cmdList, finalCMD)
+		}
 	}
 
 	return cmdList
@@ -352,10 +354,19 @@ func CreateConfigSetCmdList(
 	return cmdList, nil
 }
 
+// Returns a list of config keys in the order in which they should be applied.
+// The order is as follows:
+// 1. DCs
+// 2. Node Address Ports
+// 3. Namespaces
+// 4. Other keys
 func rearrangeConfigMap(log logr.Logger, configMap map[string]map[string]interface{}) []string {
-	addXDRDCList := make([]string, 0, len(configMap))
-	addXDRNSList := make([]string, 0, len(configMap))
-	generalNSList := make([]string, 0, len(configMap))
+	rearrangedConfigMap := list.New()
+
+	var (
+		lastDC  *list.Element
+		lastNAP *list.Element
+	)
 
 	for k, v := range configMap {
 		baseKey := asconfig.BaseKey(k)
@@ -366,25 +377,43 @@ func rearrangeConfigMap(log logr.Logger, configMap map[string]map[string]interfa
 			tokens := commons.SplitKey(log, k, ".")
 			switch tokens[len(tokens)-3] {
 			case info.ConfigDCContext:
-				addXDRDCList = append(addXDRDCList, k)
-
-				nodeAddressPortsKey := strings.ReplaceAll(k, asconfig.KeyName, nodeAddressPorts)
-				if _, okay := configMap[nodeAddressPortsKey]; okay {
-					addXDRDCList = append(addXDRDCList, nodeAddressPortsKey)
+				dc := rearrangedConfigMap.PushFront(k)
+				if lastDC == nil {
+					lastDC = dc
 				}
 			case info.ConfigNamespaceContext:
-				addXDRNSList = append(addXDRNSList, k)
+				if lastNAP == nil {
+					if lastDC != nil {
+						rearrangedConfigMap.InsertAfter(k, lastDC)
+					} else {
+						rearrangedConfigMap.PushFront(k)
+					}
+				} else {
+					rearrangedConfigMap.InsertAfter(k, lastNAP)
+				}
 			}
 		} else {
-			if asconfig.BaseKey(k) == nodeAddressPorts {
-				continue
+			if baseKey == nodeAddressPorts {
+				if lastDC == nil {
+					lastNAP = rearrangedConfigMap.PushFront(k)
+				} else {
+					nap := rearrangedConfigMap.InsertAfter(k, lastDC)
+					if lastNAP == nil {
+						lastNAP = nap
+					}
+				}
+			} else {
+				rearrangedConfigMap.PushBack(k)
 			}
-
-			generalNSList = append(generalNSList, k)
 		}
 	}
 
-	return append(addXDRDCList, append(addXDRNSList, generalNSList...)...)
+	finalList := make([]string, 0, rearrangedConfigMap.Len())
+	for element := rearrangedConfigMap.Front(); element != nil; element = element.Next() {
+		finalList = append(finalList, element.Value.(string))
+	}
+
+	return finalList
 }
 
 // CreateConfigSetCmdsForPatch creates set-config commands for given config.
