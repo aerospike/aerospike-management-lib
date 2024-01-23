@@ -3,6 +3,7 @@ package deployment
 import (
 	"container/list"
 	"fmt"
+	"net"
 	"strings"
 
 	"github.com/go-logr/logr"
@@ -295,6 +296,10 @@ func handleConfigXDRContext(tokens []string, valueMap map[string][]string) []str
 			if prevToken == nodeAddressPorts {
 				ipAndPort := strings.Split(v, " ")
 				if len(ipAndPort) >= 2 && len(ipAndPort) <= 3 {
+					if isIPv6(ipAndPort[0]) {
+						ipAndPort[0] = "[" + ipAndPort[0] + "]"
+					}
+
 					finalCMD = cmd + ";" + asconfig.SingularOf(prevToken) + "=" + ipAndPort[0] + ":" +
 						ipAndPort[1] + ";action=" + op
 				}
@@ -356,25 +361,27 @@ func CreateConfigSetCmdList(
 
 // Returns a list of config keys in the order in which they should be applied.
 // The order is as follows:
-// 1. DCs
-// 2. Node Address Ports
-// 3. Namespaces
-// 4. Other keys
+// 1. Removed Namespaces -- If user has to change some if the DC direct fields, they will have to remove the namespace
+// 2. Added/Removed DCs
+// 3. Added/Updated DC direct fields
+// 4. Added Namespaces
+// 5. Other keys
 func rearrangeConfigMap(log logr.Logger, configMap map[string]map[string]interface{}) []string {
 	rearrangedConfigMap := list.New()
+	finalList := make([]string, 0, len(configMap))
 
 	var (
-		lastDC  *list.Element
-		lastNAP *list.Element
+		lastDC  *list.Element // Last DC name
+		lastNAP *list.Element // Last DC direct field eg. node-address-ports
 	)
 
 	for k, v := range configMap {
 		baseKey := asconfig.BaseKey(k)
 		context := asconfig.ContextKey(k)
-		_, ok := v[commons.AddOp]
+		_, removeOP := v[commons.RemoveOp]
+		tokens := commons.SplitKey(log, k, ".")
 
-		if context == info.ConfigXDRContext && baseKey == asconfig.KeyName && ok {
-			tokens := commons.SplitKey(log, k, ".")
+		if context == info.ConfigXDRContext && baseKey == asconfig.KeyName {
 			switch tokens[len(tokens)-3] {
 			case info.ConfigDCContext:
 				dc := rearrangedConfigMap.PushFront(k)
@@ -382,25 +389,35 @@ func rearrangeConfigMap(log logr.Logger, configMap map[string]map[string]interfa
 					lastDC = dc
 				}
 			case info.ConfigNamespaceContext:
-				if lastNAP == nil {
-					if lastDC != nil {
-						rearrangedConfigMap.InsertAfter(k, lastDC)
-					} else {
-						rearrangedConfigMap.PushFront(k)
-					}
+				if removeOP {
+					finalList = append(finalList, k)
 				} else {
-					rearrangedConfigMap.InsertAfter(k, lastNAP)
+					if lastNAP == nil {
+						if lastDC != nil {
+							rearrangedConfigMap.InsertAfter(k, lastDC)
+						} else {
+							rearrangedConfigMap.PushFront(k)
+						}
+					} else {
+						rearrangedConfigMap.InsertAfter(k, lastNAP)
+					}
 				}
 			}
 		} else {
-			if baseKey == nodeAddressPorts {
+			if len(tokens) < 3 {
+				rearrangedConfigMap.PushBack(k)
+				continue
+			}
+
+			if tokens[len(tokens)-3] == info.ConfigDCContext {
+				var nap *list.Element
 				if lastDC == nil {
-					lastNAP = rearrangedConfigMap.PushFront(k)
+					nap = rearrangedConfigMap.PushFront(k)
 				} else {
-					nap := rearrangedConfigMap.InsertAfter(k, lastDC)
-					if lastNAP == nil {
-						lastNAP = nap
-					}
+					nap = rearrangedConfigMap.InsertAfter(k, lastDC)
+				}
+				if lastNAP == nil {
+					lastNAP = nap
 				}
 			} else {
 				rearrangedConfigMap.PushBack(k)
@@ -408,7 +425,6 @@ func rearrangeConfigMap(log logr.Logger, configMap map[string]map[string]interfa
 		}
 	}
 
-	finalList := make([]string, 0, rearrangedConfigMap.Len())
 	for element := rearrangedConfigMap.Front(); element != nil; element = element.Next() {
 		finalList = append(finalList, element.Value.(string))
 	}
@@ -444,4 +460,9 @@ func CreateConfigSetCmdsForPatch(
 	}
 
 	return CreateConfigSetCmdList(conn.Log, asConfChange, conn, aerospikePolicy)
+}
+
+func isIPv6(address string) bool {
+	ip := net.ParseIP(address)
+	return ip != nil && strings.Contains(address, ":") && ip.To4() == nil
 }

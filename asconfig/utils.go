@@ -582,7 +582,7 @@ func detailedDiff(log logr.Logger, c1, c2 Conf, isFlat,
 						if desiredToActual {
 							if _, updated := d[k1]; !updated {
 								valueMap := make(map[string]interface{})
-								if tokens[len(tokens)-1] == KeyName {
+								if tokens[len(tokens)-1] == KeyName || reflect.ValueOf(c1[k1]).Kind() == reflect.Slice {
 									valueMap[commons.AddOp] = c1[k1]
 								} else {
 									valueMap[commons.UpdateOp] = c1[k1]
