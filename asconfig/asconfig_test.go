@@ -22,13 +22,11 @@ func (s *AsConfigTestSuite) SetupTest() {
 func (s *AsConfigTestSuite) TestAsConfigGetFlatMap() {
 	testCases := []struct {
 		name     string
-		version  string
 		inputMap map[string]interface{}
 		expected *Conf
 	}{
 		{
 			"namespace context",
-			"7.0.0",
 			map[string]interface{}{
 				"namespaces": []map[string]interface{}{
 					{
@@ -56,7 +54,6 @@ func (s *AsConfigTestSuite) TestAsConfigGetFlatMap() {
 		},
 		{
 			"xdr 4.9 context",
-			"4.9.0",
 			map[string]interface{}{
 				"xdr": map[string]interface{}{
 					"datacenters": []map[string]interface{}{
@@ -81,7 +78,7 @@ func (s *AsConfigTestSuite) TestAsConfigGetFlatMap() {
 		s.Run(tc.name, func() {
 			logger := logr.Discard()
 
-			asConfig, err := NewMapAsConfig(logger, tc.version, tc.inputMap)
+			asConfig, err := NewMapAsConfig(logger, tc.inputMap)
 			actual := asConfig.GetFlatMap()
 
 			s.Assert().Nil(err)
@@ -93,13 +90,11 @@ func (s *AsConfigTestSuite) TestAsConfigGetFlatMap() {
 func (s *AsConfigTestSuite) TestAsConfigGetExpandMap() {
 	testCases := []struct {
 		name     string
-		version  string
 		inputMap map[string]interface{}
 		expected Conf
 	}{
 		{
 			"namespace context",
-			"7.0.0",
 			map[string]interface{}{
 				"logging": []Conf{
 					{
@@ -367,7 +362,7 @@ func (s *AsConfigTestSuite) TestAsConfigGetExpandMap() {
 		s.Run(tc.name, func() {
 			logger := logr.Discard()
 
-			asConfig, err := NewMapAsConfig(logger, tc.version, tc.inputMap)
+			asConfig, err := NewMapAsConfig(logger, tc.inputMap)
 			actual := asConfig.ToMap()
 
 			s.Assert().Nil(err)
