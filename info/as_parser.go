@@ -498,7 +498,7 @@ func (info *AsInfo) createCmdList(
 }
 
 func (info *AsInfo) createStatCmdList(m map[string]string) []string {
-	cmdList := []string{ConstStat, constStatXDR, constStatNSNames, constStatDCNames}
+	cmdList := []string{ConstStat, constStatXDRPre50, constStatNSNames, constStatDCNames}
 
 	nsNames := getNames(m[constStatNSNames])
 	for _, ns := range nsNames {
@@ -637,7 +637,11 @@ func (info *AsInfo) createXDRConfigCmdList(build string, m map[string]string) ([
 	rawNames, ok := xdrConfig[constStatDCNames].(string)
 
 	if ok {
-		dcNames = strings.Split(rawNames, ",")
+		if rawNames == "" {
+			dcNames = []string{}
+		} else {
+			dcNames = strings.Split(rawNames, ",")
+		}
 	} else {
 		dcNames = []string{}
 	}
@@ -698,6 +702,10 @@ func (info *AsInfo) createXDRConfigCmdList(build string, m map[string]string) ([
 
 // createDCConfigCmdList creates get-config command for DC
 func (info *AsInfo) createDCNamespaceConfigCmdList(dc string, namespaces ...string) []string {
+	if dc == "" {
+		return nil
+	}
+
 	cmdList := make([]string, 0, len(namespaces))
 
 	for _, ns := range namespaces {
