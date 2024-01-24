@@ -200,8 +200,8 @@ func TestNewAsInfo_ConnectionError(t *testing.T) {
 		t.Errorf("Expected nil response, got %v", r)
 	}
 
-	if errors.Is(acutalErr, expectedErr) == false {
-		t.Errorf("Expected error %v, got %v", expectedErr, acutalErr)
+	if errors.Is(actualErr, expectedErr) == false {
+		t.Errorf("Expected error %v, got %v", expectedErr, actualErr)
 	}
 }
 
