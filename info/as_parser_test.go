@@ -1,6 +1,7 @@
 package info
 
 import (
+	"errors"
 	"testing"
 	"time"
 
@@ -200,4 +201,52 @@ func (s *AsParserTestSuite) TestAsInfoGetAsConfigXDR5Disabled() {
 
 func TestAsParserTestSuite(t *testing.T) {
 	suite.Run(t, new(AsParserTestSuite))
+}
+
+func TestNewAsInfo_ConnectionError(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	mockConnFact := NewMockConnectionFactory(ctrl)
+	expectedErr := &aero.AerospikeError{ResultCode: 1}
+	policy := &aero.ClientPolicy{}
+	host := &aero.Host{}
+	mockConnFact.EXPECT().NewConnection(policy, host).Return(nil, expectedErr).AnyTimes()
+
+	asinfo := NewAsInfoWithConnFactory(logr.Discard(), host, policy, mockConnFact)
+
+	r, actualErr := asinfo.RequestInfo("connection will fail")
+
+	if r != nil {
+		t.Errorf("Expected nil response, got %v", r)
+	}
+
+	if errors.Is(actualErr, expectedErr) == false {
+		t.Errorf("Expected error %v, got %v", expectedErr, actualErr)
+	}
+}
+
+func TestNewAsInfo_NotAuthenticatedError(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	mockConnFact := NewMockConnectionFactory(ctrl)
+	mockConn := NewMockConnection(ctrl)
+	policy := &aero.ClientPolicy{}
+	host := &aero.Host{}
+	mockConnFact.EXPECT().NewConnection(policy, host).Return(mockConn, nil).AnyTimes()
+	mockConn.EXPECT().IsConnected().Return(true).AnyTimes()
+	mockConn.EXPECT().Login(policy).Return(nil).AnyTimes()
+	mockConn.EXPECT().SetTimeout(gomock.Any(), time.Second*100).AnyTimes()
+	mockConn.EXPECT().Close().Return().AnyTimes()
+	mockConn.EXPECT().RequestInfo([]string{"auth will fail"}).Return(map[string]string{"ERROR:80:not authenticated": ""}, nil)
+
+	maxInfoRetries = 1 // Should be configurable
+	asinfo := NewAsInfoWithConnFactory(logr.Discard(), host, policy, mockConnFact)
+
+	r, acutalErr := asinfo.RequestInfo("auth will fail")
+
+	if r != nil {
+		t.Errorf("Expected nil response, got %v", r)
+	}
+
+	if errors.Is(acutalErr, ErrConnNotAuthenticated) == false {
+		t.Errorf("Expected error %v, got %v", ErrConnNotAuthenticated, acutalErr)
+	}
 }
