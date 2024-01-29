@@ -1,6 +1,7 @@
 package info
 
 import (
+	"errors"
 	"testing"
 	"time"
 
@@ -32,7 +33,7 @@ func (s *AsParserTestSuite) SetupTest() {
 	s.asinfo = NewAsInfoWithConnFactory(logr.Discard(), host, policy, mockConnFact)
 }
 
-func (s *AsParserTestSuite) TestAsInfoRequestInfo() {
+func (s *AsParserTestSuite) TestAsInfoGetAsConfig() {
 	testCases := []struct {
 		context      string
 		coreInfoResp map[string]string
@@ -149,7 +150,7 @@ func (s *AsParserTestSuite) TestAsInfoRequestInfo() {
 	}
 }
 
-func (s *AsParserTestSuite) TestAsInfoRequestInfoXDR5() {
+func (s *AsParserTestSuite) TestAsInfoGetAsConfigXDR5Enabled() {
 	context := "xdr"
 	coreInfoResp := map[string]string{"build": "5.0.0.0"}
 
@@ -179,6 +180,73 @@ func (s *AsParserTestSuite) TestAsInfoRequestInfoXDR5() {
 	s.Assert().Equal(expected, result)
 }
 
+func (s *AsParserTestSuite) TestAsInfoGetAsConfigXDR5Disabled() {
+	context := "xdr"
+	coreInfoResp := map[string]string{"build": "5.0.0.0"}
+
+	// Call GetAsInfo with the input from the test case
+	s.mockConn.EXPECT().RequestInfo([]string{"namespaces", "dcs", "sindex/", "logs", "build"}).Return(coreInfoResp, nil)
+	s.mockConn.EXPECT().RequestInfo([]string{"get-config:context=xdr"}).Return(map[string]string{"get-config:context=xdr": "dcs=;src-id=0;trace-sample=0"}, nil)
+
+	expected := lib.Stats{"xdr": lib.Stats{
+		"src-id":       int64(0),
+		"trace-sample": int64(0),
+		"dcs":          lib.Stats{},
+	}}
+	result, err := s.asinfo.GetAsConfig(context)
+
+	s.Assert().Nil(err)
+	s.Assert().Equal(expected, result)
+}
+
 func TestAsParserTestSuite(t *testing.T) {
 	suite.Run(t, new(AsParserTestSuite))
+}
+
+func TestNewAsInfo_ConnectionError(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	mockConnFact := NewMockConnectionFactory(ctrl)
+	expectedErr := &aero.AerospikeError{ResultCode: 1}
+	policy := &aero.ClientPolicy{}
+	host := &aero.Host{}
+	mockConnFact.EXPECT().NewConnection(policy, host).Return(nil, expectedErr).AnyTimes()
+
+	asinfo := NewAsInfoWithConnFactory(logr.Discard(), host, policy, mockConnFact)
+
+	r, actualErr := asinfo.RequestInfo("connection will fail")
+
+	if r != nil {
+		t.Errorf("Expected nil response, got %v", r)
+	}
+
+	if errors.Is(actualErr, expectedErr) == false {
+		t.Errorf("Expected error %v, got %v", expectedErr, actualErr)
+	}
+}
+
+func TestNewAsInfo_NotAuthenticatedError(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	mockConnFact := NewMockConnectionFactory(ctrl)
+	mockConn := NewMockConnection(ctrl)
+	policy := &aero.ClientPolicy{}
+	host := &aero.Host{}
+	mockConnFact.EXPECT().NewConnection(policy, host).Return(mockConn, nil).AnyTimes()
+	mockConn.EXPECT().IsConnected().Return(true).AnyTimes()
+	mockConn.EXPECT().Login(policy).Return(nil).AnyTimes()
+	mockConn.EXPECT().SetTimeout(gomock.Any(), time.Second*100).AnyTimes()
+	mockConn.EXPECT().Close().Return().AnyTimes()
+	mockConn.EXPECT().RequestInfo([]string{"auth will fail"}).Return(map[string]string{"ERROR:80:not authenticated": ""}, nil)
+
+	maxInfoRetries = 1 // Should be configurable
+	asinfo := NewAsInfoWithConnFactory(logr.Discard(), host, policy, mockConnFact)
+
+	r, acutalErr := asinfo.RequestInfo("auth will fail")
+
+	if r != nil {
+		t.Errorf("Expected nil response, got %v", r)
+	}
+
+	if errors.Is(acutalErr, ErrConnNotAuthenticated) == false {
+		t.Errorf("Expected error %v, got %v", ErrConnNotAuthenticated, acutalErr)
+	}
 }

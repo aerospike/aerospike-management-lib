@@ -29,6 +29,9 @@ var ErrInvalidNamespace = fmt.Errorf("invalid namespace")
 // ErrInvalidDC specifies that the dc is invalid on the cluster.
 var ErrInvalidDC = fmt.Errorf("invalid dc")
 
+// ErrConnNotAuthenticated specifies that the connection is not authenticated.
+var ErrConnNotAuthenticated = fmt.Errorf("connection not authenticated")
+
 // ASInfo top level map keys
 const (
 	ConstStat     = "statistics" // stat
@@ -230,15 +233,15 @@ func (info *AsInfo) doInfo(commands ...string) (map[string]string, error) {
 
 	// TODO Check for error
 	if info.conn == nil || !info.conn.IsConnected() {
-		var err error
-
-		info.conn, err = info.connFact.NewConnection(info.policy, info.host)
+		conn, err := info.connFact.NewConnection(info.policy, info.host)
 		if err != nil {
 			return nil, fmt.Errorf(
-				"failed to create secure connection for aerospike info: %v",
+				"failed to create secure connection for aerospike info: %w",
 				err,
 			)
 		}
+
+		info.conn = conn // NewConnection returns an interface which will fail the nil check
 
 		aerr := info.conn.Login(info.policy)
 		if aerr != nil {
@@ -251,7 +254,7 @@ func (info *AsInfo) doInfo(commands ...string) (map[string]string, error) {
 			}
 
 			return nil, fmt.Errorf(
-				"failed to authenticate user `%s` in aerospike server: %v",
+				"failed to authenticate user `%s` in aerospike server: %w",
 				info.policy.User, aerr,
 			)
 		}
@@ -277,6 +280,15 @@ func (info *AsInfo) doInfo(commands ...string) (map[string]string, error) {
 		info.conn.Close()
 
 		return nil, err
+	}
+
+	for k := range result {
+		if strings.Contains(k, "not authenticated") {
+			info.conn.Close()
+			return nil, ErrConnNotAuthenticated
+		}
+
+		break
 	}
 
 	return result, err
@@ -498,7 +510,7 @@ func (info *AsInfo) createCmdList(
 }
 
 func (info *AsInfo) createStatCmdList(m map[string]string) []string {
-	cmdList := []string{ConstStat, constStatXDR, constStatNSNames, constStatDCNames}
+	cmdList := []string{ConstStat, constStatXDRPre50, constStatNSNames, constStatDCNames}
 
 	nsNames := getNames(m[constStatNSNames])
 	for _, ns := range nsNames {
@@ -637,7 +649,11 @@ func (info *AsInfo) createXDRConfigCmdList(build string, m map[string]string) ([
 	rawNames, ok := xdrConfig[constStatDCNames].(string)
 
 	if ok {
-		dcNames = strings.Split(rawNames, ",")
+		if rawNames == "" {
+			dcNames = []string{}
+		} else {
+			dcNames = strings.Split(rawNames, ",")
+		}
 	} else {
 		dcNames = []string{}
 	}
@@ -698,6 +714,10 @@ func (info *AsInfo) createXDRConfigCmdList(build string, m map[string]string) ([
 
 // createDCConfigCmdList creates get-config command for DC
 func (info *AsInfo) createDCNamespaceConfigCmdList(dc string, namespaces ...string) []string {
+	if dc == "" {
+		return nil
+	}
+
 	cmdList := make([]string, 0, len(namespaces))
 
 	for _, ns := range namespaces {
