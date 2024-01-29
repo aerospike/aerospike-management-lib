@@ -105,14 +105,12 @@ func (s *AsConfigTestSuite) TestAsConfigGetFlatMap() {
 func (s *AsConfigTestSuite) TestAsConfigGetDiff() {
 	testCases := []struct {
 		name       string
-		version    string
 		inputConf1 map[string]interface{}
 		inputConf2 map[string]interface{}
 		expected   map[string]map[string]interface{}
 	}{
 		{
 			"namespace context",
-			"7.0.0",
 			map[string]interface{}{
 				"namespaces": []map[string]interface{}{
 					{
@@ -200,9 +198,9 @@ func (s *AsConfigTestSuite) TestAsConfigGetDiff() {
 		s.Run(tc.name, func() {
 			logger := logr.Discard()
 
-			asConfig1, err := NewMapAsConfig(logger, tc.version, tc.inputConf1)
+			asConfig1, err := NewMapAsConfig(logger, tc.inputConf1)
 			s.Assert().Nil(err)
-			asConfig2, err := NewMapAsConfig(logger, tc.version, tc.inputConf2)
+			asConfig2, err := NewMapAsConfig(logger, tc.inputConf2)
 			s.Assert().Nil(err)
 			diff, err := ConfDiff(logger, *asConfig1.baseConf, *asConfig2.baseConf, false, "7.0.0")
 
@@ -215,13 +213,11 @@ func (s *AsConfigTestSuite) TestAsConfigGetDiff() {
 func (s *AsConfigTestSuite) TestAsConfigIsDynamic() {
 	testCases := []struct {
 		name      string
-		version   string
 		inputConf map[string]map[string]interface{}
 		expected  bool
 	}{
 		{
 			"static fields",
-			"7.0.0",
 			map[string]map[string]interface{}{
 				"namespaces.{test}.storage-engine.type":     {"update": "device"},
 				"xdr.dcs.{DC1}.namespaces.{ns1}.bin-policy": {"update": "no-bins"},
@@ -236,7 +232,6 @@ func (s *AsConfigTestSuite) TestAsConfigIsDynamic() {
 		},
 		{
 			"dynamic fields",
-			"7.0.0",
 			map[string]map[string]interface{}{
 				"xdr.dcs.{DC1}.namespaces.{ns1}.bin-policy": {"update": "no-bins"},
 				"security.log.report-data-op":               {"add": []string{"ns3 set2"}, "remove": []string{"ns2 set2"}},

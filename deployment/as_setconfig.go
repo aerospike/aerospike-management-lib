@@ -293,11 +293,13 @@ func handleConfigXDRContext(tokens []string, valueMap map[string][]string) []str
 			var finalCMD string
 
 			if prevToken == nodeAddressPorts {
-				tokens := strings.Split(v, ":")
 				val := v
+
+				tokens := strings.Split(v, ":")
 				if len(tokens) >= 2 {
 					val = tokens[0] + ":" + tokens[1]
 				}
+
 				finalCMD = cmd + ";" + asconfig.SingularOf(prevToken) + "=" + val + ";action=" + op
 			} else {
 				finalCMD = cmd + ";" + asconfig.SingularOf(prevToken) + "=" + v
@@ -426,34 +428,4 @@ func rearrangeConfigMap(log logr.Logger, configMap commons.DynamicConfigMap) []s
 	}
 
 	return finalList
-}
-
-// CreateConfigSetCmdsForPatch creates set-config commands for given config.
-func CreateConfigSetCmdsForPatch(
-	configMap map[string]interface{}, conn *ASConn, aerospikePolicy *aero.ClientPolicy, version string,
-) ([]string, error) {
-	conf, err := asconfig.NewMapAsConfig(conn.Log, "", configMap)
-	if err != nil {
-		return nil, err
-	}
-
-	flatConf := conf.GetFlatMap()
-	asConfChange := make(map[string]map[string]interface{})
-
-	for k, v := range *flatConf {
-		valueMap := make(map[string]interface{})
-		valueMap["add"] = v
-		asConfChange[k] = valueMap
-	}
-
-	isDynamic, err := asconfig.IsAllDynamicConfig(conn.Log, asConfChange, version)
-	if err != nil {
-		return nil, err
-	}
-
-	if !isDynamic {
-		return nil, fmt.Errorf("static field has been changed, cannot change config dynamically")
-	}
-
-	return CreateConfigSetCmdList(conn.Log, asConfChange, conn, aerospikePolicy)
 }
