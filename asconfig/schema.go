@@ -179,7 +179,7 @@ func getDynamicSchema(flatSchema map[string]interface{}) map[string]bool {
 	return dynMap
 }
 
-func IsAllDynamicConfig(log logr.Logger, configMap map[string]map[string]interface{}, version string) (bool, error) {
+func IsAllDynamicConfig(log logr.Logger, configMap commons.DynamicConfigMap, version string) (bool, error) {
 	dynamic, err := GetDynamic(version)
 	if err != nil {
 		// retry error fall back to rolling restart.

@@ -3,7 +3,6 @@ package deployment
 import (
 	"container/list"
 	"fmt"
-	"net"
 	"strings"
 
 	"github.com/go-logr/logr"
@@ -110,7 +109,7 @@ func handleConfigSecurityContext(tokens []string, valueMap map[string][]string) 
 		for _, v := range addedValues {
 			var finalCMD string
 
-			namespaceAndSet := strings.Split(v, " ")
+			namespaceAndSet := strings.Split(v, ":")
 			switch len(namespaceAndSet) {
 			case 2:
 				finalCMD = cmd + baseKey + "=" + "true;" + "namespace=" + namespaceAndSet[0] + ";" + "set=" + namespaceAndSet[1]
@@ -125,7 +124,7 @@ func handleConfigSecurityContext(tokens []string, valueMap map[string][]string) 
 		for _, v := range removedValues {
 			var finalCMD string
 
-			namespaceAndSet := strings.Split(v, " ")
+			namespaceAndSet := strings.Split(v, ":")
 			switch len(namespaceAndSet) {
 			case 2:
 				finalCMD = cmd + baseKey + "=" + "false;" + "namespace=" + namespaceAndSet[0] + ";" + "set=" + namespaceAndSet[1]
@@ -294,15 +293,12 @@ func handleConfigXDRContext(tokens []string, valueMap map[string][]string) []str
 			var finalCMD string
 
 			if prevToken == nodeAddressPorts {
-				ipAndPort := strings.Split(v, " ")
-				if len(ipAndPort) >= 2 && len(ipAndPort) <= 3 {
-					if isIPv6(ipAndPort[0]) {
-						ipAndPort[0] = "[" + ipAndPort[0] + "]"
-					}
-
-					finalCMD = cmd + ";" + asconfig.SingularOf(prevToken) + "=" + ipAndPort[0] + ":" +
-						ipAndPort[1] + ";action=" + op
+				tokens := strings.Split(v, ":")
+				val := v
+				if len(tokens) >= 2 {
+					val = tokens[0] + ":" + tokens[1]
 				}
+				finalCMD = cmd + ";" + asconfig.SingularOf(prevToken) + "=" + val + ";action=" + op
 			} else {
 				finalCMD = cmd + ";" + asconfig.SingularOf(prevToken) + "=" + v
 			}
@@ -316,7 +312,7 @@ func handleConfigXDRContext(tokens []string, valueMap map[string][]string) []str
 
 // CreateConfigSetCmdList creates set-config commands for given config.
 func CreateConfigSetCmdList(
-	log logr.Logger, configMap map[string]map[string]interface{}, conn *ASConn, aerospikePolicy *aero.ClientPolicy,
+	log logr.Logger, configMap commons.DynamicConfigMap, conn *ASConn, aerospikePolicy *aero.ClientPolicy,
 ) ([]string, error) {
 	cmdList := make([]string, 0, len(configMap))
 
@@ -366,7 +362,7 @@ func CreateConfigSetCmdList(
 // 3. Added/Updated DC direct fields
 // 4. Added Namespaces
 // 5. Other keys
-func rearrangeConfigMap(log logr.Logger, configMap map[string]map[string]interface{}) []string {
+func rearrangeConfigMap(log logr.Logger, configMap commons.DynamicConfigMap) []string {
 	rearrangedConfigMap := list.New()
 	finalList := make([]string, 0, len(configMap))
 
@@ -460,9 +456,4 @@ func CreateConfigSetCmdsForPatch(
 	}
 
 	return CreateConfigSetCmdList(conn.Log, asConfChange, conn, aerospikePolicy)
-}
-
-func isIPv6(address string) bool {
-	ip := net.ParseIP(address)
-	return ip != nil && strings.Contains(address, ":") && ip.To4() == nil
 }

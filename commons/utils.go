@@ -9,6 +9,8 @@ import (
 
 var ReCurlyBraces = regexp.MustCompile(`^\{.*\}$`)
 
+type DynamicConfigMap map[string]map[string]interface{}
+
 // SplitKey splits key by using sep
 // it ignores sep inside sectionNameStartChar and sectionNameEndChar
 func SplitKey(log logr.Logger, key, sep string) []string {

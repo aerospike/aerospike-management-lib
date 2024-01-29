@@ -1043,7 +1043,7 @@ func isNodeSpecificField(key string) bool {
 		"node-id", keyAddress, "port", keyAccessAddress, "access-port",
 		"external-address", "interface-address", keyAlternateAccessAddress,
 		keyTLSAddress, "tls-port", keyTLSAccessAddress, "tls-access-port",
-		keyTLSAlternateAccessAddress, "tls-alternate-access-port",
+		keyTLSAlternateAccessAddress, "tls-alternate-access-port", "alternate-access-port",
 		"xdr-info-port", "service-threads", "batch-index-threads",
 		"mesh-seed-address-port", "mtu":
 		return true
