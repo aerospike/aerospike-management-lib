@@ -544,6 +544,112 @@ func diff(
 	return d
 }
 
+func handleMissingSection(log logr.Logger, k1 string, c1, c2 Conf, d commons.DynamicConfigMap,
+	desiredToActual bool) bool {
+	tokens := commons.SplitKey(log, k1, ".")
+	for idx, token := range tokens {
+		nameKeyPath := strings.Join(tokens[:idx+1], sep) + "." + KeyName
+		// Whole section which has "name" as key is not present in c2
+		// If token is under "{}", then it is a named section
+		if _, okay := c2[nameKeyPath]; commons.ReCurlyBraces.MatchString(token) && !okay {
+			operationValueMap := make(map[string]interface{})
+
+			if desiredToActual {
+				if _, updated := d[k1]; !updated {
+					// If desired config has this section, then add it to actual config
+					// Using AddOp for named section and slice eg. node-address-ports
+					if tokens[len(tokens)-1] == KeyName || reflect.ValueOf(c1[k1]).Kind() == reflect.Slice {
+						operationValueMap[commons.AddOp] = c1[k1]
+					} else {
+						operationValueMap[commons.UpdateOp] = c1[k1]
+					}
+
+					d[k1] = operationValueMap
+				}
+			} else if _, updated := d[nameKeyPath]; !updated {
+				// If desired config does not have this section, then remove it from actual config
+				operationValueMap[commons.RemoveOp] = c1[nameKeyPath]
+				d[nameKeyPath] = operationValueMap
+			}
+
+			return true
+		}
+	}
+
+	return false
+}
+
+func handlePartialMissingSection(k1 string, c2 Conf, ver string, d commons.DynamicConfigMap,
+	desiredToActual bool) (bool, error) {
+	diffUpdated := false
+	// Check c2 for any key which starts with k1
+	// if found, then add default value to k2 config parameter
+	for k2 := range c2 {
+		if !strings.HasPrefix(k2, k1+".") {
+			continue
+		}
+
+		if !desiredToActual {
+			diffUpdated = true
+			break
+		}
+
+		defaultMap, err := GetDefault(ver)
+		if err != nil {
+			// retry error fall back to rolling restart.
+			return false, err
+		}
+
+		defaultValue := getDefaultValue(defaultMap, k2)
+		operationValueMap := make(map[string]interface{})
+		operationValueMap[commons.UpdateOp] = defaultValue
+		d[k2] = operationValueMap
+		diffUpdated = true
+	}
+
+	return diffUpdated, nil
+}
+
+func handleSliceFields(k1 string, c1 Conf, d commons.DynamicConfigMap, desiredToActual bool,
+	operationValueMap map[string]interface{}) {
+	if reflect.ValueOf(c1[k1]).Kind() == reflect.Slice {
+		if desiredToActual {
+			operationValueMap[commons.AddOp] = c1[k1].([]string)
+		} else {
+			operationValueMap[commons.RemoveOp] = c1[k1].([]string)
+		}
+	} else {
+		operationValueMap[commons.UpdateOp] = c1[k1]
+	}
+
+	d[k1] = operationValueMap
+}
+
+func handleValueDiff(k1 string, v1, v2 interface{}, d commons.DynamicConfigMap, valueMap map[string]interface{}) {
+	if reflect.ValueOf(v1).Kind() == reflect.Slice {
+		statusSet := sets.NewSet[string]()
+		statusSet.Append(v2.([]string)...)
+
+		diffSet := sets.NewSet[string]()
+		diffSet.Append(v1.([]string)...)
+
+		removedValues := statusSet.Difference(diffSet)
+		if removedValues.Cardinality() > 0 {
+			valueMap[commons.RemoveOp] = removedValues.ToSlice()
+			d[k1] = valueMap
+		}
+
+		addedValues := diffSet.Difference(statusSet)
+		if addedValues.Cardinality() > 0 {
+			valueMap[commons.AddOp] = addedValues.ToSlice()
+			d[k1] = valueMap
+		}
+	} else {
+		valueMap[commons.UpdateOp] = v1
+		d[k1] = valueMap
+	}
+}
+
 // detailedDiff find diff between two configs;
 //
 //	detailedDiff = c1 - c2
@@ -551,14 +657,14 @@ func diff(
 // Generally used to compare current and desired config. This ignores
 // node specific information like address, device, interface etc.
 func detailedDiff(log logr.Logger, c1, c2 Conf, isFlat,
-	desiredToActual bool, ver string) (map[string]map[string]interface{}, error) {
+	desiredToActual bool, ver string) (commons.DynamicConfigMap, error) {
 	// Flatten if not flattened already.
 	if !isFlat {
 		c1 = flattenConf(log, c1, sep)
 		c2 = flattenConf(log, c2, sep)
 	}
 
-	d := make(map[string]map[string]interface{})
+	d := make(commons.DynamicConfigMap)
 
 	// For all keys in C1 if it does not exist in C2
 	// or if type or value is different add/update it
@@ -573,80 +679,21 @@ func detailedDiff(log logr.Logger, c1, c2 Conf, isFlat,
 		v2, ok := c2[k1]
 		if !ok {
 			diffUpdated := false
-
-			tokens := commons.SplitKey(log, k1, ".")
-			for idx, token := range tokens {
-				if commons.ReCurlyBraces.MatchString(token) {
-					// Whole structure which has "name" as key is not present in c2
-					if _, okay := c2[strings.Join(tokens[:idx+1], sep)+"."+KeyName]; !okay {
-						if desiredToActual {
-							if _, updated := d[k1]; !updated {
-								valueMap := make(map[string]interface{})
-								if tokens[len(tokens)-1] == KeyName || reflect.ValueOf(c1[k1]).Kind() == reflect.Slice {
-									valueMap[commons.AddOp] = c1[k1]
-								} else {
-									valueMap[commons.UpdateOp] = c1[k1]
-								}
-
-								d[k1] = valueMap
-							}
-						} else {
-							if _, updated := d[strings.Join(tokens[:idx+1], sep)+"."+KeyName]; !updated {
-								valueMap := make(map[string]interface{})
-								valueMap[commons.RemoveOp] = c1[strings.Join(tokens[:idx+1], sep)+"."+KeyName]
-								d[strings.Join(tokens[:idx+1], sep)+"."+KeyName] = valueMap
-							}
-						}
-
-						diffUpdated = true
-
-						break
-					}
-				}
-			}
-
-			// Add default values to config parameter if available in schema.
-			// eg. c1 has security: {} c2 has security.log.report-sys-admin: true
-			// final diff should be map[security.log.report-sys-admin] = <default value>
-			if !diffUpdated {
-				for k2 := range c2 {
-					if !strings.HasPrefix(k2, k1+".") {
-						continue
-					}
-
-					if !desiredToActual {
-						diffUpdated = true
-						break
-					}
-
-					defaultMap, err := GetDefault(ver)
-					if err != nil {
-						// retry error fall back to rolling restart.
-						return nil, err
-					}
-
-					defaultValue := getDefaultValue(defaultMap, k2)
-					valueMap := make(map[string]interface{})
-					valueMap[commons.UpdateOp] = defaultValue
-					d[k2] = valueMap
-					diffUpdated = true
+			if diffUpdated = handleMissingSection(log, k1, c1, c2, d, desiredToActual); !diffUpdated {
+				var err error
+				// Add default values to config parameter if available in schema.
+				// If k1 is not present in c2, then check if any key which starts with k1 is present in c2
+				// eg. c1 has security: {} c2 has security.log.report-sys-admin: true
+				// final diff should be map[security.log.report-sys-admin] = <default value>
+				diffUpdated, err = handlePartialMissingSection(k1, c2, ver, d, desiredToActual)
+				if err != nil {
+					return nil, err
 				}
 			}
 
 			if !diffUpdated {
-				valueMap := make(map[string]interface{})
-
-				if reflect.ValueOf(c1[k1]).Kind() == reflect.Slice {
-					if desiredToActual {
-						valueMap[commons.AddOp] = c1[k1].([]string)
-					} else {
-						valueMap[commons.RemoveOp] = c1[k1].([]string)
-					}
-				} else {
-					valueMap[commons.UpdateOp] = c1[k1]
-				}
-
-				d[k1] = valueMap
+				operationValueMap := make(map[string]interface{})
+				handleSliceFields(k1, c1, d, desiredToActual, operationValueMap)
 			}
 
 			continue
@@ -658,30 +705,9 @@ func detailedDiff(log logr.Logger, c1, c2 Conf, isFlat,
 		)
 
 		if desiredToActual && isValueDiff(log, v1, v2) {
-			valueMap := make(map[string]interface{})
+			operationValueMap := make(map[string]interface{})
 
-			if reflect.ValueOf(v1).Kind() == reflect.Slice {
-				statusSet := sets.NewSet[string]()
-				statusSet.Append(v2.([]string)...)
-
-				diffSet := sets.NewSet[string]()
-				diffSet.Append(v1.([]string)...)
-
-				removedValues := statusSet.Difference(diffSet)
-				if removedValues.Cardinality() > 0 {
-					valueMap[commons.RemoveOp] = removedValues.ToSlice()
-					d[k1] = valueMap
-				}
-
-				addedValues := diffSet.Difference(statusSet)
-				if addedValues.Cardinality() > 0 {
-					valueMap[commons.AddOp] = addedValues.ToSlice()
-					d[k1] = valueMap
-				}
-			} else {
-				valueMap[commons.UpdateOp] = v1
-				d[k1] = valueMap
-			}
+			handleValueDiff(k1, v1, v2, d, operationValueMap)
 		}
 	}
 
@@ -716,9 +742,8 @@ func ConfDiff(
 
 	for removedConfigKey := range removedConfigs {
 		// If whole string array or map type config is not present in desired config.
-		_, removed := removedConfigs[removedConfigKey][commons.RemoveOp]
-
-		if removed {
+		// No default values are available for these configs.
+		if _, removed := removedConfigs[removedConfigKey][commons.RemoveOp]; removed {
 			diffs[removedConfigKey] = removedConfigs[removedConfigKey]
 			continue
 		}
@@ -730,9 +755,8 @@ func ConfDiff(
 			return nil, err
 		}
 
-		defaultValue := getDefaultValue(defaultMap, removedConfigKey)
 		valueMap := make(map[string]interface{})
-		valueMap[commons.UpdateOp] = defaultValue
+		valueMap[commons.UpdateOp] = getDefaultValue(defaultMap, removedConfigKey)
 		diffs[removedConfigKey] = valueMap
 	}
 

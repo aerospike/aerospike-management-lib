@@ -55,8 +55,8 @@ func convertValueToString(v1 map[string]interface{}) (map[string][]string, error
 	return valueMap, nil
 }
 
-func handleConfigServiceContext(tokens []string, valueMap map[string][]string) []string {
-	val := valueMap[commons.UpdateOp]
+func handleConfigServiceContext(tokens []string, operationValueMap map[string][]string) []string {
+	val := operationValueMap[commons.UpdateOp]
 	cmdList := make([]string, 0, len(val))
 	cmd := cmdSetConfigService + ";"
 
@@ -74,8 +74,8 @@ func handleConfigServiceContext(tokens []string, valueMap map[string][]string) [
 	return cmdList
 }
 
-func handleConfigNetworkContext(tokens []string, valueMap map[string][]string) []string {
-	val := valueMap[commons.UpdateOp]
+func handleConfigNetworkContext(tokens []string, operationValueMap map[string][]string) []string {
+	val := operationValueMap[commons.UpdateOp]
 	cmdList := make([]string, 0, len(val))
 	cmd := cmdSetConfigNetwork + ";"
 
@@ -93,9 +93,8 @@ func handleConfigNetworkContext(tokens []string, valueMap map[string][]string) [
 	return cmdList
 }
 
-func handleConfigSecurityContext(tokens []string, valueMap map[string][]string) []string {
-	cmdList := make([]string, 0, len(valueMap[commons.AddOp])+len(valueMap[commons.RemoveOp])+
-		len(valueMap[commons.UpdateOp]))
+func handleConfigSecurityContext(tokens []string, operationValueMap map[string][]string) []string {
+	cmdList := make([]string, 0, len(operationValueMap))
 	cmd := cmdSetConfigSecurity + ";"
 
 	for _, token := range tokens[1 : len(tokens)-1] {
@@ -105,7 +104,7 @@ func handleConfigSecurityContext(tokens []string, valueMap map[string][]string) 
 	baseKey := tokens[len(tokens)-1]
 	switch baseKey {
 	case "report-data-op":
-		addedValues := valueMap[commons.AddOp]
+		addedValues := operationValueMap[commons.AddOp]
 		for _, v := range addedValues {
 			var finalCMD string
 
@@ -120,7 +119,7 @@ func handleConfigSecurityContext(tokens []string, valueMap map[string][]string) 
 			cmdList = append(cmdList, finalCMD)
 		}
 
-		removedValues := valueMap[commons.RemoveOp]
+		removedValues := operationValueMap[commons.RemoveOp]
 		for _, v := range removedValues {
 			var finalCMD string
 
@@ -136,26 +135,26 @@ func handleConfigSecurityContext(tokens []string, valueMap map[string][]string) 
 		}
 
 	case "report-data-op-role":
-		addedValues := valueMap[commons.AddOp]
+		addedValues := operationValueMap[commons.AddOp]
 		for _, v := range addedValues {
 			finalCMD := cmd + "report-data-op" + "=" + "true;" + "role=" + v
 			cmdList = append(cmdList, finalCMD)
 		}
 
-		removedValues := valueMap[commons.RemoveOp]
+		removedValues := operationValueMap[commons.RemoveOp]
 		for _, v := range removedValues {
 			finalCMD := cmd + "report-data-op" + "=" + "false;" + "role=" + v
 			cmdList = append(cmdList, finalCMD)
 		}
 
 	case "report-data-op-user":
-		addedValues := valueMap[commons.AddOp]
+		addedValues := operationValueMap[commons.AddOp]
 		for _, v := range addedValues {
 			finalCMD := cmd + "report-data-op" + "=" + "true;" + "user=" + v
 			cmdList = append(cmdList, finalCMD)
 		}
 
-		removedValues := valueMap[commons.RemoveOp]
+		removedValues := operationValueMap[commons.RemoveOp]
 		for _, v := range removedValues {
 			finalCMD := cmd + "report-data-op" + "=" + "false;" + "user=" + v
 			cmdList = append(cmdList, finalCMD)
@@ -163,7 +162,7 @@ func handleConfigSecurityContext(tokens []string, valueMap map[string][]string) 
 
 	default:
 		cmd += baseKey
-		for _, v := range valueMap[commons.UpdateOp] {
+		for _, v := range operationValueMap[commons.UpdateOp] {
 			finalCMD := cmd + "=" + v
 			cmdList = append(cmdList, finalCMD)
 		}
@@ -172,8 +171,8 @@ func handleConfigSecurityContext(tokens []string, valueMap map[string][]string) 
 	return cmdList
 }
 
-func handleConfigNamespaceContext(tokens []string, valueMap map[string][]string) []string {
-	val := valueMap[commons.UpdateOp]
+func handleConfigNamespaceContext(tokens []string, operationValueMap map[string][]string) []string {
+	val := operationValueMap[commons.UpdateOp]
 	cmdList := make([]string, 0, len(val))
 	cmd := cmdSetConfigNamespace
 	prevToken := info.ConfigNamespaceContext
@@ -210,9 +209,9 @@ func handleConfigNamespaceContext(tokens []string, valueMap map[string][]string)
 	return cmdList
 }
 
-func handleConfigLoggingContext(tokens []string, valueMap map[string][]string, conn *ASConn,
+func handleConfigLoggingContext(tokens []string, operationValueMap map[string][]string, conn *ASConn,
 	aerospikePolicy *aero.ClientPolicy) ([]string, error) {
-	val := valueMap[commons.UpdateOp]
+	val := operationValueMap[commons.UpdateOp]
 	cmdList := make([]string, 0, len(val))
 
 	confs, err := conn.RunInfo(aerospikePolicy, "logs")
@@ -243,9 +242,8 @@ func handleConfigLoggingContext(tokens []string, valueMap map[string][]string, c
 	return cmdList, nil
 }
 
-func handleConfigXDRContext(tokens []string, valueMap map[string][]string) []string {
-	cmdList := make([]string, 0, len(valueMap[commons.AddOp])+len(valueMap[commons.RemoveOp])+
-		len(valueMap[commons.UpdateOp]))
+func handleConfigXDRContext(tokens []string, operationValueMap map[string][]string) []string {
+	cmdList := make([]string, 0, len(operationValueMap))
 	cmd := cmdSetConfigXDR
 	prevToken := ""
 	objectAddedOrRemoved := false
@@ -262,18 +260,18 @@ func handleConfigXDRContext(tokens []string, valueMap map[string][]string) []str
 			if token == asconfig.KeyName {
 				objectAddedOrRemoved = true
 				if prevToken == info.ConfigDCContext {
-					if _, ok := valueMap[commons.AddOp]; ok {
+					if _, ok := operationValueMap[commons.AddOp]; ok {
 						action = "create"
 					}
-					if _, ok := valueMap[commons.RemoveOp]; ok {
+					if _, ok := operationValueMap[commons.RemoveOp]; ok {
 						action = "delete"
 					}
 				}
 				if prevToken == info.ConfigNamespaceContext {
-					if _, ok := valueMap[commons.AddOp]; ok {
+					if _, ok := operationValueMap[commons.AddOp]; ok {
 						action = commons.AddOp
 					}
-					if _, ok := valueMap[commons.RemoveOp]; ok {
+					if _, ok := operationValueMap[commons.RemoveOp]; ok {
 						action = commons.RemoveOp
 					}
 				}
@@ -288,7 +286,7 @@ func handleConfigXDRContext(tokens []string, valueMap map[string][]string) []str
 		return append(cmdList, finalCMD)
 	}
 
-	for op, val := range valueMap {
+	for op, val := range operationValueMap {
 		for _, v := range val {
 			var finalCMD string
 
