@@ -582,7 +582,7 @@ func (s *transformKeyValuesStep) execute(conf Conf) error {
 		if newKey, str := convertIndexedToStringList(key, value); newKey != "" {
 			newKey = getPluralKey(newKey)
 
-			if strings.HasSuffix(key, "shadow") {
+			if strings.HasSuffix(key, "shadow") { //nolint:gocritic // This can't be rewritten as a switch
 				_, index, _, err := parseIndexField(key)
 				if err != nil {
 					s.log.V(-1).Error(err, "Error parsing index field for shadow device")
@@ -619,7 +619,6 @@ func (s *transformKeyValuesStep) execute(conf Conf) error {
 						s.log.V(-1).Info("No name found for network.tls", "index", index)
 						return fmt.Errorf("no name found for network.tls[%d]", index)
 					}
-
 				}
 
 				newKey = "network" + sep + "tls" + sep + "{" + networkTLSNames[index] + "}" + field
