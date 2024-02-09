@@ -306,7 +306,7 @@ func getRoster(clHost *host, namespace string) (map[string]string, error) {
 }
 
 func getNamespaces(clHost *host) ([]string, error) {
-	cmd := NAMESPACES
+	cmd := Namespaces
 
 	res, err := clHost.asConnInfo.asInfo.RequestInfo(cmd)
 	if err != nil {

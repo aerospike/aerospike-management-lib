@@ -1,11 +1,14 @@
 package commons
 
+// Operation is a custom type representing different operations.
+type Operation string
+
 const (
 	// start and end character for section names
 	SectionNameStartChar = '{'
 	SectionNameEndChar   = '}'
-
-	AddOp    = "add"
-	RemoveOp = "remove"
-	UpdateOp = "update"
+	// Enum values for Operation
+	Add    Operation = "add"
+	Remove Operation = "remove"
+	Update Operation = "update"
 )

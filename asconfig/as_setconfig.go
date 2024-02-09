@@ -1,4 +1,4 @@
-package deployment
+package asconfig
 
 import (
 	"container/list"
@@ -8,8 +8,8 @@ import (
 	"github.com/go-logr/logr"
 
 	aero "github.com/aerospike/aerospike-client-go/v6"
-	"github.com/aerospike/aerospike-management-lib/asconfig"
 	"github.com/aerospike/aerospike-management-lib/commons"
+	"github.com/aerospike/aerospike-management-lib/deployment"
 	"github.com/aerospike/aerospike-management-lib/info"
 )
 
@@ -22,10 +22,14 @@ const (
 	cmdSetLogging         = "log-set:id="                      // ConfigLogging
 
 	nodeAddressPorts = "node-address-ports"
+	reportDataOp     = "report-data-op"
+	namespace        = "namespace"
+	set              = "set"
+	logs             = "logs"
 )
 
-func convertValueToString(v1 map[string]interface{}) (map[string][]string, error) {
-	valueMap := make(map[string][]string)
+func convertValueToString(v1 map[commons.Operation]interface{}) (map[commons.Operation][]string, error) {
+	valueMap := make(map[commons.Operation][]string)
 
 	for k, v := range v1 {
 		values := make([]string, 0)
@@ -55,16 +59,16 @@ func convertValueToString(v1 map[string]interface{}) (map[string][]string, error
 	return valueMap, nil
 }
 
-func handleConfigServiceContext(tokens []string, operationValueMap map[string][]string) []string {
-	val := operationValueMap[commons.UpdateOp]
+func createConfigServiceContext(tokens []string, operationValueMap map[commons.Operation][]string) []string {
+	val := operationValueMap[commons.Update]
 	cmdList := make([]string, 0, len(val))
 	cmd := cmdSetConfigService + ";"
 
 	for _, token := range tokens[1:] {
-		cmd = cmd + token + "."
+		cmd = cmd + token + sep
 	}
 
-	cmd = strings.TrimSuffix(cmd, ".")
+	cmd = strings.TrimSuffix(cmd, sep)
 
 	for _, v := range val {
 		finalCMD := cmd + "=" + v
@@ -74,16 +78,16 @@ func handleConfigServiceContext(tokens []string, operationValueMap map[string][]
 	return cmdList
 }
 
-func handleConfigNetworkContext(tokens []string, operationValueMap map[string][]string) []string {
-	val := operationValueMap[commons.UpdateOp]
+func createConfigNetworkContext(tokens []string, operationValueMap map[commons.Operation][]string) []string {
+	val := operationValueMap[commons.Update]
 	cmdList := make([]string, 0, len(val))
 	cmd := cmdSetConfigNetwork + ";"
 
 	for _, token := range tokens[1:] {
-		cmd = cmd + token + "."
+		cmd = cmd + token + sep
 	}
 
-	cmd = strings.TrimSuffix(cmd, ".")
+	cmd = strings.TrimSuffix(cmd, sep)
 
 	for _, v := range val {
 		finalCMD := cmd + "=" + v
@@ -93,76 +97,78 @@ func handleConfigNetworkContext(tokens []string, operationValueMap map[string][]
 	return cmdList
 }
 
-func handleConfigSecurityContext(tokens []string, operationValueMap map[string][]string) []string {
+func createConfigSecurityContext(tokens []string, operationValueMap map[commons.Operation][]string) []string {
 	cmdList := make([]string, 0, len(operationValueMap))
 	cmd := cmdSetConfigSecurity + ";"
 
 	for _, token := range tokens[1 : len(tokens)-1] {
-		cmd = cmd + token + "."
+		cmd = cmd + token + sep
 	}
 
 	baseKey := tokens[len(tokens)-1]
 	switch baseKey {
-	case "report-data-op":
-		addedValues := operationValueMap[commons.AddOp]
+	case reportDataOp:
+		addedValues := operationValueMap[commons.Add]
 		for _, v := range addedValues {
 			var finalCMD string
 
 			namespaceAndSet := strings.Split(v, ":")
 			switch len(namespaceAndSet) {
 			case 2:
-				finalCMD = cmd + baseKey + "=" + "true;" + "namespace=" + namespaceAndSet[0] + ";" + "set=" + namespaceAndSet[1]
+				finalCMD = cmd + baseKey + "=" + "true;" + namespace + "=" + namespaceAndSet[0] + ";" +
+					set + "=" + namespaceAndSet[1]
 			case 1:
-				finalCMD = cmd + baseKey + "=" + "true;" + "namespace=" + namespaceAndSet[0]
+				finalCMD = cmd + baseKey + "=" + "true;" + namespace + "=" + namespaceAndSet[0]
 			}
 
 			cmdList = append(cmdList, finalCMD)
 		}
 
-		removedValues := operationValueMap[commons.RemoveOp]
+		removedValues := operationValueMap[commons.Remove]
 		for _, v := range removedValues {
 			var finalCMD string
 
 			namespaceAndSet := strings.Split(v, ":")
 			switch len(namespaceAndSet) {
 			case 2:
-				finalCMD = cmd + baseKey + "=" + "false;" + "namespace=" + namespaceAndSet[0] + ";" + "set=" + namespaceAndSet[1]
+				finalCMD = cmd + baseKey + "=" + "false;" + namespace + "=" + namespaceAndSet[0] + ";" +
+					set + "=" + namespaceAndSet[1]
 			case 1:
-				finalCMD = cmd + baseKey + "=" + "false;" + "namespace=" + namespaceAndSet[0]
+				finalCMD = cmd + baseKey + "=" + "false;" + namespace + "=" + namespaceAndSet[0]
 			}
 
 			cmdList = append(cmdList, finalCMD)
 		}
 
 	case "report-data-op-role":
-		addedValues := operationValueMap[commons.AddOp]
+		addedValues := operationValueMap[commons.Add]
 		for _, v := range addedValues {
-			finalCMD := cmd + "report-data-op" + "=" + "true;" + "role=" + v
+			finalCMD := cmd + reportDataOp + "=" + "true;" + "role=" + v
 			cmdList = append(cmdList, finalCMD)
 		}
 
-		removedValues := operationValueMap[commons.RemoveOp]
+		removedValues := operationValueMap[commons.Remove]
 		for _, v := range removedValues {
-			finalCMD := cmd + "report-data-op" + "=" + "false;" + "role=" + v
+			finalCMD := cmd + reportDataOp + "=" + "false;" + "role=" + v
 			cmdList = append(cmdList, finalCMD)
 		}
 
 	case "report-data-op-user":
-		addedValues := operationValueMap[commons.AddOp]
+		addedValues := operationValueMap[commons.Add]
 		for _, v := range addedValues {
-			finalCMD := cmd + "report-data-op" + "=" + "true;" + "user=" + v
+			finalCMD := cmd + reportDataOp + "=" + "true;" + "user=" + v
 			cmdList = append(cmdList, finalCMD)
 		}
 
-		removedValues := operationValueMap[commons.RemoveOp]
+		removedValues := operationValueMap[commons.Remove]
 		for _, v := range removedValues {
-			finalCMD := cmd + "report-data-op" + "=" + "false;" + "user=" + v
+			finalCMD := cmd + reportDataOp + "=" + "false;" + "user=" + v
 			cmdList = append(cmdList, finalCMD)
 		}
 
 	default:
 		cmd += baseKey
-		for _, v := range operationValueMap[commons.UpdateOp] {
+		for _, v := range operationValueMap[commons.Update] {
 			finalCMD := cmd + "=" + v
 			cmdList = append(cmdList, finalCMD)
 		}
@@ -171,17 +177,17 @@ func handleConfigSecurityContext(tokens []string, operationValueMap map[string][
 	return cmdList
 }
 
-func handleConfigNamespaceContext(tokens []string, operationValueMap map[string][]string) []string {
-	val := operationValueMap[commons.UpdateOp]
+func createConfigNamespaceContext(tokens []string, operationValueMap map[commons.Operation][]string) []string {
+	val := operationValueMap[commons.Update]
 	cmdList := make([]string, 0, len(val))
 	cmd := cmdSetConfigNamespace
 	prevToken := info.ConfigNamespaceContext
 
 	for _, token := range tokens[1:] {
-		if token[0] == '{' && token[len(token)-1] == '}' {
+		if token[0] == commons.SectionNameStartChar && token[len(token)-1] == commons.SectionNameEndChar {
 			switch prevToken {
 			case info.ConfigSetContext:
-				cmd += fmt.Sprintf(";%s=%s", asconfig.SingularOf(prevToken), strings.Trim(token, "{}"))
+				cmd += fmt.Sprintf(";%s=%s", SingularOf(prevToken), strings.Trim(token, "{}"))
 			case info.ConfigNamespaceContext:
 				cmd += strings.Trim(token, "{}")
 			}
@@ -198,7 +204,7 @@ func handleConfigNamespaceContext(tokens []string, operationValueMap map[string]
 	for _, v := range val {
 		finalCMD := ""
 		if prevToken != "" {
-			finalCMD = cmd + ";" + asconfig.SingularOf(prevToken) + "=" + v
+			finalCMD = cmd + ";" + SingularOf(prevToken) + "=" + v
 		} else {
 			finalCMD = cmd + "=" + v
 		}
@@ -209,26 +215,25 @@ func handleConfigNamespaceContext(tokens []string, operationValueMap map[string]
 	return cmdList
 }
 
-func handleConfigLoggingContext(tokens []string, operationValueMap map[string][]string, conn *ASConn,
-	aerospikePolicy *aero.ClientPolicy) ([]string, error) {
-	val := operationValueMap[commons.UpdateOp]
+func createConfigLoggingContext(tokens []string, operationValueMap map[commons.Operation][]string,
+	conn deployment.ASConnInterface, aerospikePolicy *aero.ClientPolicy) ([]string, error) {
+	val := operationValueMap[commons.Update]
 	cmdList := make([]string, 0, len(val))
+	cmd := cmdSetLogging
 
-	confs, err := conn.RunInfo(aerospikePolicy, "logs")
+	logName := strings.Trim(tokens[1], "{}")
+	if logName == constLoggingConsole {
+		logName = constLoggingStderr
+	}
+
+	confs, err := conn.RunInfo(aerospikePolicy, logs)
 	if err != nil {
 		return nil, err
 	}
 
-	logs := info.ParseIntoMap(confs["logs"], ";", ":")
-	cmd := cmdSetLogging
-
-	logName := strings.Trim(tokens[1], "{}")
-	if logName == "console" {
-		logName = "stderr"
-	}
-
-	for id := range logs {
-		if logName == logs[id] {
+	loggings := info.ParseIntoMap(confs[logs], ";", ":")
+	for id, name := range loggings {
+		if logName == name {
 			cmd += id
 			break
 		}
@@ -242,37 +247,37 @@ func handleConfigLoggingContext(tokens []string, operationValueMap map[string][]
 	return cmdList, nil
 }
 
-func handleConfigXDRContext(tokens []string, operationValueMap map[string][]string) []string {
+func createConfigXDRContext(tokens []string, operationValueMap map[commons.Operation][]string) []string {
 	cmdList := make([]string, 0, len(operationValueMap))
 	cmd := cmdSetConfigXDR
 	prevToken := ""
 	objectAddedOrRemoved := false
-	action := commons.AddOp
+	action := commons.Add
 
 	for _, token := range tokens[1:] {
 		if commons.ReCurlyBraces.MatchString(token) {
 			switch prevToken {
 			case info.ConfigDCContext, info.ConfigNamespaceContext:
-				cmd += fmt.Sprintf(";%s=%s", asconfig.SingularOf(prevToken), strings.Trim(token, "{}"))
+				cmd += fmt.Sprintf(";%s=%s", SingularOf(prevToken), strings.Trim(token, "{}"))
 			}
 		} else {
-			// Assuming there are only 2 object types in XDR context (DC and Namespace)
-			if token == asconfig.KeyName {
+			// Assuming there are only 2 section types in XDR context (DC and Namespace)
+			if token == KeyName {
 				objectAddedOrRemoved = true
 				if prevToken == info.ConfigDCContext {
-					if _, ok := operationValueMap[commons.AddOp]; ok {
+					if _, ok := operationValueMap[commons.Add]; ok {
 						action = "create"
 					}
-					if _, ok := operationValueMap[commons.RemoveOp]; ok {
+					if _, ok := operationValueMap[commons.Remove]; ok {
 						action = "delete"
 					}
 				}
 				if prevToken == info.ConfigNamespaceContext {
-					if _, ok := operationValueMap[commons.AddOp]; ok {
-						action = commons.AddOp
+					if _, ok := operationValueMap[commons.Add]; ok {
+						action = commons.Add
 					}
-					if _, ok := operationValueMap[commons.RemoveOp]; ok {
-						action = commons.RemoveOp
+					if _, ok := operationValueMap[commons.Remove]; ok {
+						action = commons.Remove
 					}
 				}
 			}
@@ -281,7 +286,7 @@ func handleConfigXDRContext(tokens []string, operationValueMap map[string][]stri
 	}
 
 	if objectAddedOrRemoved {
-		finalCMD := cmd + ";" + "action=" + action
+		finalCMD := cmd + ";" + "action=" + string(action)
 
 		return append(cmdList, finalCMD)
 	}
@@ -298,9 +303,9 @@ func handleConfigXDRContext(tokens []string, operationValueMap map[string][]stri
 					val = tokens[0] + ":" + tokens[1]
 				}
 
-				finalCMD = cmd + ";" + asconfig.SingularOf(prevToken) + "=" + val + ";action=" + op
+				finalCMD = cmd + ";" + SingularOf(prevToken) + "=" + val + ";action=" + string(op)
 			} else {
-				finalCMD = cmd + ";" + asconfig.SingularOf(prevToken) + "=" + v
+				finalCMD = cmd + ";" + SingularOf(prevToken) + "=" + v
 			}
 
 			cmdList = append(cmdList, finalCMD)
@@ -310,15 +315,16 @@ func handleConfigXDRContext(tokens []string, operationValueMap map[string][]stri
 	return cmdList
 }
 
-// CreateConfigSetCmdList creates set-config commands for given config.
-func CreateConfigSetCmdList(
-	log logr.Logger, configMap commons.DynamicConfigMap, conn *ASConn, aerospikePolicy *aero.ClientPolicy,
+// CreateSetConfigCmdList creates set-config commands for given config.
+func CreateSetConfigCmdList(
+	log logr.Logger, configMap commons.DynamicConfigMap, conn deployment.ASConnInterface,
+	aerospikePolicy *aero.ClientPolicy,
 ) ([]string, error) {
 	cmdList := make([]string, 0, len(configMap))
 
 	orderedConfList := rearrangeConfigMap(log, configMap)
 	for _, c := range orderedConfList {
-		tokens := strings.Split(c, ".")
+		tokens := strings.Split(c, sep)
 		context := tokens[0]
 
 		val, err := convertValueToString(configMap[c])
@@ -328,19 +334,19 @@ func CreateConfigSetCmdList(
 
 		switch context {
 		case info.ConfigServiceContext:
-			cmdList = append(cmdList, handleConfigServiceContext(tokens, val)...)
+			cmdList = append(cmdList, createConfigServiceContext(tokens, val)...)
 
 		case info.ConfigNetworkContext:
-			cmdList = append(cmdList, handleConfigNetworkContext(tokens, val)...)
+			cmdList = append(cmdList, createConfigNetworkContext(tokens, val)...)
 
 		case info.ConfigNamespaceContext:
-			cmdList = append(cmdList, handleConfigNamespaceContext(tokens, val)...)
+			cmdList = append(cmdList, createConfigNamespaceContext(tokens, val)...)
 
 		case info.ConfigXDRContext:
-			cmdList = append(cmdList, handleConfigXDRContext(tokens, val)...)
+			cmdList = append(cmdList, createConfigXDRContext(tokens, val)...)
 
 		case info.ConfigLoggingContext:
-			cmds, err := handleConfigLoggingContext(tokens, val, conn, aerospikePolicy)
+			cmds, err := createConfigLoggingContext(tokens, val, conn, aerospikePolicy)
 			if err != nil {
 				return nil, err
 			}
@@ -348,7 +354,7 @@ func CreateConfigSetCmdList(
 			cmdList = append(cmdList, cmds...)
 
 		case info.ConfigSecurityContext:
-			cmdList = append(cmdList, handleConfigSecurityContext(tokens, val)...)
+			cmdList = append(cmdList, createConfigSecurityContext(tokens, val)...)
 		}
 	}
 
@@ -357,7 +363,7 @@ func CreateConfigSetCmdList(
 
 // Returns a list of config keys in the order in which they should be applied.
 // The order is as follows:
-// 1. Removed Namespaces -- If user has to change some if the DC direct fields, they will have to remove the namespace
+// 1. Removed Namespaces -- If user has to change some of the DC direct fields, they will have to remove the namespace
 // 2. Added/Removed DCs
 // 3. Added/Updated DC direct fields
 // 4. Added Namespaces
@@ -372,12 +378,12 @@ func rearrangeConfigMap(log logr.Logger, configMap commons.DynamicConfigMap) []s
 	)
 
 	for k, v := range configMap {
-		baseKey := asconfig.BaseKey(k)
-		context := asconfig.ContextKey(k)
-		_, removeOP := v[commons.RemoveOp]
-		tokens := commons.SplitKey(log, k, ".")
+		baseKey := BaseKey(k)
+		context := ContextKey(k)
+		_, removeOP := v[commons.Remove]
+		tokens := commons.SplitKey(log, k, sep)
 
-		if context == info.ConfigXDRContext && baseKey == asconfig.KeyName {
+		if context == info.ConfigXDRContext && baseKey == KeyName {
 			switch tokens[len(tokens)-3] {
 			case info.ConfigDCContext:
 				dc := rearrangedConfigMap.PushFront(k)

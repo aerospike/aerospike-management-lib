@@ -134,9 +134,9 @@ func baseVersion(ver string) (string, error) {
 	return baseVersion, nil
 }
 
-// GetDynamic return the map of values which are dynamic
+// getDynamic return the map of values which are dynamic
 // values.
-func GetDynamic(ver string) (map[string]bool, error) {
+func getDynamic(ver string) (sets.Set[string], error) {
 	flatSchema, err := getFlatSchema(ver)
 	if err != nil {
 		return nil, err
@@ -160,27 +160,25 @@ func normalizeFlatSchema(flatSchema map[string]interface{}) map[string]interface
 
 // getDynamicSchema return the map of values which are dynamic
 // values.
-func getDynamicSchema(flatSchema map[string]interface{}) map[string]bool {
-	dynMap := make(map[string]bool)
+func getDynamicSchema(flatSchema map[string]interface{}) sets.Set[string] {
+	dynSet := sets.NewSet[string]()
 
 	for k, v := range flatSchema {
 		if dynRegex.MatchString(k) {
 			key := removeJSONSpecKeywords(k)
 			key = dynRegex.ReplaceAllString(key, "${1}")
 
-			if dyn, ok := v.(bool); ok {
-				dynMap[key] = dyn
-			} else {
-				dynMap[key] = false
+			if dyn, ok := v.(bool); ok && dyn {
+				dynSet.Add(key)
 			}
 		}
 	}
 
-	return dynMap
+	return dynSet
 }
 
 func IsAllDynamicConfig(log logr.Logger, configMap commons.DynamicConfigMap, version string) (bool, error) {
-	dynamic, err := GetDynamic(version)
+	dynamic, err := getDynamic(version)
 	if err != nil {
 		// retry error fall back to rolling restart.
 		return false, err
@@ -195,9 +193,8 @@ func IsAllDynamicConfig(log logr.Logger, configMap commons.DynamicConfigMap, ver
 	return true, nil
 }
 
-func isFieldDynamic(log logr.Logger, dynamic map[string]bool, conf string, valueMap map[string]interface{}) bool {
-	var key string
-
+func isFieldDynamic(log logr.Logger, dynamic sets.Set[string], conf string,
+	valueMap map[commons.Operation]interface{}) bool {
 	tokens := commons.SplitKey(log, conf, ".")
 	baseKey := tokens[len(tokens)-1]
 	context := tokens[0]
@@ -206,53 +203,33 @@ func isFieldDynamic(log logr.Logger, dynamic map[string]bool, conf string, value
 		return true
 	}
 
+	// Name key for XDR context is considered as dynamic, as both DCs and Namespaces in DCs can be added dynamically.
 	if context == info.ConfigXDRContext && baseKey == KeyName {
 		return true
 	}
 
 	// Marking these fields as static as corresponding set-config commands are not straight forward.
 	staticFieldSet := sets.NewSet("rack-id")
-	conditionalStaticFieldSet := sets.NewSet("ignore-bins", "ignore-sets", "ship-bins", "ship-sets")
-
 	if staticFieldSet.Contains(baseKey) {
 		return false
 	}
 
+	// Marking these fields as static as removing an entry from these slices is not supported dynamically.
+	conditionalStaticFieldSet := sets.NewSet("ignore-bins", "ignore-sets", "ship-bins", "ship-sets")
 	if conditionalStaticFieldSet.Contains(baseKey) {
-		if _, ok := valueMap[commons.RemoveOp]; ok {
+		if _, ok := valueMap[commons.Remove]; ok {
 			return false
 		}
 	}
 
-	for _, token := range tokens {
-		if commons.ReCurlyBraces.MatchString(token) {
-			key += "_."
-		} else {
-			key = key + token + "."
-		}
-	}
-
-	key = strings.TrimSuffix(key, ".")
-
-	return dynamic[key]
+	return dynamic.Contains(getFlatKey(tokens))
 }
 
 // getDefaultValue returns the default value of a particular config
 func getDefaultValue(defaultMap map[string]interface{}, conf string) interface{} {
-	key := ""
-
 	tokens := strings.Split(conf, ".")
-	for _, token := range tokens {
-		if commons.ReCurlyBraces.MatchString(token) {
-			key += "_."
-		} else {
-			key = key + token + "."
-		}
-	}
 
-	key = strings.TrimSuffix(key, ".")
-
-	return defaultMap[key]
+	return defaultMap[getFlatKey(tokens)]
 }
 
 // GetDefault return the map of default values.

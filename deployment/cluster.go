@@ -14,7 +14,7 @@ import (
 )
 
 const constTrue = "true"
-const NAMESPACES = "namespaces"
+const Namespaces = "namespaces"
 
 // cluster represents an aerospike cluster
 type cluster struct {
@@ -646,7 +646,7 @@ func (c *cluster) getQuiescedNodes(hostIDs []string) ([]string, error) {
 func (c *cluster) getClusterNamespaces(hostIDs []string) (
 	map[string][]string, error,
 ) {
-	cmd := NAMESPACES
+	cmd := Namespaces
 
 	infoResults, err := c.infoOnHosts(hostIDs, cmd)
 	if err != nil {
@@ -656,8 +656,8 @@ func (c *cluster) getClusterNamespaces(hostIDs []string) (
 	namespaces := map[string][]string{}
 
 	for hostID, info := range infoResults {
-		if len(info[NAMESPACES]) > 0 {
-			namespaces[hostID] = strings.Split(info[NAMESPACES], ";")
+		if len(info[Namespaces]) > 0 {
+			namespaces[hostID] = strings.Split(info[Namespaces], ";")
 		} else {
 			return nil, fmt.Errorf(
 				"failed to get namespaces for node %v", hostID,
@@ -879,8 +879,11 @@ func (c *cluster) setConfigCommandsOnHosts(cmds []string, hosts []*HostConn) err
 	log := c.log.WithValues("nodes", hosts)
 	log.V(1).Info("Running set-config")
 
+	hostIDS := getHostIDsFromHostConns(hosts)
+
+	// Run all set-config commands on all hosts
 	for _, cmd := range cmds {
-		infoResults, iErr := c.infoOnHosts(getHostIDsFromHostConns(hosts), cmd)
+		infoResults, iErr := c.infoOnHosts(hostIDS, cmd)
 		if iErr != nil {
 			return iErr
 		}

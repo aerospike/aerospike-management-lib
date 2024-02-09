@@ -1,16 +1,17 @@
-package deployment
+package asconfig
 
 import (
 	"strings"
 
 	aero "github.com/aerospike/aerospike-client-go/v6"
 	lib "github.com/aerospike/aerospike-management-lib"
-	"github.com/aerospike/aerospike-management-lib/asconfig"
 	"github.com/aerospike/aerospike-management-lib/commons"
+	"github.com/aerospike/aerospike-management-lib/deployment"
 	"github.com/aerospike/aerospike-management-lib/info"
 )
 
-func GetASConfig(path string, conn *ASConn, aerospikePolicy *aero.ClientPolicy) (confToReturn interface{}, err error) {
+func GetASConfig(path string, conn *deployment.ASConn, aerospikePolicy *aero.ClientPolicy) (
+	confToReturn interface{}, err error) {
 	h := aero.Host{
 		Name:    conn.AerospikeHostName,
 		Port:    conn.AerospikePort,
@@ -18,7 +19,7 @@ func GetASConfig(path string, conn *ASConn, aerospikePolicy *aero.ClientPolicy) 
 	}
 	asinfo := info.NewAsInfo(conn.Log, &h, aerospikePolicy)
 
-	ctxs := []string{asconfig.ContextKey(path)}
+	ctxs := []string{ContextKey(path)}
 	if ctxs[0] == info.ConfigNamespaceContext {
 		ctxs = append(ctxs, info.ConfigSetContext)
 	}
@@ -40,8 +41,8 @@ func GetASConfig(path string, conn *ASConn, aerospikePolicy *aero.ClientPolicy) 
 		if commons.ReCurlyBraces.MatchString(token) {
 			name := strings.Trim(token, "{}")
 
-			if ctxs[0] == info.ConfigLoggingContext && name == "console" {
-				name = "stderr"
+			if ctxs[0] == info.ConfigLoggingContext && name == constLoggingConsole {
+				name = constLoggingStderr
 			}
 
 			confToReturn = confToReturn.(lib.Stats)[name]
@@ -50,7 +51,7 @@ func GetASConfig(path string, conn *ASConn, aerospikePolicy *aero.ClientPolicy) 
 		}
 
 		if confToReturn == nil {
-			conn.Log.Info("Config is nil", strings.Join(tokens[:idx+2], "."))
+			conn.Log.Info("Config is nil", strings.Join(tokens[:idx+2], sep))
 			break
 		}
 	}

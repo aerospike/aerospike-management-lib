@@ -9,7 +9,9 @@ import (
 
 var ReCurlyBraces = regexp.MustCompile(`^\{.*\}$`)
 
-type DynamicConfigMap map[string]map[string]interface{}
+// DynamicConfigMap is a map of config flatten keys and their operations and values
+// for eg: "xdr.dcs.{DC3}.node-address-ports": {commons.Remove: []string{"1.1.2.1 3000"}}
+type DynamicConfigMap map[string]map[Operation]interface{}
 
 // SplitKey splits key by using sep
 // it ignores sep inside sectionNameStartChar and sectionNameEndChar

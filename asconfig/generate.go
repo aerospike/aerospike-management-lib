@@ -335,7 +335,7 @@ func (s *renameKeysStep) execute(conf Conf) error {
 	for key, value := range logging {
 		switch v := value.(type) {
 		case Conf:
-			if key == "stderr" {
+			if key == constLoggingStderr {
 				newLoggingEntries[constLoggingConsole] = value
 
 				delete(logging, key)

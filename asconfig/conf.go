@@ -126,7 +126,7 @@ func validateString(baseKey, v string) *ValidationErr {
 			}
 		}
 
-	case "report-data-op":
+	case reportDataOp:
 		if len(literals) > 2 {
 			return &ValidationErr{
 				Description: "Invalid report-data-op",

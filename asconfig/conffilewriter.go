@@ -22,6 +22,7 @@ import (
 
 const (
 	constLoggingConsole = "console"
+	constLoggingStderr  = "stderr"
 	constLoggingSyslog  = "syslog"
 )
 

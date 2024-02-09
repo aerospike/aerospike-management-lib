@@ -8,6 +8,8 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
+
+	"github.com/aerospike/aerospike-management-lib/commons"
 )
 
 type AsConfigTestSuite struct {
@@ -107,14 +109,15 @@ func (s *AsConfigTestSuite) TestAsConfigGetDiff() {
 		name       string
 		inputConf1 map[string]interface{}
 		inputConf2 map[string]interface{}
-		expected   map[string]map[string]interface{}
+		expected   commons.DynamicConfigMap
 	}{
 		{
-			"namespace context",
+			"General differences",
 			map[string]interface{}{
 				"namespaces": []map[string]interface{}{
 					{
-						"name": "test",
+						"name":               "test",
+						"replication-factor": 3,
 						"storage-engine": map[string]interface{}{
 							"type": "device",
 						},
@@ -133,8 +136,9 @@ func (s *AsConfigTestSuite) TestAsConfigGetDiff() {
 							"node-address-ports": "1.1.1.1 3000",
 							"namespaces": []map[string]interface{}{
 								{
-									"name":       "ns1",
-									"bin-policy": "no-bins",
+									"name":        "ns1",
+									"bin-policy":  "no-bins",
+									"ignore-sets": []string{"set1"},
 								},
 							},
 						},
@@ -155,7 +159,8 @@ func (s *AsConfigTestSuite) TestAsConfigGetDiff() {
 						},
 					},
 					{
-						"name": "bar",
+						"name":               "bar",
+						"replication-factor": 3,
 						"storage-engine": map[string]interface{}{
 							"type": "memory",
 						},
@@ -182,14 +187,131 @@ func (s *AsConfigTestSuite) TestAsConfigGetDiff() {
 				},
 			},
 
-			map[string]map[string]interface{}{
-				"namespaces.{test}.storage-engine.type":     {"update": "device"},
-				"xdr.dcs.{DC1}.namespaces.{ns1}.bin-policy": {"update": "no-bins"},
-				"security.log.report-data-op":               {"add": []string{"ns3 set2"}, "remove": []string{"ns2 set2"}},
-				"xdr.dcs.{DC3}.name":                        {"remove": "DC3"},
-				"xdr.dcs.{DC1}.node-address-ports":          {"update": []string{"1.1.1.1 3000"}},
-				"xdr.dcs.{DC1}.namespaces.{ns1}.name":       {"add": "ns1"},
-				"xdr.dcs.{DC1}.name":                        {"add": "DC1"},
+			commons.DynamicConfigMap{
+				"namespaces.{test}.storage-engine.type":     {commons.Update: "device"},
+				"xdr.dcs.{DC1}.namespaces.{ns1}.bin-policy": {commons.Update: "no-bins"},
+				"security.log.report-data-op": {commons.Add: []string{"ns3 set2"},
+					commons.Remove: []string{"ns2 set2"}},
+				"xdr.dcs.{DC3}.name":                         {commons.Remove: "DC3"},
+				"xdr.dcs.{DC1}.node-address-ports":           {commons.Add: []string{"1.1.1.1 3000"}},
+				"xdr.dcs.{DC1}.namespaces.{ns1}.name":        {commons.Add: "ns1"},
+				"xdr.dcs.{DC1}.name":                         {commons.Add: "DC1"},
+				"xdr.dcs.{DC1}.namespaces.{ns1}.ignore-sets": {commons.Add: []string{"set1"}},
+				"namespaces.{test}.replication-factor":       {commons.Update: 3},
+				"namespaces.{bar}.replication-factor":        {commons.Update: uint64(2)},
+			},
+		},
+		{
+			"Partial Context differences: adding",
+			map[string]interface{}{
+				"security": map[string]interface{}{
+					"log": map[string]interface{}{
+						"report-data-op": []string{"ns1 set1", "ns3 set2"},
+					},
+				},
+			},
+			map[string]interface{}{
+				"security": map[string]interface{}{},
+			},
+
+			commons.DynamicConfigMap{
+				"security.log.report-data-op": {commons.Add: []string{"ns1 set1", "ns3 set2"}},
+			},
+		},
+
+		{
+			"Partial Context differences: removing",
+			map[string]interface{}{
+				"security": map[string]interface{}{},
+			},
+			map[string]interface{}{
+				"security": map[string]interface{}{
+					"log": map[string]interface{}{
+						"report-authentication": true,
+					},
+				},
+			},
+			commons.DynamicConfigMap{
+				"security.log.report-authentication": {commons.Update: false},
+			},
+		},
+
+		{
+			"DCS field differences",
+			map[string]interface{}{
+				"xdr": map[string]interface{}{
+					"dcs": []map[string]interface{}{
+						{
+							"name":               "DC3",
+							"node-address-ports": []string{"1.1.1.1 3000"},
+							"namespaces": []map[string]interface{}{
+								{
+									"name":       "ns1",
+									"bin-policy": "all",
+								},
+							},
+						},
+					},
+				},
+			},
+			map[string]interface{}{
+				"xdr": map[string]interface{}{
+					"dcs": []map[string]interface{}{
+						{
+							"name":               "DC3",
+							"node-address-ports": []string{"1.2.1.1 3000"},
+							"namespaces": []map[string]interface{}{
+								{
+									"name":       "ns1",
+									"bin-policy": "no-bins",
+								},
+							},
+						},
+					},
+				},
+			},
+			commons.DynamicConfigMap{
+				"xdr.dcs.{DC3}.node-address-ports": {commons.Add: []string{"1.1.1.1 3000"},
+					commons.Remove: []string{"1.1.2.1 3000"}},
+				"xdr.dcs.{DC3}.namespaces.{ns1}.bin-policy": {commons.Update: "all"},
+			},
+		},
+		{
+			"DCS Namespace add/remove field differences",
+			map[string]interface{}{
+				"xdr": map[string]interface{}{
+					"dcs": []map[string]interface{}{
+						{
+							"name": "DC3",
+							"namespaces": []map[string]interface{}{
+								{
+									"name":       "ns1",
+									"bin-policy": "all",
+								},
+							},
+						},
+					},
+				},
+			},
+			map[string]interface{}{
+				"xdr": map[string]interface{}{
+					"dcs": []map[string]interface{}{
+						{
+							"name": "DC3",
+							"namespaces": []map[string]interface{}{
+								{
+									"name":       "ns2",
+									"bin-policy": "all",
+								},
+							},
+						},
+					},
+				},
+			},
+			commons.DynamicConfigMap{
+				"xdr.dcs.{DC3}.namespaces.{ns1}.name":       {commons.Add: "ns1"},
+				"xdr.dcs.{DC3}.namespaces.{ns2}.name":       {commons.Remove: "ns2"},
+				"xdr.dcs.{DC3}.namespaces.{ns1}.bin-policy": {commons.Update: "all"},
 			},
 		},
 	}
@@ -213,32 +335,34 @@ func (s *AsConfigTestSuite) TestAsConfigGetDiff() {
 func (s *AsConfigTestSuite) TestAsConfigIsDynamic() {
 	testCases := []struct {
 		name      string
-		inputConf map[string]map[string]interface{}
+		inputConf commons.DynamicConfigMap
 		expected  bool
 	}{
 		{
 			"static fields",
-			map[string]map[string]interface{}{
-				"namespaces.{test}.storage-engine.type":     {"update": "device"},
-				"xdr.dcs.{DC1}.namespaces.{ns1}.bin-policy": {"update": "no-bins"},
-				"security.log.report-data-op":               {"add": []string{"ns3 set2"}, "remove": []string{"ns2 set2"}},
-				"xdr.dcs.{DC3}.name":                        {"remove": "DC3"},
-				"xdr.dcs.{DC1}.node-address-ports":          {"update": []string{"1.1.1.1 3000"}},
-				"xdr.dcs.{DC1}.namespaces.{ns1}.name":       {"add": "ns1"},
-				"xdr.dcs.{DC1}.name":                        {"add": "DC1"},
+			commons.DynamicConfigMap{
+				"namespaces.{test}.storage-engine.type":     {commons.Update: "device"},
+				"xdr.dcs.{DC1}.namespaces.{ns1}.bin-policy": {commons.Update: "no-bins"},
+				"security.log.report-data-op": {commons.Add: []string{"ns3 set2"},
+					commons.Remove: []string{"ns2 set2"}},
+				"xdr.dcs.{DC3}.name":                  {commons.Remove: "DC3"},
+				"xdr.dcs.{DC1}.node-address-ports":    {commons.Update: []string{"1.1.1.1 3000"}},
+				"xdr.dcs.{DC1}.namespaces.{ns1}.name": {commons.Add: "ns1"},
+				"xdr.dcs.{DC1}.name":                  {commons.Add: "DC1"},
 			},
 
 			false,
 		},
 		{
 			"dynamic fields",
-			map[string]map[string]interface{}{
-				"xdr.dcs.{DC1}.namespaces.{ns1}.bin-policy": {"update": "no-bins"},
-				"security.log.report-data-op":               {"add": []string{"ns3 set2"}, "remove": []string{"ns2 set2"}},
-				"xdr.dcs.{DC3}.name":                        {"remove": "DC3"},
-				"xdr.dcs.{DC1}.node-address-ports":          {"update": []string{"1.1.1.1 3000"}},
-				"xdr.dcs.{DC1}.namespaces.{ns1}.name":       {"add": "ns1"},
-				"xdr.dcs.{DC1}.name":                        {"add": "DC1"},
+			commons.DynamicConfigMap{
+				"xdr.dcs.{DC1}.namespaces.{ns1}.bin-policy": {commons.Update: "no-bins"},
+				"security.log.report-data-op": {commons.Add: []string{"ns3 set2"},
+					commons.Remove: []string{"ns2 set2"}},
+				"xdr.dcs.{DC3}.name":                  {commons.Remove: "DC3"},
+				"xdr.dcs.{DC1}.node-address-ports":    {commons.Update: []string{"1.1.1.1 3000"}},
+				"xdr.dcs.{DC1}.namespaces.{ns1}.name": {commons.Add: "ns1"},
+				"xdr.dcs.{DC1}.name":                  {commons.Add: "DC1"},
 			},
 
 			true,
