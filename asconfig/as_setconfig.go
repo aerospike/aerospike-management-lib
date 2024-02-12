@@ -59,7 +59,7 @@ func convertValueToString(v1 map[commons.Operation]interface{}) (map[commons.Ope
 	return valueMap, nil
 }
 
-func createConfigServiceContext(tokens []string, operationValueMap map[commons.Operation][]string) []string {
+func createSetConfigServiceCmdList(tokens []string, operationValueMap map[commons.Operation][]string) []string {
 	val := operationValueMap[commons.Update]
 	cmdList := make([]string, 0, len(val))
 	cmd := cmdSetConfigService + ";"
@@ -78,7 +78,7 @@ func createConfigServiceContext(tokens []string, operationValueMap map[commons.O
 	return cmdList
 }
 
-func createConfigNetworkContext(tokens []string, operationValueMap map[commons.Operation][]string) []string {
+func createSetConfigNetworkCmdList(tokens []string, operationValueMap map[commons.Operation][]string) []string {
 	val := operationValueMap[commons.Update]
 	cmdList := make([]string, 0, len(val))
 	cmd := cmdSetConfigNetwork + ";"
@@ -97,7 +97,7 @@ func createConfigNetworkContext(tokens []string, operationValueMap map[commons.O
 	return cmdList
 }
 
-func createConfigSecurityContext(tokens []string, operationValueMap map[commons.Operation][]string) []string {
+func createSetConfigSecurityCmdList(tokens []string, operationValueMap map[commons.Operation][]string) []string {
 	cmdList := make([]string, 0, len(operationValueMap))
 	cmd := cmdSetConfigSecurity + ";"
 
@@ -177,7 +177,7 @@ func createConfigSecurityContext(tokens []string, operationValueMap map[commons.
 	return cmdList
 }
 
-func createConfigNamespaceContext(tokens []string, operationValueMap map[commons.Operation][]string) []string {
+func createSetConfigNamespaceCmdList(tokens []string, operationValueMap map[commons.Operation][]string) []string {
 	val := operationValueMap[commons.Update]
 	cmdList := make([]string, 0, len(val))
 	cmd := cmdSetConfigNamespace
@@ -215,7 +215,7 @@ func createConfigNamespaceContext(tokens []string, operationValueMap map[commons
 	return cmdList
 }
 
-func createConfigLoggingContext(tokens []string, operationValueMap map[commons.Operation][]string,
+func createLogSetCmdList(tokens []string, operationValueMap map[commons.Operation][]string,
 	conn deployment.ASConnInterface, aerospikePolicy *aero.ClientPolicy) ([]string, error) {
 	val := operationValueMap[commons.Update]
 	cmdList := make([]string, 0, len(val))
@@ -247,7 +247,7 @@ func createConfigLoggingContext(tokens []string, operationValueMap map[commons.O
 	return cmdList, nil
 }
 
-func createConfigXDRContext(tokens []string, operationValueMap map[commons.Operation][]string) []string {
+func createSetConfigXDRCmdList(tokens []string, operationValueMap map[commons.Operation][]string) []string {
 	cmdList := make([]string, 0, len(operationValueMap))
 	cmd := cmdSetConfigXDR
 	prevToken := ""
@@ -334,19 +334,19 @@ func CreateSetConfigCmdList(
 
 		switch context {
 		case info.ConfigServiceContext:
-			cmdList = append(cmdList, createConfigServiceContext(tokens, val)...)
+			cmdList = append(cmdList, createSetConfigServiceCmdList(tokens, val)...)
 
 		case info.ConfigNetworkContext:
-			cmdList = append(cmdList, createConfigNetworkContext(tokens, val)...)
+			cmdList = append(cmdList, createSetConfigNetworkCmdList(tokens, val)...)
 
 		case info.ConfigNamespaceContext:
-			cmdList = append(cmdList, createConfigNamespaceContext(tokens, val)...)
+			cmdList = append(cmdList, createSetConfigNamespaceCmdList(tokens, val)...)
 
 		case info.ConfigXDRContext:
-			cmdList = append(cmdList, createConfigXDRContext(tokens, val)...)
+			cmdList = append(cmdList, createSetConfigXDRCmdList(tokens, val)...)
 
 		case info.ConfigLoggingContext:
-			cmds, err := createConfigLoggingContext(tokens, val, conn, aerospikePolicy)
+			cmds, err := createLogSetCmdList(tokens, val, conn, aerospikePolicy)
 			if err != nil {
 				return nil, err
 			}
@@ -354,7 +354,7 @@ func CreateSetConfigCmdList(
 			cmdList = append(cmdList, cmds...)
 
 		case info.ConfigSecurityContext:
-			cmdList = append(cmdList, createConfigSecurityContext(tokens, val)...)
+			cmdList = append(cmdList, createSetConfigSecurityCmdList(tokens, val)...)
 		}
 	}
 
