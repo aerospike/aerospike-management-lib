@@ -1177,13 +1177,13 @@ func isStringField(key string) bool {
 	// numeric values it is safe to remove from this table so that it functions as a bool
 	// when parsing server 7.0+ config files
 	case "tls-name", "encryption", "query-user-password-file", "encryption-key-file",
-		"tls-authenticate-client", "mode", "auto-pin", "compression", "user-path",
+		keyTLSAuthenticateClient, "mode", "auto-pin", "compression", "user-path",
 		"auth-user", "user", "cipher-suite", "ca-path", "write-policy", "vault-url",
 		"protocols", "bin-policy", "ca-file", "key-file", "pidfile", "cluster-name",
 		"auth-mode", "encryption-old-key-file", "group", "work-directory", "write-commit-level-override",
 		"vault-ca", "cert-blacklist", "vault-token-file", "query-user-dn", "node-id",
 		"conflict-resolution-policy", "server", "query-base-dn", "node-id-interface",
-		"auth-password-file", "feature-key-file", "read-consistency-level-override",
+		"auth-password-file", keyFeatureKeyFile, "read-consistency-level-override",
 		"cert-file", "user-query-pattern", "key-file-password", "protocol", "vault-path",
 		"user-dn-pattern", "scheduler-mode", "token-hash-method",
 		"remote-namespace", "tls-ca-file", "role-query-base-dn", "set-enable-xdr",
@@ -1427,4 +1427,45 @@ func getFlatKey(tokens []string) string {
 	}
 
 	return strings.TrimSuffix(key, ".")
+}
+
+func ToPlural(k string, v any, m Conf) {
+	// convert asconfig fields/contexts that need to be plural
+	// in order to create valid asconfig yaml.
+	if plural := PluralOf(k); plural != k {
+		// if the config item can be plural or singular and is not a slice
+		// then the item should not be converted to the plural form.
+		// If the management lib ever parses list entries as anything other
+		// than []string this might have to change.
+		if isListOrString(k) {
+			if _, ok := v.([]string); !ok {
+				return
+			}
+
+			if len(v.([]string)) == 1 {
+				// the management lib parses all config fields
+				// that are in singularToPlural as lists. If these
+				// fields are actually scalars then overwrite the list
+				// with the single value
+				m[k] = v.([]string)[0]
+				return
+			}
+		}
+
+		delete(m, k)
+		m[plural] = v
+	}
+}
+
+// isListOrString returns true for special config fields that may be a
+// single string value or a list with multiple strings in the schema files
+// NOTE: any time the schema changes to make a value
+// a string or a list (array) that value needs to be added here
+func isListOrString(name string) bool {
+	switch name {
+	case keyFeatureKeyFile, keyTLSAuthenticateClient:
+		return true
+	default:
+		return false
+	}
 }
