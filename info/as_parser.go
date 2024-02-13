@@ -1141,11 +1141,17 @@ func parseAllXDRConfig(rawMap map[string]string, cmd string) lib.Stats {
 		return nil
 	}
 
-	dcNamesRaw := xdrConfigMap.TryString(constStatDCNames, "")
-	dcNames := strings.Split(dcNamesRaw, ",")
+	var dcNames []string
 
+	dcNamesRaw := xdrConfigMap.TryString(constStatDCNames, "")
 	delete(xdrConfigMap, constStatDCNames)
-	xdrConfigMap[ConfigDCContext] = make(lib.Stats, len(dcNames))
+
+	if dcNamesRaw == "" {
+		dcNames = []string{}
+	} else {
+		dcNames = strings.Split(dcNamesRaw, ",")
+		xdrConfigMap[ConfigDCContext] = make(lib.Stats, len(dcNames))
+	}
 
 	for _, dc := range dcNames {
 		dcMap := ParseIntoMap(rawMap[cmd+";dc="+dc], ";", "=")
@@ -1155,11 +1161,18 @@ func parseAllXDRConfig(rawMap map[string]string, cmd string) lib.Stats {
 		}
 
 		xdrConfigMap[ConfigDCContext].(lib.Stats)[dc] = dcMap
-		nsNamesRaw := dcMap.TryString(constStatNSNames, "")
-		nsNames := strings.Split(nsNamesRaw, ",")
 
+		var nsNames []string
+
+		nsNamesRaw := dcMap.TryString(constStatNSNames, "")
 		delete(dcMap, constStatNSNames)
-		dcMap[ConfigNamespaceContext] = make(lib.Stats, len(nsNames))
+
+		if nsNamesRaw == "" {
+			nsNames = []string{}
+		} else {
+			nsNames = strings.Split(nsNamesRaw, ",")
+			dcMap[ConfigNamespaceContext] = make(lib.Stats, len(nsNames))
+		}
 
 		for _, ns := range nsNames {
 			nsMap := ParseIntoMap(rawMap[cmd+";dc="+dc+";namespace="+ns], ";", "=")
