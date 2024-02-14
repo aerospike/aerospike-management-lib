@@ -19,7 +19,6 @@ import (
 	"github.com/go-logr/logr"
 
 	lib "github.com/aerospike/aerospike-management-lib"
-	"github.com/aerospike/aerospike-management-lib/commons"
 )
 
 type sysproptype string
@@ -30,11 +29,6 @@ const (
 	NETADDR sysproptype = "NETADDR"
 	DEVICE  sysproptype = "DEVICE"
 	NONE    sysproptype = "NONE"
-)
-
-const (
-	sep      = "."
-	keyIndex = "<index>"
 )
 
 var portRegex = regexp.MustCompile("port")
@@ -140,7 +134,7 @@ func expandConfMap(log logr.Logger, input *Conf, sep string) Conf {
 			m[k] = expandConfMap(log, &v, sep)
 
 		default:
-			expandKey(log, m, commons.SplitKey(log, k, sep), v)
+			expandKey(log, m, SplitKey(log, k, sep), v)
 		}
 	}
 
@@ -227,7 +221,7 @@ func toAsConfigContext(context string) string {
 		// logging filename can have / - avoid further replacements
 		asConfigCtx := loggingContextRe.ReplaceAllString(
 			context,
-			fmt.Sprintf("$1.%c$3%c", commons.SectionNameStartChar, commons.SectionNameEndChar),
+			fmt.Sprintf("$1.%c$3%c", SectionNameStartChar, SectionNameEndChar),
 		)
 
 		return asConfigCtx
@@ -235,7 +229,7 @@ func toAsConfigContext(context string) string {
 
 	asConfigCtx := namedContextRe.ReplaceAllString(
 		context,
-		fmt.Sprintf("$1.%c$3%c", commons.SectionNameStartChar, commons.SectionNameEndChar),
+		fmt.Sprintf("$1.%c$3%c", SectionNameStartChar, SectionNameEndChar),
 	)
 	asConfigCtx = strings.ReplaceAll(asConfigCtx, "/", sep)
 
@@ -252,7 +246,7 @@ func toAsConfigKey(context, name string) string {
 // named context
 func getRawName(name string) string {
 	return strings.Trim(
-		name, fmt.Sprintf("%c%c", commons.SectionNameStartChar, commons.SectionNameEndChar),
+		name, fmt.Sprintf("%c%c", SectionNameStartChar, SectionNameEndChar),
 	)
 }
 
@@ -264,8 +258,8 @@ func getContainedName(log logr.Logger, fullKey, context string) (
 	ctx := toAsConfigContext(context)
 
 	if strings.Contains(fullKey, ctx) {
-		fKs := commons.SplitKey(log, fullKey, sep)
-		cKs := commons.SplitKey(log, ctx, sep)
+		fKs := SplitKey(log, fullKey, sep)
+		cKs := SplitKey(log, ctx, sep)
 
 		// Number of keys in fullKey should
 		// be 1 more that ctx
@@ -349,7 +343,7 @@ func flattenConfList(log logr.Logger, input []Conf, sep string) Conf {
 		// still its not complete solution, it fails if user has section names with imbalance parenthesis
 		// for ex. namespace name -> test}.abcd
 		// but this solution will work for most of the cases and reduce most of the failure scenarios
-		name = string(commons.SectionNameStartChar) + name + string(commons.SectionNameEndChar)
+		name = string(SectionNameStartChar) + name + string(SectionNameEndChar)
 
 		for k2, v2 := range flattenConf(log, v, sep) {
 			res[name+sep+k2] = v2
@@ -544,31 +538,31 @@ func diff(
 	return d
 }
 
-func handleMissingSection(log logr.Logger, k1 string, c1, c2 Conf, d commons.DynamicConfigMap,
+func handleMissingSection(log logr.Logger, k1 string, c1, c2 Conf, d DynamicConfigMap,
 	desiredToActual bool) bool {
-	tokens := commons.SplitKey(log, k1, ".")
+	tokens := SplitKey(log, k1, ".")
 	for idx, token := range tokens {
 		nameKeyPath := strings.Join(tokens[:idx+1], sep) + "." + KeyName
 		// Whole section which has "name" as key is not present in c2
 		// If token is under "{}", then it is a named section
-		if _, okay := c2[nameKeyPath]; commons.ReCurlyBraces.MatchString(token) && !okay {
-			operationValueMap := make(map[commons.Operation]interface{})
+		if _, okay := c2[nameKeyPath]; ReCurlyBraces.MatchString(token) && !okay {
+			operationValueMap := make(map[Operation]interface{})
 
 			if desiredToActual {
 				if _, updated := d[k1]; !updated {
 					// If desired config has this section, then add it to actual config
 					// Using AddOp for named section and slice eg. node-address-ports
 					if tokens[len(tokens)-1] == KeyName || reflect.ValueOf(c1[k1]).Kind() == reflect.Slice {
-						operationValueMap[commons.Add] = c1[k1]
+						operationValueMap[Add] = c1[k1]
 					} else {
-						operationValueMap[commons.Update] = c1[k1]
+						operationValueMap[Update] = c1[k1]
 					}
 
 					d[k1] = operationValueMap
 				}
 			} else if _, updated := d[nameKeyPath]; !updated {
 				// If desired config does not have this section, then remove it from actual config
-				operationValueMap[commons.Remove] = c1[nameKeyPath]
+				operationValueMap[Remove] = c1[nameKeyPath]
 				d[nameKeyPath] = operationValueMap
 			}
 
@@ -579,11 +573,11 @@ func handleMissingSection(log logr.Logger, k1 string, c1, c2 Conf, d commons.Dyn
 	return false
 }
 
-func handlePartialMissingSection(k1 string, c2 Conf, ver string, d commons.DynamicConfigMap) (bool, error) {
+func handlePartialMissingSection(k1, ver string, current Conf, d DynamicConfigMap) (bool, error) {
 	diffUpdated := false
-	// Check c2 for any key which starts with k1
+	// Check current for any key which starts with k1
 	// if found, then add default value to k2 config parameter
-	for k2 := range c2 {
+	for k2 := range current {
 		if !strings.HasPrefix(k2, k1+".") {
 			continue
 		}
@@ -594,8 +588,8 @@ func handlePartialMissingSection(k1 string, c2 Conf, ver string, d commons.Dynam
 		}
 
 		defaultValue := getDefaultValue(defaultMap, k2)
-		operationValueMap := make(map[commons.Operation]interface{})
-		operationValueMap[commons.Update] = defaultValue
+		operationValueMap := make(map[Operation]interface{})
+		operationValueMap[Update] = defaultValue
 		d[k2] = operationValueMap
 		diffUpdated = true
 	}
@@ -603,46 +597,46 @@ func handlePartialMissingSection(k1 string, c2 Conf, ver string, d commons.Dynam
 	return diffUpdated, nil
 }
 
-func handleSliceFields(k1 string, c1 Conf, d commons.DynamicConfigMap, desiredToActual bool) {
-	operationValueMap := make(map[commons.Operation]interface{})
+func handleSliceFields(k string, desired Conf, d DynamicConfigMap, desiredToActual bool) {
+	operationValueMap := make(map[Operation]interface{})
 
-	if reflect.ValueOf(c1[k1]).Kind() == reflect.Slice {
+	if reflect.ValueOf(desired[k]).Kind() == reflect.Slice {
 		if desiredToActual {
-			operationValueMap[commons.Add] = c1[k1].([]string)
+			operationValueMap[Add] = desired[k].([]string)
 		} else {
-			operationValueMap[commons.Remove] = c1[k1].([]string)
+			operationValueMap[Remove] = desired[k].([]string)
 		}
 	} else {
-		operationValueMap[commons.Update] = c1[k1]
+		operationValueMap[Update] = desired[k]
 	}
 
-	d[k1] = operationValueMap
+	d[k] = operationValueMap
 }
 
-func handleValueDiff(k1 string, v1, v2 interface{}, d commons.DynamicConfigMap) {
-	operationValueMap := make(map[commons.Operation]interface{})
+func handleValueDiff(k string, v1, v2 interface{}, d DynamicConfigMap) {
+	operationValueMap := make(map[Operation]interface{})
 
 	if reflect.ValueOf(v1).Kind() == reflect.Slice {
 		currentSet := sets.NewSet[string]()
 		currentSet.Append(v2.([]string)...)
 
-		diffSet := sets.NewSet[string]()
-		diffSet.Append(v1.([]string)...)
+		desiredSet := sets.NewSet[string]()
+		desiredSet.Append(v1.([]string)...)
 
-		removedValues := currentSet.Difference(diffSet)
+		removedValues := currentSet.Difference(desiredSet)
 		if removedValues.Cardinality() > 0 {
-			operationValueMap[commons.Remove] = removedValues.ToSlice()
-			d[k1] = operationValueMap
+			operationValueMap[Remove] = removedValues.ToSlice()
+			d[k] = operationValueMap
 		}
 
-		addedValues := diffSet.Difference(currentSet)
+		addedValues := desiredSet.Difference(currentSet)
 		if addedValues.Cardinality() > 0 {
-			operationValueMap[commons.Add] = addedValues.ToSlice()
-			d[k1] = operationValueMap
+			operationValueMap[Add] = addedValues.ToSlice()
+			d[k] = operationValueMap
 		}
 	} else {
-		operationValueMap[commons.Update] = v1
-		d[k1] = operationValueMap
+		operationValueMap[Update] = v1
+		d[k] = operationValueMap
 	}
 }
 
@@ -653,14 +647,14 @@ func handleValueDiff(k1 string, v1, v2 interface{}, d commons.DynamicConfigMap) 
 // Generally used to compare current and desired config. This ignores
 // node specific information like address, device, interface etc.
 func detailedDiff(log logr.Logger, desired, current Conf, isFlat,
-	desiredToActual bool, ver string) (commons.DynamicConfigMap, error) {
+	desiredToActual bool, ver string) (DynamicConfigMap, error) {
 	// Flatten if not flattened already.
 	if !isFlat {
 		desired = flattenConf(log, desired, sep)
 		current = flattenConf(log, current, sep)
 	}
 
-	d := make(commons.DynamicConfigMap)
+	d := make(DynamicConfigMap)
 
 	// For all keys in desired if it does not exist in current
 	// or if type or value is different add/update/remove it
@@ -681,7 +675,7 @@ func detailedDiff(log logr.Logger, desired, current Conf, isFlat,
 				// If k1 is not present in current, then check if any key which starts with k1 is present in current
 				// eg. desired has security: {} current has security.log.report-sys-admin: true
 				// final diff should be map[security.log.report-sys-admin] = <default value>
-				diffUpdated, err = handlePartialMissingSection(k1, current, ver, d)
+				diffUpdated, err = handlePartialMissingSection(k1, ver, current, d)
 				if err != nil {
 					return nil, err
 				}
@@ -718,29 +712,30 @@ func detailedDiff(log logr.Logger, desired, current Conf, isFlat,
 // case of list of string fields)
 func ConfDiff(
 	log logr.Logger, desiredConf, currentConf Conf, isFlat bool, ver string,
-) (commons.DynamicConfigMap, error) {
+) (DynamicConfigMap, error) {
+	// Comparing desired and current config
 	diffs, err := detailedDiff(log, desiredConf, currentConf, isFlat, true, ver)
 	if err != nil {
 		return nil, err
 	}
 
-	log.Info("print diff inside", "difference", fmt.Sprintf("%v", diffs))
-
+	// Comparing current and desired config
+	// If any config parameter is present in current but not in desired.
 	removedConfigs, err := detailedDiff(log, currentConf, desiredConf, isFlat, false, ver)
 	if err != nil {
 		return nil, err
 	}
 
-	log.Info("print c2ToC1Diffs", "difference", fmt.Sprintf("%v", removedConfigs))
-
 	for removedConfigKey := range removedConfigs {
+		// If any key difference is already captured while comparing desired and current config in detailedDiff,
+		// then ignore it while comparing current and desired config.
 		if _, ok := diffs[removedConfigKey]; ok {
 			continue
 		}
 
 		// If whole string array or map type config is not present in desired config.
 		// No default values are available for these configs.
-		if _, removed := removedConfigs[removedConfigKey][commons.Remove]; removed {
+		if _, removed := removedConfigs[removedConfigKey][Remove]; removed {
 			diffs[removedConfigKey] = removedConfigs[removedConfigKey]
 			continue
 		}
@@ -751,8 +746,8 @@ func ConfDiff(
 			return nil, err
 		}
 
-		valueMap := make(map[commons.Operation]interface{})
-		valueMap[commons.Update] = getDefaultValue(defaultMap, removedConfigKey)
+		valueMap := make(map[Operation]interface{})
+		valueMap[Update] = getDefaultValue(defaultMap, removedConfigKey)
 		diffs[removedConfigKey] = valueMap
 	}
 
@@ -815,7 +810,7 @@ func getSystemProperty(log logr.Logger, c Conf, key string) (
 	// device <deviceName>:<shadowDeviceName>
 	case keyDevice:
 		for _, d := range c[key].([]interface{}) {
-			value = append(value, strings.Split(d.(string), ":")...)
+			value = append(value, strings.Split(d.(string), colon)...)
 		}
 
 		return DEVICE, value
@@ -900,8 +895,8 @@ func isListField(key string) (exists bool, separator string) {
 	// TODO: Device with shadow device is not reported by server
 	// yet in runtime making it colon separated for now.
 	case "mesh-seed-address-port", "tls-mesh-seed-address-port",
-		keyDevice, reportDataOp, "node-address-port", keyFeatureKeyFile:
-		return true, ":"
+		keyDevice, keyReportDataOp, "node-address-port", keyFeatureKeyFile:
+		return true, colon
 
 	case keyFile, keyAddress, keyTLSAddress, keyAccessAddress, "mount",
 		keyTLSAccessAddress, keyAlternateAccessAddress,
@@ -952,7 +947,7 @@ func isListSection(section string) bool {
 	section = SingularOf(section)
 
 	switch section {
-	case namespace, "datacenter", "dc", set, "tls", keyFile:
+	case keyNamespace, "datacenter", "dc", keySet, "tls", keyFile:
 		return true
 
 	default:
@@ -1201,7 +1196,7 @@ func isStringField(key string) bool {
 // EX: secrets-address-port: 127.0.0.1:3000
 func isDelimitedStringField(key string) (exists bool, separator string) {
 	if key == "secrets-address-port" {
-		return true, ":"
+		return true, colon
 	}
 
 	return false, ""
@@ -1396,7 +1391,7 @@ func getCfgValue(log logr.Logger, diffKeys []string, flatConf Conf) []CfgValue {
 }
 
 func getContextAndName(log logr.Logger, key, _ string) (context, name string) {
-	keys := commons.SplitKey(log, key, sep)
+	keys := SplitKey(log, key, sep)
 	if len(keys) == 1 {
 		return "", ""
 	}
@@ -1419,7 +1414,7 @@ func getFlatKey(tokens []string) string {
 	var key string
 
 	for _, token := range tokens {
-		if commons.ReCurlyBraces.MatchString(token) {
+		if ReCurlyBraces.MatchString(token) {
 			key += "_."
 		} else {
 			key = key + token + "."
@@ -1468,4 +1463,37 @@ func isListOrString(name string) bool {
 	default:
 		return false
 	}
+}
+
+var ReCurlyBraces = regexp.MustCompile(`^\{.*\}$`)
+
+// DynamicConfigMap is a map of config flatten keys and their operations and values
+// for eg: "xdr.dcs.{DC3}.node-address-ports": {Remove: []string{"1.1.2.1 3000"}}
+type DynamicConfigMap map[string]map[Operation]interface{}
+
+// SplitKey splits key by using sep
+// it ignores sep inside sectionNameStartChar and sectionNameEndChar
+func SplitKey(log logr.Logger, key, sep string) []string {
+	sepRunes := []rune(sep)
+	if len(sepRunes) > 1 {
+		log.Info("Split expects single char as separator")
+		return nil
+	}
+
+	openBracket := 0
+	f := func(c rune) bool {
+		if c == sepRunes[0] && openBracket == 0 {
+			return true
+		}
+
+		if c == SectionNameStartChar {
+			openBracket++
+		} else if c == SectionNameEndChar {
+			openBracket--
+		}
+
+		return false
+	}
+
+	return strings.FieldsFunc(key, f)
 }

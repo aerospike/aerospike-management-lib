@@ -13,7 +13,6 @@ import (
 	sets "github.com/deckarep/golang-set/v2"
 	"github.com/go-logr/logr"
 
-	"github.com/aerospike/aerospike-management-lib/commons"
 	"github.com/aerospike/aerospike-management-lib/info"
 )
 
@@ -177,7 +176,8 @@ func getDynamicSchema(flatSchema map[string]interface{}) sets.Set[string] {
 	return dynSet
 }
 
-func IsAllDynamicConfig(log logr.Logger, configMap commons.DynamicConfigMap, version string) (bool, error) {
+// IsAllDynamicConfig returns true if all the fields in the given configMap are dynamically configured.
+func IsAllDynamicConfig(log logr.Logger, configMap DynamicConfigMap, version string) (bool, error) {
 	dynamic, err := getDynamic(version)
 	if err != nil {
 		// retry error fall back to rolling restart.
@@ -193,13 +193,14 @@ func IsAllDynamicConfig(log logr.Logger, configMap commons.DynamicConfigMap, ver
 	return true, nil
 }
 
+// isFieldDynamic returns true if the given field is dynamically configured.
 func isFieldDynamic(log logr.Logger, dynamic sets.Set[string], conf string,
-	valueMap map[commons.Operation]interface{}) bool {
-	tokens := commons.SplitKey(log, conf, ".")
+	valueMap map[Operation]interface{}) bool {
+	tokens := SplitKey(log, conf, ".")
 	baseKey := tokens[len(tokens)-1]
 	context := tokens[0]
 
-	if baseKey == "replication-factor" || baseKey == "node-address-ports" {
+	if baseKey == "replication-factor" || baseKey == keyNodeAddressPorts {
 		return true
 	}
 
@@ -217,7 +218,7 @@ func isFieldDynamic(log logr.Logger, dynamic sets.Set[string], conf string,
 	// Marking these fields as static as removing an entry from these slices is not supported dynamically.
 	conditionalStaticFieldSet := sets.NewSet("ignore-bins", "ignore-sets", "ship-bins", "ship-sets")
 	if conditionalStaticFieldSet.Contains(baseKey) {
-		if _, ok := valueMap[commons.Remove]; ok {
+		if _, ok := valueMap[Remove]; ok {
 			return false
 		}
 	}

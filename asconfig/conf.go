@@ -117,7 +117,7 @@ func validateString(baseKey, v string) *ValidationErr {
 	literals := strings.Split(v, " ")
 
 	switch baseKey {
-	case "node-address-ports":
+	case keyNodeAddressPorts:
 		if len(literals) > 3 {
 			return &ValidationErr{
 				Description: "Invalid node-address-ports",
@@ -126,7 +126,7 @@ func validateString(baseKey, v string) *ValidationErr {
 			}
 		}
 
-	case reportDataOp:
+	case keyReportDataOp:
 		if len(literals) > 2 {
 			return &ValidationErr{
 				Description: "Invalid report-data-op",

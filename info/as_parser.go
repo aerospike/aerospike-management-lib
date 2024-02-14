@@ -1148,6 +1148,7 @@ func parseAllXDRConfig(rawMap map[string]string, cmd string) lib.Stats {
 
 	if dcNamesRaw == "" {
 		dcNames = []string{}
+		xdrConfigMap[ConfigDCContext] = struct{}{}
 	} else {
 		dcNames = strings.Split(dcNamesRaw, ",")
 		xdrConfigMap[ConfigDCContext] = make(lib.Stats, len(dcNames))
@@ -1169,6 +1170,7 @@ func parseAllXDRConfig(rawMap map[string]string, cmd string) lib.Stats {
 
 		if nsNamesRaw == "" {
 			nsNames = []string{}
+			dcMap[ConfigNamespaceContext] = struct{}{}
 		} else {
 			nsNames = strings.Split(nsNamesRaw, ",")
 			dcMap[ConfigNamespaceContext] = make(lib.Stats, len(nsNames))

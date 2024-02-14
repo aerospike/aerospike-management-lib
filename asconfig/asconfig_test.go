@@ -8,8 +8,6 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
-
-	"github.com/aerospike/aerospike-management-lib/commons"
 )
 
 type AsConfigTestSuite struct {
@@ -109,7 +107,7 @@ func (s *AsConfigTestSuite) TestAsConfigGetDiff() {
 		name       string
 		inputConf1 map[string]interface{}
 		inputConf2 map[string]interface{}
-		expected   commons.DynamicConfigMap
+		expected   DynamicConfigMap
 	}{
 		{
 			"General differences",
@@ -187,18 +185,18 @@ func (s *AsConfigTestSuite) TestAsConfigGetDiff() {
 				},
 			},
 
-			commons.DynamicConfigMap{
-				"namespaces.{test}.storage-engine.type":     {commons.Update: "device"},
-				"xdr.dcs.{DC1}.namespaces.{ns1}.bin-policy": {commons.Update: "no-bins"},
-				"security.log.report-data-op": {commons.Add: []string{"ns3 set2"},
-					commons.Remove: []string{"ns2 set2"}},
-				"xdr.dcs.{DC3}.name":                         {commons.Remove: "DC3"},
-				"xdr.dcs.{DC1}.node-address-ports":           {commons.Add: []string{"1.1.1.1 3000"}},
-				"xdr.dcs.{DC1}.namespaces.{ns1}.name":        {commons.Add: "ns1"},
-				"xdr.dcs.{DC1}.name":                         {commons.Add: "DC1"},
-				"xdr.dcs.{DC1}.namespaces.{ns1}.ignore-sets": {commons.Add: []string{"set1"}},
-				"namespaces.{test}.replication-factor":       {commons.Update: 3},
-				"namespaces.{bar}.replication-factor":        {commons.Update: uint64(2)},
+			DynamicConfigMap{
+				"namespaces.{test}.storage-engine.type":     {Update: "device"},
+				"xdr.dcs.{DC1}.namespaces.{ns1}.bin-policy": {Update: "no-bins"},
+				"security.log.report-data-op": {Add: []string{"ns3 set2"},
+					Remove: []string{"ns2 set2"}},
+				"xdr.dcs.{DC3}.name":                         {Remove: "DC3"},
+				"xdr.dcs.{DC1}.node-address-ports":           {Add: []string{"1.1.1.1 3000"}},
+				"xdr.dcs.{DC1}.namespaces.{ns1}.name":        {Add: "ns1"},
+				"xdr.dcs.{DC1}.name":                         {Add: "DC1"},
+				"xdr.dcs.{DC1}.namespaces.{ns1}.ignore-sets": {Add: []string{"set1"}},
+				"namespaces.{test}.replication-factor":       {Update: 3},
+				"namespaces.{bar}.replication-factor":        {Update: uint64(2)},
 			},
 		},
 		{
@@ -214,8 +212,8 @@ func (s *AsConfigTestSuite) TestAsConfigGetDiff() {
 				"security": map[string]interface{}{},
 			},
 
-			commons.DynamicConfigMap{
-				"security.log.report-data-op": {commons.Add: []string{"ns1 set1", "ns3 set2"}},
+			DynamicConfigMap{
+				"security.log.report-data-op": {Add: []string{"ns1 set1", "ns3 set2"}},
 			},
 		},
 
@@ -231,8 +229,8 @@ func (s *AsConfigTestSuite) TestAsConfigGetDiff() {
 					},
 				},
 			},
-			commons.DynamicConfigMap{
-				"security.log.report-authentication": {commons.Update: false},
+			DynamicConfigMap{
+				"security.log.report-authentication": {Update: false},
 			},
 		},
 
@@ -270,10 +268,10 @@ func (s *AsConfigTestSuite) TestAsConfigGetDiff() {
 					},
 				},
 			},
-			commons.DynamicConfigMap{
-				"xdr.dcs.{DC3}.node-address-ports": {commons.Add: []string{"1.1.1.1 3000"},
-					commons.Remove: []string{"1.1.2.1 3000"}},
-				"xdr.dcs.{DC3}.namespaces.{ns1}.bin-policy": {commons.Update: "all"},
+			DynamicConfigMap{
+				"xdr.dcs.{DC3}.node-address-ports": {Add: []string{"1.1.1.1 3000"},
+					Remove: []string{"1.1.2.1 3000"}},
+				"xdr.dcs.{DC3}.namespaces.{ns1}.bin-policy": {Update: "all"},
 			},
 		},
 		{
@@ -308,10 +306,10 @@ func (s *AsConfigTestSuite) TestAsConfigGetDiff() {
 					},
 				},
 			},
-			commons.DynamicConfigMap{
-				"xdr.dcs.{DC3}.namespaces.{ns1}.name":       {commons.Add: "ns1"},
-				"xdr.dcs.{DC3}.namespaces.{ns2}.name":       {commons.Remove: "ns2"},
-				"xdr.dcs.{DC3}.namespaces.{ns1}.bin-policy": {commons.Update: "all"},
+			DynamicConfigMap{
+				"xdr.dcs.{DC3}.namespaces.{ns1}.name":       {Add: "ns1"},
+				"xdr.dcs.{DC3}.namespaces.{ns2}.name":       {Remove: "ns2"},
+				"xdr.dcs.{DC3}.namespaces.{ns1}.bin-policy": {Update: "all"},
 			},
 		},
 	}
@@ -335,34 +333,34 @@ func (s *AsConfigTestSuite) TestAsConfigGetDiff() {
 func (s *AsConfigTestSuite) TestAsConfigIsDynamic() {
 	testCases := []struct {
 		name      string
-		inputConf commons.DynamicConfigMap
+		inputConf DynamicConfigMap
 		expected  bool
 	}{
 		{
 			"static fields",
-			commons.DynamicConfigMap{
-				"namespaces.{test}.storage-engine.type":     {commons.Update: "device"},
-				"xdr.dcs.{DC1}.namespaces.{ns1}.bin-policy": {commons.Update: "no-bins"},
-				"security.log.report-data-op": {commons.Add: []string{"ns3 set2"},
-					commons.Remove: []string{"ns2 set2"}},
-				"xdr.dcs.{DC3}.name":                  {commons.Remove: "DC3"},
-				"xdr.dcs.{DC1}.node-address-ports":    {commons.Update: []string{"1.1.1.1 3000"}},
-				"xdr.dcs.{DC1}.namespaces.{ns1}.name": {commons.Add: "ns1"},
-				"xdr.dcs.{DC1}.name":                  {commons.Add: "DC1"},
+			DynamicConfigMap{
+				"namespaces.{test}.storage-engine.type":     {Update: "device"},
+				"xdr.dcs.{DC1}.namespaces.{ns1}.bin-policy": {Update: "no-bins"},
+				"security.log.report-data-op": {Add: []string{"ns3 set2"},
+					Remove: []string{"ns2 set2"}},
+				"xdr.dcs.{DC3}.name":                  {Remove: "DC3"},
+				"xdr.dcs.{DC1}.node-address-ports":    {Update: []string{"1.1.1.1 3000"}},
+				"xdr.dcs.{DC1}.namespaces.{ns1}.name": {Add: "ns1"},
+				"xdr.dcs.{DC1}.name":                  {Add: "DC1"},
 			},
 
 			false,
 		},
 		{
 			"dynamic fields",
-			commons.DynamicConfigMap{
-				"xdr.dcs.{DC1}.namespaces.{ns1}.bin-policy": {commons.Update: "no-bins"},
-				"security.log.report-data-op": {commons.Add: []string{"ns3 set2"},
-					commons.Remove: []string{"ns2 set2"}},
-				"xdr.dcs.{DC3}.name":                  {commons.Remove: "DC3"},
-				"xdr.dcs.{DC1}.node-address-ports":    {commons.Update: []string{"1.1.1.1 3000"}},
-				"xdr.dcs.{DC1}.namespaces.{ns1}.name": {commons.Add: "ns1"},
-				"xdr.dcs.{DC1}.name":                  {commons.Add: "DC1"},
+			DynamicConfigMap{
+				"xdr.dcs.{DC1}.namespaces.{ns1}.bin-policy": {Update: "no-bins"},
+				"security.log.report-data-op": {Add: []string{"ns3 set2"},
+					Remove: []string{"ns2 set2"}},
+				"xdr.dcs.{DC3}.name":                  {Remove: "DC3"},
+				"xdr.dcs.{DC1}.node-address-ports":    {Update: []string{"1.1.1.1 3000"}},
+				"xdr.dcs.{DC1}.namespaces.{ns1}.name": {Add: "ns1"},
+				"xdr.dcs.{DC1}.name":                  {Add: "DC1"},
 			},
 
 			true,

@@ -1,5 +1,7 @@
 package asconfig
 
+type Operation string
+
 // All the aerospike config related keys
 const (
 	keyFeatureKeyFile = "feature-key-file"
@@ -7,6 +9,7 @@ const (
 	keyFile           = "file"
 	KeyName           = "name"
 	keyType           = "type"
+	keyIndex          = "<index>"
 
 	keyStorageEngine             = "storage-engine"
 	keyAddress                   = "address"
@@ -16,4 +19,22 @@ const (
 	keyAlternateAccessAddress    = "alternate-access-address"
 	keyTLSAlternateAccessAddress = "tls-alternate-access-address"
 	keyTLSAuthenticateClient     = "tls-authenticate-client"
+	keyNodeAddressPorts          = "node-address-ports"
+
+	keyReportDataOp = "report-data-op"
+	keyNamespace    = "namespace"
+	keySet          = "set"
+	keyLogs         = "logs"
+
+	sep                  = "."
+	SectionNameStartChar = '{'
+	SectionNameEndChar   = '}'
+	semicolon            = ";"
+	equal                = "="
+	colon                = ":"
+
+	// Enum values for Operation
+	Add    Operation = "add"
+	Remove Operation = "remove"
+	Update Operation = "update"
 )

@@ -875,6 +875,7 @@ func (c *cluster) setMigrateFillDelay(migrateFillDelay int, hosts []*HostConn) e
 	return nil
 }
 
+// setConfigCommandsOnHosts runs the set-config commands on the hosts.
 func (c *cluster) setConfigCommandsOnHosts(cmds []string, hosts []*HostConn) error {
 	log := c.log.WithValues("nodes", hosts)
 	log.V(1).Info("Running set-config")

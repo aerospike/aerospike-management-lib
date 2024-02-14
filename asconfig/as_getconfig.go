@@ -5,11 +5,11 @@ import (
 
 	aero "github.com/aerospike/aerospike-client-go/v6"
 	lib "github.com/aerospike/aerospike-management-lib"
-	"github.com/aerospike/aerospike-management-lib/commons"
 	"github.com/aerospike/aerospike-management-lib/deployment"
 	"github.com/aerospike/aerospike-management-lib/info"
 )
 
+// GetASConfig returns the value of the given path from the aerospike config from given host.
 func GetASConfig(path string, conn *deployment.ASConn, aerospikePolicy *aero.ClientPolicy) (
 	confToReturn interface{}, err error) {
 	h := aero.Host{
@@ -19,6 +19,7 @@ func GetASConfig(path string, conn *deployment.ASConn, aerospikePolicy *aero.Cli
 	}
 	asinfo := info.NewAsInfo(conn.Log, &h, aerospikePolicy)
 
+	// Get the corresponding sets info also if context is namespace.
 	ctxs := []string{ContextKey(path)}
 	if ctxs[0] == info.ConfigNamespaceContext {
 		ctxs = append(ctxs, info.ConfigSetContext)
@@ -36,9 +37,9 @@ func GetASConfig(path string, conn *deployment.ASConn, aerospikePolicy *aero.Cli
 		return nil, nil
 	}
 
-	tokens := strings.Split(path, ".")
+	tokens := strings.Split(path, sep)
 	for idx, token := range tokens[1:] {
-		if commons.ReCurlyBraces.MatchString(token) {
+		if ReCurlyBraces.MatchString(token) {
 			name := strings.Trim(token, "{}")
 
 			if ctxs[0] == info.ConfigLoggingContext && name == constLoggingConsole {
