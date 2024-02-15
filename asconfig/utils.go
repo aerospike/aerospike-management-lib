@@ -538,31 +538,31 @@ func diff(
 	return d
 }
 
-func handleMissingSection(log logr.Logger, k1 string, c1, c2 Conf, d DynamicConfigMap,
+func handleMissingSection(log logr.Logger, key string, desired, current Conf, d DynamicConfigMap,
 	desiredToActual bool) bool {
-	tokens := SplitKey(log, k1, ".")
+	tokens := SplitKey(log, key, sep)
 	for idx, token := range tokens {
-		nameKeyPath := strings.Join(tokens[:idx+1], sep) + "." + KeyName
-		// Whole section which has "name" as key is not present in c2
+		nameKeyPath := strings.Join(tokens[:idx+1], sep) + sep + KeyName
+		// Whole section which has "name" as key is not present in current
 		// If token is under "{}", then it is a named section
-		if _, okay := c2[nameKeyPath]; ReCurlyBraces.MatchString(token) && !okay {
+		if _, okay := current[nameKeyPath]; ReCurlyBraces.MatchString(token) && !okay {
 			operationValueMap := make(map[Operation]interface{})
 
 			if desiredToActual {
-				if _, updated := d[k1]; !updated {
+				if _, updated := d[key]; !updated {
 					// If desired config has this section, then add it to actual config
 					// Using AddOp for named section and slice eg. node-address-ports
-					if tokens[len(tokens)-1] == KeyName || reflect.ValueOf(c1[k1]).Kind() == reflect.Slice {
-						operationValueMap[Add] = c1[k1]
+					if tokens[len(tokens)-1] == KeyName || reflect.ValueOf(desired[key]).Kind() == reflect.Slice {
+						operationValueMap[Add] = desired[key]
 					} else {
-						operationValueMap[Update] = c1[k1]
+						operationValueMap[Update] = desired[key]
 					}
 
-					d[k1] = operationValueMap
+					d[key] = operationValueMap
 				}
 			} else if _, updated := d[nameKeyPath]; !updated {
 				// If desired config does not have this section, then remove it from actual config
-				operationValueMap[Remove] = c1[nameKeyPath]
+				operationValueMap[Remove] = desired[nameKeyPath]
 				d[nameKeyPath] = operationValueMap
 			}
 
@@ -613,7 +613,7 @@ func handleSliceFields(k string, desired Conf, d DynamicConfigMap, desiredToActu
 	d[k] = operationValueMap
 }
 
-func handleValueDiff(k string, v1, v2 interface{}, d DynamicConfigMap) {
+func handleValueDiff(key string, v1, v2 interface{}, d DynamicConfigMap) {
 	operationValueMap := make(map[Operation]interface{})
 
 	if reflect.ValueOf(v1).Kind() == reflect.Slice {
@@ -626,17 +626,17 @@ func handleValueDiff(k string, v1, v2 interface{}, d DynamicConfigMap) {
 		removedValues := currentSet.Difference(desiredSet)
 		if removedValues.Cardinality() > 0 {
 			operationValueMap[Remove] = removedValues.ToSlice()
-			d[k] = operationValueMap
+			d[key] = operationValueMap
 		}
 
 		addedValues := desiredSet.Difference(currentSet)
 		if addedValues.Cardinality() > 0 {
 			operationValueMap[Add] = addedValues.ToSlice()
-			d[k] = operationValueMap
+			d[key] = operationValueMap
 		}
 	} else {
 		operationValueMap[Update] = v1
-		d[k] = operationValueMap
+		d[key] = operationValueMap
 	}
 }
 
@@ -658,31 +658,31 @@ func detailedDiff(log logr.Logger, desired, current Conf, isFlat,
 
 	// For all keys in desired if it does not exist in current
 	// or if type or value is different add/update/remove it
-	for k1, v1 := range desired {
-		bN := BaseKey(k1)
+	for key, v1 := range desired {
+		bN := BaseKey(key)
 		if isNodeSpecificField(bN) || bN == keyIndex {
 			// Ignore node specific details and ordering
 			continue
 		}
 
 		// Add if not found in current
-		v2, ok := current[k1]
+		v2, ok := current[key]
 		if !ok {
 			diffUpdated := false
-			if diffUpdated = handleMissingSection(log, k1, desired, current, d, desiredToActual); !diffUpdated {
+			if diffUpdated = handleMissingSection(log, key, desired, current, d, desiredToActual); !diffUpdated {
 				var err error
 				// Add default values to config parameter if available in schema.
-				// If k1 is not present in current, then check if any key which starts with k1 is present in current
+				// If key is not present in current, then check if any key which starts with key is present in current
 				// eg. desired has security: {} current has security.log.report-sys-admin: true
 				// final diff should be map[security.log.report-sys-admin] = <default value>
-				diffUpdated, err = handlePartialMissingSection(k1, ver, current, d)
+				diffUpdated, err = handlePartialMissingSection(key, ver, current, d)
 				if err != nil {
 					return nil, err
 				}
 			}
 
 			if !diffUpdated {
-				handleSliceFields(k1, desired, d, desiredToActual)
+				handleSliceFields(key, desired, d, desiredToActual)
 			}
 
 			continue
@@ -690,11 +690,11 @@ func detailedDiff(log logr.Logger, desired, current Conf, isFlat,
 
 		log.V(1).Info(
 			"compare", "key",
-			k1, "v1", v1, "v2", v2,
+			key, "v1", v1, "v2", v2,
 		)
 
 		if isValueDiff(log, v1, v2) {
-			handleValueDiff(k1, v1, v2, d)
+			handleValueDiff(key, v1, v2, d)
 		}
 	}
 

@@ -257,7 +257,7 @@ func (s *AsConfigTestSuite) TestAsConfigGetDiff() {
 					"dcs": []map[string]interface{}{
 						{
 							"name":               "DC3",
-							"node-address-ports": []string{"1.2.1.1 3000"},
+							"node-address-ports": []string{"1.1.2.1 3000"},
 							"namespaces": []map[string]interface{}{
 								{
 									"name":       "ns1",
