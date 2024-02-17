@@ -573,55 +573,64 @@ func handleMissingSection(log logr.Logger, key string, desired, current Conf, d 
 	return false
 }
 
-func handlePartialMissingSection(k1, ver string, current Conf, d DynamicConfigMap) (bool, error) {
+func handlePartialMissingSection(desiredKey, ver string, current Conf, d DynamicConfigMap) (bool, error) {
 	diffUpdated := false
-	// Check current for any key which starts with k1
-	// if found, then add default value to k2 config parameter
-	for k2 := range current {
-		if !strings.HasPrefix(k2, k1+".") {
+	// Check current conf for any key which starts with desiredKey
+	// if found, then add default value to currentKey config parameter
+	for currentKey := range current {
+		if !strings.HasPrefix(currentKey, desiredKey+sep) {
 			continue
 		}
 
-		defaultMap, err := GetDefault(ver)
-		if err != nil {
-			return false, err
+		operationValueMap := make(map[Operation]interface{})
+		// If removed subsection is of type slice, then there is no default values to be set.
+		// eg. current = security.log.report-data-op: []string{test}
+		// desired = security: {}
+		if reflect.ValueOf(current[currentKey]).Kind() == reflect.Slice {
+			operationValueMap[Remove] = current[currentKey].([]string)
+		} else {
+			defaultMap, err := GetDefault(ver)
+			if err != nil {
+				return false, err
+			}
+
+			defaultValue := getDefaultValue(defaultMap, currentKey)
+
+			operationValueMap[Update] = defaultValue
 		}
 
-		defaultValue := getDefaultValue(defaultMap, k2)
-		operationValueMap := make(map[Operation]interface{})
-		operationValueMap[Update] = defaultValue
-		d[k2] = operationValueMap
+		d[currentKey] = operationValueMap
 		diffUpdated = true
 	}
 
 	return diffUpdated, nil
 }
 
-func handleSliceFields(k string, desired Conf, d DynamicConfigMap, desiredToActual bool) {
+func handleSliceFields(key string, desired Conf, d DynamicConfigMap, desiredToActual bool) {
 	operationValueMap := make(map[Operation]interface{})
 
-	if reflect.ValueOf(desired[k]).Kind() == reflect.Slice {
+	if reflect.ValueOf(desired[key]).Kind() == reflect.Slice {
 		if desiredToActual {
-			operationValueMap[Add] = desired[k].([]string)
+			operationValueMap[Add] = desired[key].([]string)
 		} else {
-			operationValueMap[Remove] = desired[k].([]string)
+			operationValueMap[Remove] = desired[key].([]string)
 		}
 	} else {
-		operationValueMap[Update] = desired[k]
+		operationValueMap[Update] = desired[key]
 	}
 
-	d[k] = operationValueMap
+	d[key] = operationValueMap
 }
 
-func handleValueDiff(key string, v1, v2 interface{}, d DynamicConfigMap) {
+func handleValueDiff(key string, desiredValue, currentValue interface{}, d DynamicConfigMap) {
 	operationValueMap := make(map[Operation]interface{})
 
-	if reflect.ValueOf(v1).Kind() == reflect.Slice {
+	if reflect.ValueOf(desiredValue).Kind() == reflect.Slice {
 		currentSet := sets.NewSet[string]()
-		currentSet.Append(v2.([]string)...)
+		currentSet.Append(currentValue.([]string)...)
 
 		desiredSet := sets.NewSet[string]()
-		desiredSet.Append(v1.([]string)...)
+		desiredSet.Append(desiredValue.([]string)...)
 
 		removedValues := currentSet.Difference(desiredSet)
 		if removedValues.Cardinality() > 0 {
@@ -635,7 +644,7 @@ func handleValueDiff(key string, v1, v2 interface{}, d DynamicConfigMap) {
 			d[key] = operationValueMap
 		}
 	} else {
-		operationValueMap[Update] = v1
+		operationValueMap[Update] = desiredValue
 		d[key] = operationValueMap
 	}
 }
@@ -658,7 +667,7 @@ func detailedDiff(log logr.Logger, desired, current Conf, isFlat,
 
 	// For all keys in desired if it does not exist in current
 	// or if type or value is different add/update/remove it
-	for key, v1 := range desired {
+	for key, desiredValue := range desired {
 		bN := BaseKey(key)
 		if isNodeSpecificField(bN) || bN == keyIndex {
 			// Ignore node specific details and ordering
@@ -666,7 +675,7 @@ func detailedDiff(log logr.Logger, desired, current Conf, isFlat,
 		}
 
 		// Add if not found in current
-		v2, ok := current[key]
+		currentValue, ok := current[key]
 		if !ok {
 			diffUpdated := false
 			if diffUpdated = handleMissingSection(log, key, desired, current, d, desiredToActual); !diffUpdated {
@@ -690,11 +699,11 @@ func detailedDiff(log logr.Logger, desired, current Conf, isFlat,
 
 		log.V(1).Info(
 			"compare", "key",
-			key, "v1", v1, "v2", v2,
+			key, "desiredValue", desiredValue, "currentValue", currentValue,
 		)
 
-		if isValueDiff(log, v1, v2) {
-			handleValueDiff(key, v1, v2, d)
+		if isValueDiff(log, desiredValue, currentValue) {
+			handleValueDiff(key, desiredValue, currentValue, d)
 		}
 	}
 
