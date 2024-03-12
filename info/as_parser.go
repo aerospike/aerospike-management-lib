@@ -14,8 +14,8 @@ import (
 
 	"github.com/go-logr/logr"
 
-	aero "github.com/aerospike/aerospike-client-go/v6"
-	ast "github.com/aerospike/aerospike-client-go/v6/types"
+	aero "github.com/aerospike/aerospike-client-go/v7"
+	ast "github.com/aerospike/aerospike-client-go/v7/types"
 	lib "github.com/aerospike/aerospike-management-lib"
 )
 

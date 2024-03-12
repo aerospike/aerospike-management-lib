@@ -10,7 +10,7 @@ import (
 	sets "github.com/deckarep/golang-set/v2"
 	"github.com/go-logr/logr"
 
-	aero "github.com/aerospike/aerospike-client-go/v6"
+	aero "github.com/aerospike/aerospike-client-go/v7"
 )
 
 const constTrue = "true"

@@ -9,7 +9,7 @@ import (
 
 	"github.com/go-logr/logr"
 
-	aero "github.com/aerospike/aerospike-client-go/v6"
+	aero "github.com/aerospike/aerospike-client-go/v7"
 	lib "github.com/aerospike/aerospike-management-lib"
 	"github.com/aerospike/aerospike-management-lib/info"
 )
@@ -64,7 +64,7 @@ func NewAsInfo() (*info.AsInfo, error) {
 // AerospikeHost returns the aerospike host
 func AerospikeHost() aero.Host {
 	return aero.Host{
-		Name: "172.17.0.5",
+		Name: "172.17.0.4",
 		Port: 3000,
 	}
 }

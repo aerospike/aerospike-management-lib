@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	aero "github.com/aerospike/aerospike-client-go/v6"
+	aero "github.com/aerospike/aerospike-client-go/v7"
 	lib "github.com/aerospike/aerospike-management-lib"
 	"github.com/go-logr/logr"
 	"github.com/stretchr/testify/suite"
