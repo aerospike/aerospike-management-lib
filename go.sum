@@ -2,8 +2,6 @@ github.com/Azure/go-ansiterm v0.0.0-20210617225240-d185dfc1b5a1 h1:UQHMgLO+TxOEl
 github.com/Azure/go-ansiterm v0.0.0-20210617225240-d185dfc1b5a1/go.mod h1:xomTg63KZ2rFqZQzSB4Vz2SUXa1BpHTVz9L5PTmPC4E=
 github.com/Microsoft/go-winio v0.6.1 h1:9/kr64B9VUZrLm5YYwbGtUJnMgqWVOdUAXu6Migciow=
 github.com/Microsoft/go-winio v0.6.1/go.mod h1:LRdKpFKfdobln8UmuiYcKPot9D2v6svN5+sAH+4kjUM=
-github.com/aerospike/aerospike-client-go/v6 v6.15.0 h1:UF9GaKRjgwLsfRPfzgO14ivr9+DWIV8SkHhnb4AjbD4=
-github.com/aerospike/aerospike-client-go/v6 v6.15.0/go.mod h1:76do+aMM6LwPAaWuMQKsOKM65NN/2P7InSmQqsuwJv4=
 github.com/aerospike/aerospike-client-go/v7 v7.1.0 h1:yvCTKdbpqZxHvv7sWsFHV1j49jZcC8yXRooWsDFqKtA=
 github.com/aerospike/aerospike-client-go/v7 v7.1.0/go.mod h1:AkHiKvCbqa1c16gCNGju3c5X/yzwLVvblNczqjxNwNk=
 github.com/creack/pty v1.1.9/go.mod h1:oKZEueFk5CKHvIhNR5MUki03XCEU+Q6VDXinZuGJ33E=
