@@ -23,7 +23,6 @@ linters:
   enable:
     - bodyclose
 #    - unused # intentionally commented to avoid unused func warning as this repo is library
-    - depguard
     - dogsled
     - dupl
     - errcheck
