@@ -519,11 +519,11 @@ func undefinedOrNull(val interface{}) bool {
 	return false
 }
 
-// convertIndexedToList converts an indexed key to a list key. It returns the
+// convertIndexedToStringList converts an indexed key to a list key. It returns the
 // new key and the value as a string. If the key is not indexed or the value is
 // not a string, it returns empty strings.
-func convertIndexedToList(key string, value interface{}) (newKey, strVal string) {
-	if newKey, _, _ = parseIndexField(key); newKey != "" {
+func convertIndexedToStringList(key string, value interface{}) (newKey, strVal string) {
+	if newKey, _, _, _ = parseIndexField(key); newKey != "" {
 		if str, ok := value.(string); ok {
 			strVal = str
 			return newKey, strVal
@@ -533,20 +533,20 @@ func convertIndexedToList(key string, value interface{}) (newKey, strVal string)
 	return newKey, strVal
 }
 
-func parseIndexField(key string) (newKey string, index int, err error) {
+func parseIndexField(key string) (newKey string, index int, extra string, err error) {
 	if match := indexedRe.FindStringSubmatch(key); match != nil {
 		index, err = strconv.Atoi(match[2])
 
 		if err != nil {
-			return "", 0, err
+			return "", 0, "", err
 		}
 
 		newKey = match[1]
 
-		return newKey, index, nil
+		return newKey, index, match[3], nil
 	}
 
-	return newKey, index, nil
+	return newKey, index, extra, nil
 }
 
 // execute transforms key values in the config.
@@ -557,6 +557,7 @@ func (s *transformKeyValuesStep) execute(conf Conf) error {
 	newFlatConf := make(Conf, len(origFlatConf)) // we will overwrite flat_config
 	sortedKeys := sortKeys(origFlatConf)
 	scNamespaces := []string{}
+	networkTLSNames := map[int]string{}
 
 	for _, key := range sortedKeys {
 		// We will mutate the servers key, value response to match the schema
@@ -578,11 +579,11 @@ func (s *transformKeyValuesStep) execute(conf Conf) error {
 			key = key + sep + keyType
 		}
 
-		if newKey, str := convertIndexedToList(key, value); newKey != "" {
+		if newKey, str := convertIndexedToStringList(key, value); newKey != "" {
 			newKey = getPluralKey(newKey)
 
-			if strings.HasSuffix(key, "shadow") {
-				_, index, err := parseIndexField(key)
+			if strings.HasSuffix(key, "shadow") { //nolint:gocritic // This can't be rewritten as a switch
+				_, index, _, err := parseIndexField(key)
 				if err != nil {
 					s.log.V(-1).Error(err, "Error parsing index field for shadow device")
 					return err
@@ -599,6 +600,28 @@ func (s *transformKeyValuesStep) execute(conf Conf) error {
 				sliceVal := newFlatConf[newKey].([]string)
 				sliceVal[index] = sliceVal[index] + " " + str
 				value = sliceVal
+			} else if newKey == "network.tls" {
+				_, index, field, err := parseIndexField(key)
+				if err != nil {
+					s.log.V(-1).Error(err, "Error parsing index field for network.tls")
+					return err
+				}
+
+				if _, ok := networkTLSNames[index]; !ok {
+					nameKey := fmt.Sprintf("network%stls[%d]%sname", sep, index, sep)
+
+					if val, ok := origFlatConf[nameKey].(string); ok {
+						newIndexKey := "network" + sep + "tls" + sep + "{" + val + "}" + sep + keyIndex
+
+						newFlatConf[newIndexKey] = index
+						networkTLSNames[index] = val
+					} else {
+						s.log.V(-1).Info("No name found for network.tls", "index", index)
+						return fmt.Errorf("no name found for network.tls[%d]", index)
+					}
+				}
+
+				newKey = "network" + sep + "tls" + sep + "{" + networkTLSNames[index] + "}" + field
 			} else {
 				if _, ok := newFlatConf[newKey]; ok {
 					if _, ok := newFlatConf[newKey].([]string); ok {
