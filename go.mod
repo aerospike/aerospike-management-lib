@@ -3,7 +3,6 @@ module github.com/aerospike/aerospike-management-lib
 go 1.21
 
 require (
-	github.com/aerospike/aerospike-client-go/v6 v6.15.0
 	github.com/aerospike/aerospike-client-go/v7 v7.1.0
 	github.com/deckarep/golang-set/v2 v2.3.1
 	github.com/docker/go-connections v0.4.0

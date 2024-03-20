@@ -681,7 +681,7 @@ func detailedDiff(log logr.Logger, desired, current Conf, isFlat,
 			if diffUpdated = handleMissingSection(log, key, desired, current, d, desiredToActual); !diffUpdated {
 				var err error
 				// Add default values to config parameter if available in schema.
-				// If key is not present in current, then check if any key which starts with key is present in current
+				// If key is not present in current, then check if any key in desired which starts with key is present in current
 				// eg. desired has security: {} current has security.log.report-sys-admin: true
 				// final diff should be map[security.log.report-sys-admin] = <default value>
 				diffUpdated, err = handlePartialMissingSection(key, ver, current, d)

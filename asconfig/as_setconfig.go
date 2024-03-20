@@ -7,7 +7,7 @@ import (
 
 	"github.com/go-logr/logr"
 
-	aero "github.com/aerospike/aerospike-client-go/v6"
+	aero "github.com/aerospike/aerospike-client-go/v7"
 	"github.com/aerospike/aerospike-management-lib/deployment"
 	"github.com/aerospike/aerospike-management-lib/info"
 )
@@ -387,20 +387,23 @@ func rearrangeConfigMap(log logr.Logger, configMap DynamicConfigMap) []string {
 	for k, v := range configMap {
 		baseKey := BaseKey(k)
 		context := ContextKey(k)
-		_, removeOP := v[Remove]
 		tokens := SplitKey(log, k, sep)
 
 		if context == info.ConfigXDRContext && baseKey == KeyName {
 			switch tokens[len(tokens)-3] {
+			// Handle DCs added/removed
 			case info.ConfigDCContext:
 				dc := rearrangedConfigMap.PushFront(k)
 				if lastDC == nil {
 					lastDC = dc
 				}
+			// Handle Namespaces added/removed
 			case info.ConfigNamespaceContext:
-				if removeOP {
+				if _, ok := v[Remove]; ok {
+					// If namespace is removed, directly add it to the final list
 					finalList = append(finalList, k)
 				} else {
+					// If namespace is added, add it after all DCs and their direct fields
 					if lastNAP == nil {
 						if lastDC != nil {
 							rearrangedConfigMap.InsertAfter(k, lastDC)
@@ -418,11 +421,13 @@ func rearrangeConfigMap(log logr.Logger, configMap DynamicConfigMap) []string {
 				continue
 			}
 
+			// Handle DC direct fields
 			if tokens[len(tokens)-3] == info.ConfigDCContext {
 				var nap *list.Element
 				if lastDC == nil {
 					nap = rearrangedConfigMap.PushFront(k)
 				} else {
+					// Add modified DC direct fields after the DC names and before the namespaces
 					nap = rearrangedConfigMap.InsertAfter(k, lastDC)
 				}
 				if lastNAP == nil {

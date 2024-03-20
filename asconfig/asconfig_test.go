@@ -226,11 +226,13 @@ func (s *AsConfigTestSuite) TestAsConfigGetDiff() {
 				"security": map[string]interface{}{
 					"log": map[string]interface{}{
 						"report-authentication": true,
+						"report-data-op":        []string{"ns1 set1", "ns3 set2"},
 					},
 				},
 			},
 			DynamicConfigMap{
 				"security.log.report-authentication": {Update: false},
+				"security.log.report-data-op":        {Remove: []string{"ns1 set1", "ns3 set2"}},
 			},
 		},
 
