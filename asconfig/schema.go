@@ -50,7 +50,7 @@ func Init(log logr.Logger, schemaDir string) error {
 			continue
 		}
 
-		schema, err := os.ReadFile(filepath.Join(schemaDir, file.Name()))
+		schema, err := os.ReadFile(filepath.Clean(filepath.Join(schemaDir, file.Name())))
 		if err != nil {
 			return fmt.Errorf("wrong config schema file %s: %v", file.Name(), err)
 		}

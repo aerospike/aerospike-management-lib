@@ -10,7 +10,7 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/aerospike/aerospike-client-go/v6"
+	"github.com/aerospike/aerospike-client-go/v7"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/mount"
@@ -23,7 +23,7 @@ var PortStart = 10000
 var IP = "127.0.0.1"
 var WordDirAbs = "test/work"
 var Image = "aerospike/aerospike-server-enterprise:7.0.0.2"
-var ContainerPrefix = "aerospike_mgmt_lib_test_"
+var ContainerPrefix = "aerospike_mgmt_lib_test_" //nolint:gosec // This is not a credential
 var User = "admin"
 var Password = "admin"
 

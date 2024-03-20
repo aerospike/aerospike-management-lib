@@ -7,7 +7,7 @@ import (
 
 	"github.com/go-logr/logr"
 
-	aero "github.com/aerospike/aerospike-client-go/v6"
+	aero "github.com/aerospike/aerospike-client-go/v7"
 	"github.com/aerospike/aerospike-management-lib/info"
 )
 

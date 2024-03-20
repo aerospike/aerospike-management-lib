@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	as "github.com/aerospike/aerospike-client-go/v6"
+	as "github.com/aerospike/aerospike-client-go/v7"
 )
 
 type InfoResult map[string]string
