@@ -546,7 +546,7 @@ func handleMissingSection(log logr.Logger, key string, desired, current Conf, d 
 		// Whole section which has "name" as key is not present in current
 		// If token is under "{}", then it is a named section
 		if _, okay := current[nameKeyPath]; ReCurlyBraces.MatchString(token) && !okay {
-			operationValueMap := make(map[Operation]interface{})
+			operationValueMap := make(map[OpType]interface{})
 
 			if desiredToActual {
 				if _, updated := d[key]; !updated {
@@ -582,7 +582,7 @@ func handlePartialMissingSection(desiredKey, ver string, current Conf, d Dynamic
 			continue
 		}
 
-		operationValueMap := make(map[Operation]interface{})
+		operationValueMap := make(map[OpType]interface{})
 		// If removed subsection is of type slice, then there is no default values to be set.
 		// eg. current = security.log.report-data-op: []string{test}
 		// desired = security: {}
@@ -607,7 +607,7 @@ func handlePartialMissingSection(desiredKey, ver string, current Conf, d Dynamic
 }
 
 func handleSliceFields(key string, desired Conf, d DynamicConfigMap, desiredToActual bool) {
-	operationValueMap := make(map[Operation]interface{})
+	operationValueMap := make(map[OpType]interface{})
 
 	if reflect.ValueOf(desired[key]).Kind() == reflect.Slice {
 		if desiredToActual {
@@ -623,7 +623,7 @@ func handleSliceFields(key string, desired Conf, d DynamicConfigMap, desiredToAc
 }
 
 func handleValueDiff(key string, desiredValue, currentValue interface{}, d DynamicConfigMap) {
-	operationValueMap := make(map[Operation]interface{})
+	operationValueMap := make(map[OpType]interface{})
 
 	if reflect.ValueOf(desiredValue).Kind() == reflect.Slice {
 		currentSet := sets.NewSet[string]()
@@ -755,7 +755,7 @@ func ConfDiff(
 			return nil, err
 		}
 
-		valueMap := make(map[Operation]interface{})
+		valueMap := make(map[OpType]interface{})
 		valueMap[Update] = getDefaultValue(defaultMap, removedConfigKey)
 		diffs[removedConfigKey] = valueMap
 	}
@@ -1478,7 +1478,7 @@ var ReCurlyBraces = regexp.MustCompile(`^\{.*\}$`)
 
 // DynamicConfigMap is a map of config flatten keys and their operations and values
 // for eg: "xdr.dcs.{DC3}.node-address-ports": {Remove: []string{"1.1.2.1 3000"}}
-type DynamicConfigMap map[string]map[Operation]interface{}
+type DynamicConfigMap map[string]map[OpType]interface{}
 
 // SplitKey splits key by using sep
 // it ignores sep inside sectionNameStartChar and sectionNameEndChar
