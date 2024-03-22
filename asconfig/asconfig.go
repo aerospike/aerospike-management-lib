@@ -29,7 +29,7 @@ type ValidationErr struct {
 	Field       string
 }
 
-// NewMapAsConfig creates AsConfig. Typically an unmarshalled yaml file is passed in
+// NewMapAsConfig creates AsConfig. Typically, an unmarshalled yaml file is passed in
 func NewMapAsConfig(
 	log logr.Logger, configMap map[string]interface{},
 ) (*AsConfig, error) {
