@@ -303,14 +303,7 @@ func createSetConfigXDRCmdList(tokens []string, operationValueMap map[Operation]
 
 			// example of a command: "set-config:context=xdr;dc=dc1;node-address-port=192.168.55.210:3000;action=add
 			if prevToken == keyNodeAddressPorts {
-				val := v
-
-				tokens := strings.Split(v, colon)
-				if len(tokens) >= 2 {
-					val = tokens[0] + colon + tokens[1]
-				}
-
-				finalCMD = cmd + semicolon + SingularOf(prevToken) + equal + val + semicolon + "action" + equal + string(op)
+				finalCMD = cmd + semicolon + SingularOf(prevToken) + equal + v + semicolon + "action" + equal + string(op)
 			} else {
 				finalCMD = cmd + semicolon + SingularOf(prevToken) + equal + v
 			}
@@ -380,8 +373,8 @@ func rearrangeConfigMap(log logr.Logger, configMap DynamicConfigMap) []string {
 	finalList := make([]string, 0, len(configMap))
 
 	var (
-		lastDC  *list.Element // Last DC name
-		lastNAP *list.Element // Last DC direct field eg. node-address-ports
+		lastDC       *list.Element // Last DC name
+		lastDCConfig *list.Element // Last DC config eg. node-address-ports
 	)
 
 	for k, v := range configMap {
@@ -404,14 +397,14 @@ func rearrangeConfigMap(log logr.Logger, configMap DynamicConfigMap) []string {
 					finalList = append(finalList, k)
 				} else {
 					// If namespace is added, add it after all DCs and their direct fields
-					if lastNAP == nil {
+					if lastDCConfig == nil {
 						if lastDC != nil {
 							rearrangedConfigMap.InsertAfter(k, lastDC)
 						} else {
 							rearrangedConfigMap.PushFront(k)
 						}
 					} else {
-						rearrangedConfigMap.InsertAfter(k, lastNAP)
+						rearrangedConfigMap.InsertAfter(k, lastDCConfig)
 					}
 				}
 			}
@@ -424,14 +417,23 @@ func rearrangeConfigMap(log logr.Logger, configMap DynamicConfigMap) []string {
 			// Handle DC direct fields
 			if tokens[len(tokens)-3] == info.ConfigDCContext {
 				var nap *list.Element
-				if lastDC == nil {
-					nap = rearrangedConfigMap.PushFront(k)
+				// Check if the key is related to 'node-address-ports'
+				isNodeAddressPortsKey := strings.HasSuffix(k, sep+keyNodeAddressPorts)
+
+				if isNodeAddressPortsKey && lastDCConfig != nil {
+					// Add 'node-address-ports' after all DC direct fields
+					// There are certain fields that must be set before 'node-address-ports', for example, 'tls-name'.
+					lastDCConfig = rearrangedConfigMap.InsertAfter(k, lastDCConfig)
 				} else {
-					// Add modified DC direct fields after the DC names and before the namespaces
-					nap = rearrangedConfigMap.InsertAfter(k, lastDC)
-				}
-				if lastNAP == nil {
-					lastNAP = nap
+					if lastDC == nil {
+						nap = rearrangedConfigMap.PushFront(k)
+					} else {
+						// Add modified DC direct fields after the DC names and before the namespaces
+						nap = rearrangedConfigMap.InsertAfter(k, lastDC)
+					}
+					if lastDCConfig == nil {
+						lastDCConfig = nap
+					}
 				}
 			} else {
 				rearrangedConfigMap.PushBack(k)
