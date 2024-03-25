@@ -1,11 +1,8 @@
 package asconfig
 
 import (
-	"container/list"
 	"fmt"
 	"strings"
-
-	"github.com/go-logr/logr"
 
 	aero "github.com/aerospike/aerospike-client-go/v7"
 	"github.com/aerospike/aerospike-management-lib/deployment"
@@ -316,14 +313,12 @@ func createSetConfigXDRCmdList(tokens []string, operationValueMap map[Operation]
 }
 
 // CreateSetConfigCmdList creates set-config commands for given config.
-func CreateSetConfigCmdList(
-	log logr.Logger, configMap DynamicConfigMap, conn deployment.ASConnInterface,
+func CreateSetConfigCmdList(configMap DynamicConfigMap, conn deployment.ASConnInterface,
 	aerospikePolicy *aero.ClientPolicy,
 ) ([]string, error) {
 	cmdList := make([]string, 0, len(configMap))
 
-	orderedConfList := rearrangeConfigMap(log, configMap)
-	for _, c := range orderedConfList {
+	for c := range configMap {
 		tokens := strings.Split(c, sep)
 		context := tokens[0]
 
@@ -361,6 +356,7 @@ func CreateSetConfigCmdList(
 	return cmdList, nil
 }
 
+/*
 // Returns a list of config keys in the order in which they should be applied.
 // The order is as follows:
 // 1. Removed Namespaces -- If user has to change some of the DC direct fields, they will have to remove the namespace
@@ -420,20 +416,31 @@ func rearrangeConfigMap(log logr.Logger, configMap DynamicConfigMap) []string {
 				// Check if the key is related to 'node-address-ports'
 				isNodeAddressPortsKey := strings.HasSuffix(k, sep+keyNodeAddressPorts)
 
-				if isNodeAddressPortsKey && lastDCConfig != nil {
-					// Add 'node-address-ports' after all DC direct fields
-					// There are certain fields that must be set before 'node-address-ports', for example, 'tls-name'.
-					lastDCConfig = rearrangedConfigMap.InsertAfter(k, lastDCConfig)
-				} else {
-					if lastDC == nil {
-						nap = rearrangedConfigMap.PushFront(k)
+				if isNodeAddressPortsKey {
+					if _, ok := v[Remove]; ok {
+						dc := rearrangedConfigMap.PushFront(k)
+						if lastDC == nil {
+							lastDC = dc
+						}
+						continue
 					} else {
-						// Add modified DC direct fields after the DC names and before the namespaces
-						nap = rearrangedConfigMap.InsertAfter(k, lastDC)
+						if lastDCConfig != nil {
+							// Add 'node-address-ports' after all DC direct fields
+							// There are certain fields that must be set before 'node-address-ports', for example, 'tls-name'.
+							lastDCConfig = rearrangedConfigMap.InsertAfter(k, lastDCConfig)
+							continue
+						}
 					}
-					if lastDCConfig == nil {
-						lastDCConfig = nap
-					}
+				}
+
+				if lastDC == nil {
+					nap = rearrangedConfigMap.PushFront(k)
+				} else {
+					// Add modified DC direct fields after the DC names and before the namespaces
+					nap = rearrangedConfigMap.InsertAfter(k, lastDC)
+				}
+				if lastDCConfig == nil {
+					lastDCConfig = nap
 				}
 			} else {
 				rearrangedConfigMap.PushBack(k)
@@ -447,3 +454,4 @@ func rearrangeConfigMap(log logr.Logger, configMap DynamicConfigMap) []string {
 
 	return finalList
 }
+*/

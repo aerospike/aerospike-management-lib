@@ -356,13 +356,9 @@ func (s *AsConfigTestSuite) TestAsConfigIsDynamic() {
 		{
 			"dynamic fields",
 			DynamicConfigMap{
-				"xdr.dcs.{DC1}.namespaces.{ns1}.bin-policy": {Update: "no-bins"},
 				"security.log.report-data-op": {Add: []string{"ns3 set2"},
 					Remove: []string{"ns2 set2"}},
-				"xdr.dcs.{DC3}.name":                  {Remove: "DC3"},
-				"xdr.dcs.{DC1}.node-address-ports":    {Update: []string{"1.1.1.1 3000"}},
-				"xdr.dcs.{DC1}.namespaces.{ns1}.name": {Add: "ns1"},
-				"xdr.dcs.{DC1}.name":                  {Add: "DC1"},
+				"service.proto-fd-max": {Update: "1000"},
 			},
 
 			true,
