@@ -200,12 +200,12 @@ func isFieldDynamic(log logr.Logger, dynamic sets.Set[string], conf string,
 	baseKey := tokens[len(tokens)-1]
 	context := tokens[0]
 
-	if baseKey == "replication-factor" || baseKey == keyNodeAddressPorts {
-		return true
+	if context == info.ConfigXDRContext {
+		// XDR context is always considered static.
+		return false
 	}
 
-	// Name key for XDR context is considered as dynamic, as both DCs and Namespaces in DCs can be added dynamically.
-	if context == info.ConfigXDRContext && baseKey == KeyName {
+	if baseKey == "replication-factor" {
 		return true
 	}
 
