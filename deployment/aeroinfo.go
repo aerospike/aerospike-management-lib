@@ -59,6 +59,17 @@ func SetMigrateFillDelay(log logr.Logger, policy *aero.ClientPolicy, allHosts []
 	return c.setMigrateFillDelay(migrateFillDelay, allHosts)
 }
 
+// SetConfigCommandsOnHosts runs set config command for dynamic config on all the given cluster nodes
+func SetConfigCommandsOnHosts(log logr.Logger, policy *aero.ClientPolicy, allHosts, selectedHosts []*HostConn,
+	cmds []string) error {
+	c, err := newCluster(log, policy, allHosts, selectedHosts)
+	if err != nil {
+		return fmt.Errorf("unable to create a cluster copy for running aeroinfo: %v", err)
+	}
+
+	return c.setConfigCommandsOnHosts(cmds, selectedHosts)
+}
+
 // GetClusterNamespaces gets the cluster namespaces
 func GetClusterNamespaces(log logr.Logger, policy *aero.ClientPolicy,
 	allHosts []*HostConn) (map[string][]string, error) {

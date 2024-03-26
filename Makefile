@@ -27,6 +27,7 @@ $(MOCKGEN): $(GOBIN)
 mocks: get-mockgen
 	$(MOCKGEN) --source info/as_parser.go --destination info/as_parser_mock.go --package info
 	$(MOCKGEN) --source asconfig/generate.go --destination asconfig/generate_mock.go --package asconfig
+	$(MOCKGEN) --source deployment/deployment.go --destination deployment/deployment_mock.go --package deployment
 
 .PHONY: test
 test: mocks
@@ -43,6 +44,7 @@ coverage: mocks
 clean-mocks:
 	rm info/as_parser_mock.go
 	rm asconfig/generate_mock.go
+	rm deployment/deployment_mock.go
 
 .PHONY: clean
 clean: clean-mocks

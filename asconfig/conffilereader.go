@@ -43,7 +43,7 @@ func toList(conf Conf) []Conf {
 		v := conf[k]
 		switch v := v.(type) {
 		case Conf:
-			v[keyName] = k
+			v[KeyName] = k
 			confList = append(confList, v)
 
 		case []Conf:
@@ -106,10 +106,10 @@ func processSection(
 		if isTypedSection(cfgName) {
 			// storage engine is a named section, but it is not list so use first entry.
 			// the schema files expect index-type and storage-engine to have a type field, not name, so replace it
-			seList[0][keyType] = seList[0][keyName]
+			seList[0][keyType] = seList[0][KeyName]
 		}
 
-		delete(seList[0], keyName)
+		delete(seList[0], KeyName)
 		conf[cfgName] = seList[0]
 	}
 

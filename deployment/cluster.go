@@ -14,6 +14,7 @@ import (
 )
 
 const constTrue = "true"
+const Namespaces = "namespaces"
 
 // cluster represents an aerospike cluster
 type cluster struct {
@@ -473,20 +474,22 @@ func (c *cluster) skipInfoQuiesceCheck(host *host, ns string, removedNamespaceMa
 		return true, nil
 	}
 
-	isNodeInRoster, err := isNodeInRoster(host, ns)
-	if err != nil {
-		return false, err
-	}
-
 	isNamespaceSCEnabled, err := isNamespaceSCEnabled(host, ns)
 	if err != nil {
 		return false, err
 	}
 
-	if !isNodeInRoster && isNamespaceSCEnabled {
-		lg.V(1).Info("Skip quiesce verification for given node and " +
-			"namespace. Node is not in roster and namespace is sc enabled")
-		return true, nil
+	if isNamespaceSCEnabled {
+		isNodeInRoster, err := isNodeInRoster(host, ns)
+		if err != nil {
+			return false, err
+		}
+
+		if !isNodeInRoster {
+			lg.V(1).Info("Skip quiesce verification for given node and " +
+				"namespace. Node is not in roster and namespace is sc enabled")
+			return true, nil
+		}
 	}
 
 	return false, nil
@@ -643,7 +646,7 @@ func (c *cluster) getQuiescedNodes(hostIDs []string) ([]string, error) {
 func (c *cluster) getClusterNamespaces(hostIDs []string) (
 	map[string][]string, error,
 ) {
-	cmd := "namespaces"
+	cmd := Namespaces
 
 	infoResults, err := c.infoOnHosts(hostIDs, cmd)
 	if err != nil {
@@ -653,8 +656,8 @@ func (c *cluster) getClusterNamespaces(hostIDs []string) (
 	namespaces := map[string][]string{}
 
 	for hostID, info := range infoResults {
-		if len(info["namespaces"]) > 0 {
-			namespaces[hostID] = strings.Split(info["namespaces"], ";")
+		if len(info[Namespaces]) > 0 {
+			namespaces[hostID] = strings.Split(info[Namespaces], ";")
 		} else {
 			return nil, fmt.Errorf(
 				"failed to get namespaces for node %v", hostID,
@@ -868,6 +871,39 @@ func (c *cluster) setMigrateFillDelay(migrateFillDelay int, hosts []*HostConn) e
 	}
 
 	log.V(1).Info("Finished running setMigrateFillDelay")
+
+	return nil
+}
+
+// setConfigCommandsOnHosts runs the set-config commands on the hosts.
+func (c *cluster) setConfigCommandsOnHosts(cmds []string, hosts []*HostConn) error {
+	log := c.log.WithValues("nodes", hosts)
+	log.V(1).Info("Running set-config")
+
+	hostIDS := getHostIDsFromHostConns(hosts)
+
+	// Run all set-config commands on all hosts
+	for _, cmd := range cmds {
+		infoResults, iErr := c.infoOnHosts(hostIDS, cmd)
+		if iErr != nil {
+			return iErr
+		}
+
+		for id, info := range infoResults {
+			output, err := info.toString(cmd)
+			if err != nil {
+				return fmt.Errorf(
+					"ServerError: failed to execute set-config command on node %s: %v", id, err)
+			}
+
+			if !strings.EqualFold(output, "ok") {
+				return fmt.Errorf("ServerError: failed to execute set-config"+
+					" command on node %s: %v", id, output)
+			}
+		}
+	}
+
+	log.V(1).Info("Finished running set-config")
 
 	return nil
 }

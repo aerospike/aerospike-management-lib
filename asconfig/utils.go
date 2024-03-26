@@ -15,6 +15,7 @@ import (
 	"strconv"
 	"strings"
 
+	sets "github.com/deckarep/golang-set/v2"
 	"github.com/go-logr/logr"
 
 	lib "github.com/aerospike/aerospike-management-lib"
@@ -29,9 +30,6 @@ const (
 	DEVICE  sysproptype = "DEVICE"
 	NONE    sysproptype = "NONE"
 )
-
-const sep = "."
-const keyIndex = "<index>"
 
 var portRegex = regexp.MustCompile("port")
 
@@ -112,10 +110,6 @@ func deHumanizeSize(val string) (uint64, error) {
 	return n, nil
 }
 
-// start and end charecter for section names
-var sectionNameStartChar = '{'
-var sectionNameEndChar = '}'
-
 // expandConf expands map with flat keys (with sep) to Conf
 func expandConf(log logr.Logger, input *Conf, sep string) Conf { //nolint:unparam // We should think about removing the arg 'sep'
 	m := expandConfMap(log, input, sep)
@@ -140,7 +134,7 @@ func expandConfMap(log logr.Logger, input *Conf, sep string) Conf {
 			m[k] = expandConfMap(log, &v, sep)
 
 		default:
-			expandKey(log, m, splitKey(log, k, sep), v)
+			expandKey(log, m, SplitKey(log, k, sep), v)
 		}
 	}
 
@@ -227,7 +221,7 @@ func toAsConfigContext(context string) string {
 		// logging filename can have / - avoid further replacements
 		asConfigCtx := loggingContextRe.ReplaceAllString(
 			context,
-			fmt.Sprintf("$1.%c$3%c", sectionNameStartChar, sectionNameEndChar),
+			fmt.Sprintf("$1.%c$3%c", SectionNameStartChar, SectionNameEndChar),
 		)
 
 		return asConfigCtx
@@ -235,7 +229,7 @@ func toAsConfigContext(context string) string {
 
 	asConfigCtx := namedContextRe.ReplaceAllString(
 		context,
-		fmt.Sprintf("$1.%c$3%c", sectionNameStartChar, sectionNameEndChar),
+		fmt.Sprintf("$1.%c$3%c", SectionNameStartChar, SectionNameEndChar),
 	)
 	asConfigCtx = strings.ReplaceAll(asConfigCtx, "/", sep)
 
@@ -252,7 +246,7 @@ func toAsConfigKey(context, name string) string {
 // named context
 func getRawName(name string) string {
 	return strings.Trim(
-		name, fmt.Sprintf("%c%c", sectionNameStartChar, sectionNameEndChar),
+		name, fmt.Sprintf("%c%c", SectionNameStartChar, SectionNameEndChar),
 	)
 }
 
@@ -264,8 +258,8 @@ func getContainedName(log logr.Logger, fullKey, context string) (
 	ctx := toAsConfigContext(context)
 
 	if strings.Contains(fullKey, ctx) {
-		fKs := splitKey(log, fullKey, sep)
-		cKs := splitKey(log, ctx, sep)
+		fKs := SplitKey(log, fullKey, sep)
+		cKs := SplitKey(log, ctx, sep)
 
 		// Number of keys in fullKey should
 		// be 1 more that ctx
@@ -277,33 +271,6 @@ func getContainedName(log logr.Logger, fullKey, context string) (
 	}
 
 	return "", false
-}
-
-// splitKey splits key by using sep
-// it ignores sep inside sectionNameStartChar and sectionNameEndChar
-func splitKey(log logr.Logger, key, sep string) []string {
-	sepRunes := []rune(sep)
-	if len(sepRunes) > 1 {
-		log.Info("Split expects single char as separator")
-		return nil
-	}
-
-	openBracket := 0
-	f := func(c rune) bool {
-		if c == sepRunes[0] && openBracket == 0 {
-			return true
-		}
-
-		if c == sectionNameStartChar {
-			openBracket++
-		} else if c == sectionNameEndChar {
-			openBracket--
-		}
-
-		return false
-	}
-
-	return strings.FieldsFunc(key, f)
 }
 
 func expandKey(
@@ -356,7 +323,7 @@ func flattenConfList(log logr.Logger, input []Conf, sep string) Conf {
 			continue
 		}
 
-		name, ok := v[keyName].(string)
+		name, ok := v[KeyName].(string)
 		if !ok {
 			// Some lists like for storage-engine, index-type, and sindex-type use "type" instead
 			// of "name" in order to be compatible with the schema files.
@@ -376,7 +343,7 @@ func flattenConfList(log logr.Logger, input []Conf, sep string) Conf {
 		// still its not complete solution, it fails if user has section names with imbalance parenthesis
 		// for ex. namespace name -> test}.abcd
 		// but this solution will work for most of the cases and reduce most of the failure scenarios
-		name = string(sectionNameStartChar) + name + string(sectionNameEndChar)
+		name = string(SectionNameStartChar) + name + string(SectionNameEndChar)
 
 		for k2, v2 := range flattenConf(log, v, sep) {
 			res[name+sep+k2] = v2
@@ -416,9 +383,21 @@ func flattenConf(log logr.Logger, input Conf, sep string) Conf {
 	return res
 }
 
-func baseKey(k string) (baseKey string) {
+func BaseKey(k string) (baseKey string) {
 	s := strings.Split(k, sep)
 	return s[len(s)-1]
+}
+
+func ContextKey(k string) string {
+	contextKey := k
+
+	s := strings.Split(k, sep)
+	if len(s) > 1 {
+		// Extract the prefix (before the first dot)
+		contextKey = s[0]
+	}
+
+	return contextKey
 }
 
 // Conf is of following values types.
@@ -460,6 +439,10 @@ func isValueDiff(log logr.Logger, v1, v2 interface{}) bool {
 			return true
 		}
 
+	case lib.Stats:
+		// Ignoring changes in map type as each key is being compared separately eg. security {}.
+		return false
+
 	default:
 		log.V(1).Info(
 			"Unhandled value type in config diff", "type",
@@ -494,7 +477,7 @@ func diff(
 	// or if type or value is different add/update it
 	for k, v1 := range c1 {
 		// Ignore the node specific details
-		bN := baseKey(k)
+		bN := BaseKey(k)
 		if !c2IsDefault && (isNodeSpecificContext(k) || isNodeSpecificField(bN)) {
 			// If we need diff with defaults then we need to consider all fields
 			// otherwise ignore nodespcific details
@@ -555,13 +538,229 @@ func diff(
 	return d
 }
 
-// confDiff find diff between two configs;
+func handleMissingSection(log logr.Logger, key string, desired, current Conf, d DynamicConfigMap,
+	desiredToActual bool) bool {
+	tokens := SplitKey(log, key, sep)
+	for idx, token := range tokens {
+		nameKeyPath := strings.Join(tokens[:idx+1], sep) + sep + KeyName
+		// Whole section which has "name" as key is not present in current
+		// If token is under "{}", then it is a named section
+		if _, okay := current[nameKeyPath]; ReCurlyBraces.MatchString(token) && !okay {
+			operationValueMap := make(map[Operation]interface{})
+
+			if desiredToActual {
+				if _, updated := d[key]; !updated {
+					// If desired config has this section, then add it to actual config
+					// Using AddOp for named section and slice eg. node-address-ports
+					if tokens[len(tokens)-1] == KeyName || reflect.ValueOf(desired[key]).Kind() == reflect.Slice {
+						operationValueMap[Add] = desired[key]
+					} else {
+						operationValueMap[Update] = desired[key]
+					}
+
+					d[key] = operationValueMap
+				}
+			} else if _, updated := d[nameKeyPath]; !updated {
+				// If desired config does not have this section, then remove it from actual config
+				operationValueMap[Remove] = desired[nameKeyPath]
+				d[nameKeyPath] = operationValueMap
+			}
+
+			return true
+		}
+	}
+
+	return false
+}
+
+func handlePartialMissingSection(desiredKey, ver string, current Conf, d DynamicConfigMap) (bool, error) {
+	diffUpdated := false
+	// Check current conf for any key which starts with desiredKey
+	// if found, then add default value to currentKey config parameter
+	for currentKey := range current {
+		if !strings.HasPrefix(currentKey, desiredKey+sep) {
+			continue
+		}
+
+		operationValueMap := make(map[Operation]interface{})
+		// If removed subsection is of type slice, then there is no default values to be set.
+		// eg. current = security.log.report-data-op: []string{test}
+		// desired = security: {}
+		if reflect.ValueOf(current[currentKey]).Kind() == reflect.Slice {
+			operationValueMap[Remove] = current[currentKey].([]string)
+		} else {
+			defaultMap, err := GetDefault(ver)
+			if err != nil {
+				return false, err
+			}
+
+			defaultValue := getDefaultValue(defaultMap, currentKey)
+
+			operationValueMap[Update] = defaultValue
+		}
+
+		d[currentKey] = operationValueMap
+		diffUpdated = true
+	}
+
+	return diffUpdated, nil
+}
+
+func handleSliceFields(key string, desired Conf, d DynamicConfigMap, desiredToActual bool) {
+	operationValueMap := make(map[Operation]interface{})
+
+	if reflect.ValueOf(desired[key]).Kind() == reflect.Slice {
+		if desiredToActual {
+			operationValueMap[Add] = desired[key].([]string)
+		} else {
+			operationValueMap[Remove] = desired[key].([]string)
+		}
+	} else {
+		operationValueMap[Update] = desired[key]
+	}
+
+	d[key] = operationValueMap
+}
+
+func handleValueDiff(key string, desiredValue, currentValue interface{}, d DynamicConfigMap) {
+	operationValueMap := make(map[Operation]interface{})
+
+	if reflect.ValueOf(desiredValue).Kind() == reflect.Slice {
+		currentSet := sets.NewSet[string]()
+		currentSet.Append(currentValue.([]string)...)
+
+		desiredSet := sets.NewSet[string]()
+		desiredSet.Append(desiredValue.([]string)...)
+
+		removedValues := currentSet.Difference(desiredSet)
+		if removedValues.Cardinality() > 0 {
+			operationValueMap[Remove] = removedValues.ToSlice()
+			d[key] = operationValueMap
+		}
+
+		addedValues := desiredSet.Difference(currentSet)
+		if addedValues.Cardinality() > 0 {
+			operationValueMap[Add] = addedValues.ToSlice()
+			d[key] = operationValueMap
+		}
+	} else {
+		operationValueMap[Update] = desiredValue
+		d[key] = operationValueMap
+	}
+}
+
+// detailedDiff find diff between two configs;
 //
-//	diff = c1 - c2
-func confDiff(
-	log logr.Logger, c1 Conf, c2 Conf, isFlat, ignoreInternalFields bool,
-) map[string]interface{} {
-	return diff(log, c1, c2, isFlat, false, ignoreInternalFields)
+//	detailedDiff = desired - current
+//
+// Generally used to compare current and desired config. This ignores
+// node specific information like address, device, interface etc.
+func detailedDiff(log logr.Logger, desired, current Conf, isFlat,
+	desiredToActual bool, ver string) (DynamicConfigMap, error) {
+	// Flatten if not flattened already.
+	if !isFlat {
+		desired = flattenConf(log, desired, sep)
+		current = flattenConf(log, current, sep)
+	}
+
+	d := make(DynamicConfigMap)
+
+	// For all keys in desired if it does not exist in current
+	// or if type or value is different add/update/remove it
+	for key, desiredValue := range desired {
+		bN := BaseKey(key)
+		if isNodeSpecificField(bN) || bN == keyIndex {
+			// Ignore node specific details and ordering
+			continue
+		}
+
+		// Add if not found in current
+		currentValue, ok := current[key]
+		if !ok {
+			diffUpdated := false
+			if diffUpdated = handleMissingSection(log, key, desired, current, d, desiredToActual); !diffUpdated {
+				var err error
+				// Add default values to config parameter if available in schema.
+				// If key is not present in current, then check if any key in desired which starts with key is present in current
+				// eg. desired has security: {} current has security.log.report-sys-admin: true
+				// final diff should be map[security.log.report-sys-admin] = <default value>
+				diffUpdated, err = handlePartialMissingSection(key, ver, current, d)
+				if err != nil {
+					return nil, err
+				}
+			}
+
+			if !diffUpdated {
+				handleSliceFields(key, desired, d, desiredToActual)
+			}
+
+			continue
+		}
+
+		log.V(1).Info(
+			"compare", "key",
+			key, "desiredValue", desiredValue, "currentValue", currentValue,
+		)
+
+		if isValueDiff(log, desiredValue, currentValue) {
+			handleValueDiff(key, desiredValue, currentValue, d)
+		}
+	}
+
+	return d, nil
+}
+
+// ConfDiff find diff between two configs;
+//
+//		diff = desired - current
+//	 if any config parameter is present in current but not in desired,
+//	 result map will contain the corresponding default value for
+//	 that config parameter.
+//
+// It returns a map of flatten conf key and value(which is another map of added and removed fields, mostly helps in the
+// case of list of string fields)
+func ConfDiff(
+	log logr.Logger, desiredConf, currentConf Conf, isFlat bool, ver string,
+) (DynamicConfigMap, error) {
+	// Comparing desired and current config
+	diffs, err := detailedDiff(log, desiredConf, currentConf, isFlat, true, ver)
+	if err != nil {
+		return nil, err
+	}
+
+	// Comparing current and desired config
+	// If any config parameter is present in current but not in desired.
+	removedConfigs, err := detailedDiff(log, currentConf, desiredConf, isFlat, false, ver)
+	if err != nil {
+		return nil, err
+	}
+
+	for removedConfigKey := range removedConfigs {
+		// If any key difference is already captured while comparing desired and current config in detailedDiff,
+		// then ignore it while comparing current and desired config.
+		if _, ok := diffs[removedConfigKey]; ok {
+			continue
+		}
+
+		// If whole string array or map type config is not present in desired config.
+		// No default values are available for these configs.
+		if _, removed := removedConfigs[removedConfigKey][Remove]; removed {
+			diffs[removedConfigKey] = removedConfigs[removedConfigKey]
+			continue
+		}
+
+		// Setting defaults for atomic keys which are not present in desired config
+		defaultMap, err := GetDefault(ver)
+		if err != nil {
+			return nil, err
+		}
+
+		valueMap := make(map[Operation]interface{})
+		valueMap[Update] = getDefaultValue(defaultMap, removedConfigKey)
+		diffs[removedConfigKey] = valueMap
+	}
+
+	return diffs, nil
 }
 
 // defaultDiff returns the values different from the default.
@@ -600,7 +799,7 @@ func changeKey(key string) string {
 func getSystemProperty(log logr.Logger, c Conf, key string) (
 	stype sysproptype, value []string,
 ) {
-	baseKey := baseKey(key)
+	baseKey := BaseKey(key)
 	baseKey = SingularOf(baseKey)
 	value = make([]string, 0)
 
@@ -620,7 +819,7 @@ func getSystemProperty(log logr.Logger, c Conf, key string) (
 	// device <deviceName>:<shadowDeviceName>
 	case keyDevice:
 		for _, d := range c[key].([]interface{}) {
-			value = append(value, strings.Split(d.(string), ":")...)
+			value = append(value, strings.Split(d.(string), colon)...)
 		}
 
 		return DEVICE, value
@@ -695,7 +894,7 @@ func getSystemProperty(log logr.Logger, c Conf, key string) (
 //			node-address-port 1.1.1.1 3000
 //			node-address-port 2.2.2.2 3000
 func isListField(key string) (exists bool, separator string) {
-	bKey := baseKey(key)
+	bKey := BaseKey(key)
 	bKey = SingularOf(bKey)
 
 	switch bKey {
@@ -705,8 +904,8 @@ func isListField(key string) (exists bool, separator string) {
 	// TODO: Device with shadow device is not reported by server
 	// yet in runtime making it colon separated for now.
 	case "mesh-seed-address-port", "tls-mesh-seed-address-port",
-		keyDevice, "report-data-op", "node-address-port", keyFeatureKeyFile:
-		return true, ":"
+		keyDevice, keyReportDataOp, "node-address-port", keyFeatureKeyFile:
+		return true, colon
 
 	case keyFile, keyAddress, keyTLSAddress, keyAccessAddress, "mount",
 		keyTLSAccessAddress, keyAlternateAccessAddress,
@@ -731,7 +930,7 @@ func isListField(key string) (exists bool, separator string) {
 // representing aerospike set config which is incomplete and needs
 // 'set-' prefix
 func isIncompleteSetSectionFields(key string) bool {
-	key = baseKey(key)
+	key = BaseKey(key)
 	switch key {
 	case "disable-eviction", "enable-xdr", "stop-writes-count":
 		return true
@@ -742,9 +941,9 @@ func isIncompleteSetSectionFields(key string) bool {
 }
 
 func isInternalField(key string) bool {
-	key = baseKey(key)
+	key = BaseKey(key)
 	switch key {
-	case keyIndex, keyName:
+	case keyIndex, KeyName:
 		return true
 
 	default:
@@ -753,11 +952,11 @@ func isInternalField(key string) bool {
 }
 
 func isListSection(section string) bool {
-	section = baseKey(section)
+	section = BaseKey(section)
 	section = SingularOf(section)
 
 	switch section {
-	case "namespace", "datacenter", "dc", "set", "tls", keyFile:
+	case keyNamespace, "datacenter", "dc", keySet, "tls", keyFile:
 		return true
 
 	default:
@@ -768,7 +967,7 @@ func isListSection(section string) bool {
 // section without name but should consider as list
 // for ex. logging
 func isSpecialListSection(section string) bool {
-	section = baseKey(section)
+	section = BaseKey(section)
 	section = SingularOf(section)
 
 	switch section {
@@ -785,11 +984,11 @@ func isSpecialListSection(section string) bool {
 // virtue of it generated from the config form. Forms are the
 // JSON schema for nice form layout in UI.
 func isFormField(key string) bool {
-	key = baseKey(key)
+	key = BaseKey(key)
 	// "name" is id for named sections
 	// "storage-engine-type" is type of storage engine.
 	switch key {
-	case keyName, "storage-engine-type":
+	case KeyName, "storage-engine-type":
 		return true
 
 	default:
@@ -849,7 +1048,7 @@ func isSpecialBoolField(key string) bool {
 // bool value also
 // e.g. tls-authenticate-client
 func isSpecialStringField(key string) bool {
-	key = baseKey(key)
+	key = BaseKey(key)
 	switch key {
 	case keyTLSAuthenticateClient:
 		return true
@@ -868,9 +1067,9 @@ func isNodeSpecificField(key string) bool {
 		"node-id", keyAddress, "port", keyAccessAddress, "access-port",
 		"external-address", "interface-address", keyAlternateAccessAddress,
 		keyTLSAddress, "tls-port", keyTLSAccessAddress, "tls-access-port",
-		keyTLSAlternateAccessAddress, "tls-alternate-access-port",
+		keyTLSAlternateAccessAddress, "tls-alternate-access-port", "alternate-access-port",
 		"xdr-info-port", "service-threads", "batch-index-threads",
-		"mesh-seed-address-port", "mtu":
+		"mesh-seed-address-port", "tls-mesh-seed-address-port", "mtu":
 		return true
 	}
 
@@ -915,7 +1114,7 @@ func isStorageEngineKey(key string) bool {
 }
 
 func isTypedSection(key string) bool {
-	baseKey := baseKey(key)
+	baseKey := BaseKey(key)
 	baseKey = SingularOf(baseKey)
 
 	// TODO: This should be derived from the configuration schema
@@ -982,13 +1181,13 @@ func isStringField(key string) bool {
 	// numeric values it is safe to remove from this table so that it functions as a bool
 	// when parsing server 7.0+ config files
 	case "tls-name", "encryption", "query-user-password-file", "encryption-key-file",
-		"tls-authenticate-client", "mode", "auto-pin", "compression", "user-path",
+		keyTLSAuthenticateClient, "mode", "auto-pin", "compression", "user-path",
 		"auth-user", "user", "cipher-suite", "ca-path", "write-policy", "vault-url",
 		"protocols", "bin-policy", "ca-file", "key-file", "pidfile", "cluster-name",
 		"auth-mode", "encryption-old-key-file", "group", "work-directory", "write-commit-level-override",
 		"vault-ca", "cert-blacklist", "vault-token-file", "query-user-dn", "node-id",
 		"conflict-resolution-policy", "server", "query-base-dn", "node-id-interface",
-		"auth-password-file", "feature-key-file", "read-consistency-level-override",
+		"auth-password-file", keyFeatureKeyFile, "read-consistency-level-override",
 		"cert-file", "user-query-pattern", "key-file-password", "protocol", "vault-path",
 		"user-dn-pattern", "scheduler-mode", "token-hash-method",
 		"remote-namespace", "tls-ca-file", "role-query-base-dn", "set-enable-xdr",
@@ -1006,7 +1205,7 @@ func isStringField(key string) bool {
 // EX: secrets-address-port: 127.0.0.1:3000
 func isDelimitedStringField(key string) (exists bool, separator string) {
 	if key == "secrets-address-port" {
-		return true, ":"
+		return true, colon
 	}
 
 	return false, ""
@@ -1016,8 +1215,6 @@ func isDelimitedStringField(key string) (exists bool, separator string) {
 // into Conf objects. Also converts the list form in conf
 // into map form, if required. This is needed when converting a unmarshalled
 // yaml file into Conf object.
-
-//nolint:gocyclo //refactor later
 func toConf(log logr.Logger, input map[string]interface{}) Conf {
 	result := make(Conf)
 
@@ -1031,123 +1228,154 @@ func toConf(log logr.Logger, input map[string]interface{}) Conf {
 			continue
 		}
 
-		switch v := v.(type) {
-		case lib.Stats:
-			result[k] = toConf(log, v)
+		handleValueType(log, k, v, result)
+	}
 
-		case map[string]interface{}:
-			result[k] = toConf(log, v)
+	return result
+}
 
-		case []map[string]interface{}:
-			if len(v) == 0 {
-				result[k] = make([]Conf, 0)
-			} else {
-				temp := make([]Conf, len(v))
-				for i, m := range v {
-					temp[i] = toConf(log, m)
-				}
-				result[k] = temp
-			}
+func handleValueType(log logr.Logger, key string, value interface{}, result Conf) {
+	switch v := value.(type) {
+	case lib.Stats:
+		result[key] = toConf(log, v)
 
-		case []interface{}:
-			if len(v) == 0 {
-				if isListSection(k) || isSpecialListSection(k) {
-					result[k] = make([]Conf, 0)
-				} else if ok, _ := isListField(k); ok {
-					result[k] = make([]string, 0)
-				} else {
-					log.V(1).Info(
-						"[]interface neither list field or list section",
-						"key", k,
-					)
-				}
-			} else {
-				v1 := v[0]
-				switch v1.(type) {
-				case string:
-					temp := make([]string, len(v))
-					for i, s := range v {
-						if boolVal, isBool := s.(bool); isBool && isSpecialStringField(k) {
-							temp[i] = strconv.FormatBool(boolVal)
-						} else {
-							temp[i] = s.(string)
-						}
-					}
+	case map[string]interface{}:
+		result[key] = toConf(log, v)
 
-					result[k] = temp
+	case []map[string]interface{}:
+		result[key] = convertMapSlice(log, v)
 
-				case map[string]interface{}, lib.Stats:
-					temp := make([]Conf, len(v))
-					for i, m := range v {
-						m1, ok := m.(map[string]interface{})
-						if !ok {
-							m1, ok = m.(lib.Stats)
-						}
-						if ok {
-							temp[i] = toConf(log, m1)
-						} else {
-							log.V(1).Info("[]Conf does not have map[string]interface{}")
-							break
-						}
-					}
+	case []interface{}:
+		result[key] = convertInterfaceSlice(log, key, v)
 
-					result[k] = temp
+	case string:
+		result[key] = convertString(key, v)
 
-				default:
-					log.V(1).Info(
-						"Unexpected value",
-						"type", reflect.TypeOf(v), "key", k, "value", v,
-					)
-				}
-			}
+	case bool:
+		result[key] = convertBool(key, v)
 
+	case int64:
+		if v < 0 {
+			result[key] = v
+		} else {
+			result[key] = uint64(v)
+		}
+
+	case uint64:
+		result[key] = v
+
+	case float64:
+		// security.syslog.local can be -1
+		if v < 0 {
+			result[key] = int64(v)
+		} else {
+			result[key] = uint64(v)
+		}
+
+	default:
+		result[key] = value
+	}
+}
+
+// Add other helper functions here...
+
+func convertMapSlice(log logr.Logger, v []map[string]interface{}) (result []Conf) {
+	if len(v) == 0 {
+		result = make([]Conf, 0)
+	} else {
+		temp := make([]Conf, len(v))
+		for i, m := range v {
+			temp[i] = toConf(log, m)
+		}
+
+		result = temp
+	}
+
+	return result
+}
+
+func convertInterfaceSlice(log logr.Logger, k string, v []interface{}) (result interface{}) {
+	if len(v) == 0 {
+		if isListSection(k) || isSpecialListSection(k) {
+			result = make([]Conf, 0)
+		} else if ok, _ := isListField(k); ok {
+			result = make([]string, 0)
+		} else {
+			log.V(1).Info(
+				"[]interface neither list field or list section",
+				"key", k,
+			)
+		}
+	} else {
+		v1 := v[0]
+		switch v1.(type) {
 		case string:
-			if ok, _ := isListField(k); ok && k != keyFeatureKeyFile {
-				if k == keyTLSAuthenticateClient && (v == "any" || v == "false") {
-					result[k] = v
+			temp := make([]string, len(v))
+			for i, s := range v {
+				if boolVal, isBool := s.(bool); isBool && isSpecialStringField(k) {
+					temp[i] = strconv.FormatBool(boolVal)
 				} else {
-					result[k] = []string{v}
+					temp[i] = s.(string)
 				}
-			} else {
-				result[k] = v
 			}
 
-		case bool:
-			if isSpecialStringField(k) {
-				if ok, _ := isListField(k); ok {
-					if k == keyTLSAuthenticateClient && !v {
-						result[k] = strconv.FormatBool(v)
-					} else {
-						result[k] = []string{strconv.FormatBool(v)}
-					}
+			result = temp
+
+		case map[string]interface{}, lib.Stats:
+			temp := make([]Conf, len(v))
+			for i, m := range v {
+				m1, ok := m.(map[string]interface{})
+				if !ok {
+					m1, ok = m.(lib.Stats)
+				}
+				if ok {
+					temp[i] = toConf(log, m1)
 				} else {
-					result[k] = strconv.FormatBool(v)
+					log.V(1).Info("[]Conf does not have map[string]interface{}")
+					break
 				}
-			} else {
-				result[k] = v
 			}
 
-		case int64:
-			if v < 0 {
-				result[k] = v
-			} else {
-				result[k] = uint64(v)
-			}
-
-		case uint64:
-			result[k] = v
-
-		case float64:
-			// security.syslog.local can be -1
-			if v < 0 {
-				result[k] = int64(v)
-			} else {
-				result[k] = uint64(v)
-			}
+			result = temp
 
 		default:
-			result[k] = v
+			log.V(1).Info(
+				"Unexpected value",
+				"type", reflect.TypeOf(v), "key", k, "value", v,
+			)
 		}
+	}
+
+	return result
+}
+
+func convertString(k, v string) (result interface{}) {
+	if ok, _ := isListField(k); ok && k != keyFeatureKeyFile {
+		if k == keyTLSAuthenticateClient && (v == "any" || v == "false") {
+			result = v
+		} else {
+			result = []string{v}
+		}
+	} else {
+		result = v
+	}
+
+	return result
+}
+
+func convertBool(k string, v bool) (result interface{}) {
+	if isSpecialStringField(k) {
+		if ok, _ := isListField(k); ok {
+			if k == keyTLSAuthenticateClient && !v {
+				result = strconv.FormatBool(v)
+			} else {
+				result = []string{strconv.FormatBool(v)}
+			}
+		} else {
+			result = strconv.FormatBool(v)
+		}
+	} else {
+		result = v
 	}
 
 	return result
@@ -1172,7 +1400,7 @@ func getCfgValue(log logr.Logger, diffKeys []string, flatConf Conf) []CfgValue {
 }
 
 func getContextAndName(log logr.Logger, key, _ string) (context, name string) {
-	keys := splitKey(log, key, sep)
+	keys := SplitKey(log, key, sep)
 	if len(keys) == 1 {
 		return "", ""
 	}
@@ -1189,4 +1417,92 @@ func getContextAndName(log logr.Logger, key, _ string) (context, name string) {
 	}
 
 	return strings.Trim(ctx, "/"), keys[len(keys)-1]
+}
+
+func getFlatKey(tokens []string) string {
+	var key string
+
+	for _, token := range tokens {
+		if ReCurlyBraces.MatchString(token) {
+			key += "_."
+		} else {
+			key = key + token + "."
+		}
+	}
+
+	return strings.TrimSuffix(key, ".")
+}
+
+func ToPlural(k string, v any, m Conf) {
+	// convert asconfig fields/contexts that need to be plural
+	// in order to create valid asconfig yaml.
+	if plural := PluralOf(k); plural != k {
+		// if the config item can be plural or singular and is not a slice
+		// then the item should not be converted to the plural form.
+		// If the management lib ever parses list entries as anything other
+		// than []string this might have to change.
+		if isListOrString(k) {
+			if _, ok := v.([]string); !ok {
+				return
+			}
+
+			if len(v.([]string)) == 1 {
+				// the management lib parses all config fields
+				// that are in singularToPlural as lists. If these
+				// fields are actually scalars then overwrite the list
+				// with the single value
+				m[k] = v.([]string)[0]
+				return
+			}
+		}
+
+		delete(m, k)
+		m[plural] = v
+	}
+}
+
+// isListOrString returns true for special config fields that may be a
+// single string value or a list with multiple strings in the schema files
+// NOTE: any time the schema changes to make a value
+// a string or a list (array) that value needs to be added here
+func isListOrString(name string) bool {
+	switch name {
+	case keyFeatureKeyFile, keyTLSAuthenticateClient:
+		return true
+	default:
+		return false
+	}
+}
+
+var ReCurlyBraces = regexp.MustCompile(`^\{.*\}$`)
+
+// DynamicConfigMap is a map of config flatten keys and their operations and values
+// for eg: "xdr.dcs.{DC3}.node-address-ports": {Remove: []string{"1.1.2.1 3000"}}
+type DynamicConfigMap map[string]map[Operation]interface{}
+
+// SplitKey splits key by using sep
+// it ignores sep inside sectionNameStartChar and sectionNameEndChar
+func SplitKey(log logr.Logger, key, sep string) []string {
+	sepRunes := []rune(sep)
+	if len(sepRunes) > 1 {
+		log.Info("Split expects single char as separator")
+		return nil
+	}
+
+	openBracket := 0
+	f := func(c rune) bool {
+		if c == sepRunes[0] && openBracket == 0 {
+			return true
+		}
+
+		if c == SectionNameStartChar {
+			openBracket++
+		} else if c == SectionNameEndChar {
+			openBracket--
+		}
+
+		return false
+	}
+
+	return strings.FieldsFunc(key, f)
 }

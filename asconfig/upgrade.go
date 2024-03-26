@@ -1,10 +1,9 @@
-package deployment
+package asconfig
 
 import (
 	"fmt"
 
 	lib "github.com/aerospike/aerospike-management-lib"
-	"github.com/aerospike/aerospike-management-lib/asconfig"
 )
 
 // Metadata for restriction check
@@ -23,22 +22,22 @@ func setUnsupportedJumps() error {
 // all upgrade/downgrade restrictions
 func IsValidUpgrade(fromVersion, toVersion string) error {
 	// check version validity
-	valid, err := asconfig.IsSupportedVersion(fromVersion)
+	valid, err := IsSupportedVersion(fromVersion)
 	if !valid || err != nil {
 		return fmt.Errorf("unsupported aerospike version %s", fromVersion)
 	}
 
-	valid, err = asconfig.IsSupportedVersion(toVersion)
+	valid, err = IsSupportedVersion(toVersion)
 	if !valid || err != nil {
 		return fmt.Errorf("unsupported aerospike version %s", toVersion)
 	}
 
-	fromBaseVersion, err := asconfig.BaseVersion(fromVersion)
+	fromBaseVersion, err := BaseVersion(fromVersion)
 	if err != nil {
 		return err
 	}
 
-	toBaseVersion, err := asconfig.BaseVersion(toVersion)
+	toBaseVersion, err := BaseVersion(toVersion)
 	if err != nil {
 		return err
 	}

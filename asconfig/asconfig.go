@@ -29,7 +29,7 @@ type ValidationErr struct {
 	Field       string
 }
 
-// NewMapAsConfig creates AsConfig. Typically an unmarshalled yaml file is passed in
+// NewMapAsConfig creates AsConfig. Typically, an unmarshalled yaml file is passed in
 func NewMapAsConfig(
 	log logr.Logger, configMap map[string]interface{},
 ) (*AsConfig, error) {
@@ -76,7 +76,7 @@ func (cfg *AsConfig) GetFlatMap() *Conf {
 }
 
 // FromConfFile unmarshales the aerospike config text in "in" into a new *AsConfig
-func FromConfFile(log logr.Logger, _ string, in io.Reader) (*AsConfig, error) {
+func FromConfFile(log logr.Logger, in io.Reader) (*AsConfig, error) {
 	scanner := bufio.NewScanner(in)
 
 	configMap, err := process(log, scanner, Conf{})

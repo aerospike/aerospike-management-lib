@@ -63,16 +63,14 @@ func (n *host) String() string {
 
 // Close closes all the open connections of the host.
 func (n *host) Close() error {
-	var err error
-
 	if n.asConnInfo.asInfo != nil {
-		if e := n.asConnInfo.asInfo.Close(); e != nil {
-			err = e
+		if err := n.asConnInfo.asInfo.Close(); err != nil {
+			return fmt.Errorf(
+				"failed to close asinfo/system connection for host %s: %v",
+				n.asConnInfo.aerospikeHostName, err,
+			)
 		}
 	}
 
-	return fmt.Errorf(
-		"failed to close asinfo/system connection for host %s: %v",
-		n.asConnInfo.aerospikeHostName, err,
-	)
+	return nil
 }

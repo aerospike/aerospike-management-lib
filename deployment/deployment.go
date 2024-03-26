@@ -18,6 +18,10 @@ type HostConn struct {
 	ID     string // host UUID string
 }
 
+type ASConnInterface interface {
+	RunInfo(*aero.ClientPolicy, ...string) (map[string]string, error)
+}
+
 type ASConn struct {
 	Log               logr.Logger
 	AerospikeHostName string // host name of the machine to connect through aerospike
