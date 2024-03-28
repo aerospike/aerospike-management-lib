@@ -890,7 +890,8 @@ func isNodeSpecificContext(key string) bool {
 func isSizeOrTime(key string) (bool, humanize) {
 	switch key {
 	case "default-ttl", "max-ttl", "tomb-raider-eligible-age",
-		"tomb-raider-period", "nsup-period", "migrate-fill-delay":
+		"tomb-raider-period", "nsup-period", "migrate-fill-delay",
+		"tls-refresh-period":
 		return true, deHumanizeTime
 
 	case "memory-size", "filesize", "write-block-size",
@@ -898,7 +899,8 @@ func isSizeOrTime(key string) (bool, humanize) {
 		"mounts-size-limit", "index-stage-size",
 		"stop-writes-count", "stop-writes-size",
 		"mounts-budget", "data-size",
-		"quarantine-allocations":
+		"quarantine-allocations", "flush-size",
+		"post-write-cache":
 		return true, deHumanizeSize
 
 	default:
@@ -992,7 +994,8 @@ func isStringField(key string) bool {
 		"cert-file", "user-query-pattern", "key-file-password", "protocol", "vault-path",
 		"user-dn-pattern", "scheduler-mode", "token-hash-method",
 		"remote-namespace", "tls-ca-file", "role-query-base-dn", "set-enable-xdr",
-		"secrets-tls-context", "secrets-uds-path", "secrets-address-port":
+		"secrets-tls-context", "secrets-uds-path", "secrets-address-port",
+		"default-password-file":
 		return true
 	}
 
