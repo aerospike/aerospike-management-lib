@@ -314,6 +314,16 @@ func (roleCreate AerospikeRoleCreateUpdate) UpdateRole(
 		}
 	}
 
+	if role.ReadQuota != roleCreate.ReadQuota || role.WriteQuota != roleCreate.WriteQuota {
+		if err := client.SetQuotas(
+			adminPolicy, roleCreate.Name, roleCreate.ReadQuota, roleCreate.WriteQuota,
+		); err != nil {
+			return fmt.Errorf(
+				"error setting quotas for role %s: %v", roleCreate.Name, err,
+			)
+		}
+	}
+
 	logger.Info("Updated role", "role name", roleCreate.Name)
 
 	return nil
