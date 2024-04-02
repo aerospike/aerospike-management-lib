@@ -447,7 +447,7 @@ type AerospikeUserDrop struct {
 }
 
 // Execute implements dropping the user.
-func (userDrop AerospikeUserDrop) execute(
+func (userDrop AerospikeUserDrop) Execute(
 	client *as.Client, adminPolicy *as.AdminPolicy, logger logger,
 ) error {
 	logger.Info("Dropping user", "username", userDrop.Name)
@@ -471,7 +471,7 @@ type AerospikeRoleDrop struct {
 }
 
 // Execute implements dropping the role.
-func (roleDrop AerospikeRoleDrop) execute(
+func (roleDrop AerospikeRoleDrop) Execute(
 	client *as.Client, adminPolicy *as.AdminPolicy, logger logger,
 ) error {
 	logger.Info("Dropping role", "role", roleDrop.Name)
