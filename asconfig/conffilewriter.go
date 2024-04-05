@@ -22,6 +22,7 @@ import (
 
 const (
 	constLoggingConsole = "console"
+	constLoggingStderr  = "stderr"
 	constLoggingSyslog  = "syslog"
 )
 
@@ -63,7 +64,7 @@ func writeLogContext(buf *bytes.Buffer, conf Conf, indent int) {
 	syslogParamsSets := sets.NewSet("facility", "path", "tag")
 
 	for _, key := range keys {
-		if key == keyName {
+		if key == KeyName {
 			// ignore generated field
 			continue
 		}
@@ -85,7 +86,7 @@ func writeLogSection(
 	for i := range confs {
 		conf := confs[i]
 
-		name, ok := conf[keyName].(string)
+		name, ok := conf[KeyName].(string)
 		if !ok {
 			continue
 		}
@@ -133,12 +134,12 @@ func writeSpecialListSection(
 func writeListSection(
 	log logr.Logger, buf *bytes.Buffer, section string, conf Conf, indent int,
 ) {
-	name, ok := conf[keyName].(string)
+	name, ok := conf[KeyName].(string)
 	if !ok || name == "" {
 		return
 	}
 
-	delete(conf, keyName)
+	delete(conf, KeyName)
 
 	section = SingularOf(section)
 
@@ -146,7 +147,7 @@ func writeListSection(
 	writeDotConf(log, buf, conf, indent+1, nil)
 	endSection(buf, indent)
 
-	conf[keyName] = name
+	conf[KeyName] = name
 }
 
 func writeSection(

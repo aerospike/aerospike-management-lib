@@ -335,7 +335,7 @@ func (s *renameKeysStep) execute(conf Conf) error {
 	for key, value := range logging {
 		switch v := value.(type) {
 		case Conf:
-			if key == "stderr" {
+			if key == constLoggingStderr {
 				newLoggingEntries[constLoggingConsole] = value
 
 				delete(logging, key)
@@ -397,7 +397,7 @@ func convertDictToList(config Conf) []Conf {
 			continue
 		}
 
-		config2[keyName] = key1
+		config2[KeyName] = key1
 		list[count] = config2
 		count++
 
@@ -465,7 +465,7 @@ func newTransformKeyValuesStep(log logr.Logger) *transformKeyValuesStep {
 }
 
 func splitContextBaseKey(key string) (contextKey, bKey string) {
-	bKey = baseKey(key)
+	bKey = BaseKey(key)
 	contextKey = strings.TrimSuffix(key, bKey)
 	contextKey = strings.TrimSuffix(contextKey, sep)
 

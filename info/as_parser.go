@@ -436,7 +436,7 @@ func ParseTLSNames(m map[string]string) []string {
 
 // ParseLogNames parses all log names
 func ParseLogNames(m map[string]string) []string {
-	logs := parseIntoMap(m[constStatLogIDS], ";", ":")
+	logs := ParseIntoMap(m[constStatLogIDS], ";", ":")
 	names := make([]string, 0, len(logs))
 
 	for _, l := range logs {
@@ -589,7 +589,7 @@ func (info *AsInfo) createConfigCmdList(
 			cmdList = append(cmdList, cmdConfigSecurity)
 
 		case ConfigLoggingContext:
-			logs := parseIntoMap(m[constStatLogIDS], ";", ":")
+			logs := ParseIntoMap(m[constStatLogIDS], ";", ":")
 			for id := range logs {
 				cmdList = append(cmdList, cmdConfigLogging+id)
 			}
@@ -645,7 +645,7 @@ func (info *AsInfo) createXDRConfigCmdList(build string, m map[string]string) ([
 
 	m = mergeDicts(m, resp)
 	rawXDRConfig := resp[cmdConfigXDR]
-	xdrConfig := parseIntoMap(rawXDRConfig, ";", "=")
+	xdrConfig := ParseIntoMap(rawXDRConfig, ";", "=")
 	rawNames, ok := xdrConfig[constStatDCNames].(string)
 
 	if ok {
@@ -685,7 +685,7 @@ func (info *AsInfo) createXDRConfigCmdList(build string, m map[string]string) ([
 			var nsNames []string
 
 			rawDCConfig := resp[cmdConfigDC+dc]
-			dcConfig := parseIntoMap(rawDCConfig, ";", "=")
+			dcConfig := ParseIntoMap(rawDCConfig, ";", "=")
 			rawNames, ok := dcConfig[constStatNSNames].(string)
 
 			if ok {
@@ -771,7 +771,7 @@ func sindexNames(str, ns string) []string {
 			continue
 		}
 
-		idxMap := parseIntoMap(str, ":", "=")
+		idxMap := ParseIntoMap(str, ":", "=")
 
 		nsIdx := idxMap.TryString("ns", "")
 		if nsIdx != ns {
@@ -794,7 +794,7 @@ func setNames(str, ns string) []string {
 			continue
 		}
 
-		setMap := parseIntoMap(str, ":", "=")
+		setMap := ParseIntoMap(str, ":", "=")
 
 		if setMap.TryString("ns", "") != ns {
 			continue
@@ -958,7 +958,7 @@ func parseAllNsStats(rawMap map[string]string) lib.Stats {
 }
 
 func parseBasicInfo(res string) lib.Stats {
-	return parseIntoMap(res, ";", "=")
+	return ParseIntoMap(res, ";", "=")
 }
 
 func parseStatNsInfo(res string) lib.Stats {
@@ -1005,7 +1005,7 @@ func parseStatBinsInfo(res string) lib.Stats {
 		}
 	}
 
-	stats := parseIntoMap(binStatStr, ",", "=")
+	stats := ParseIntoMap(binStatStr, ",", "=")
 
 	return stats
 }
@@ -1070,7 +1070,7 @@ func parseConfigInfo(rawMap map[string]string) lib.Stats {
 
 func parseAllLoggingConfig(rawMap map[string]string, cmd string) lib.Stats {
 	logConfigMap := make(lib.Stats)
-	logs := parseIntoMap(rawMap[constStatLogIDS], ";", ":")
+	logs := ParseIntoMap(rawMap[constStatLogIDS], ";", ":")
 
 	for id := range logs {
 		m := parseBasicConfigInfo(rawMap[cmd+id], ":")
@@ -1135,34 +1135,49 @@ func parseConfigSetsInfo(res string) lib.Stats {
 }
 
 func parseAllXDRConfig(rawMap map[string]string, cmd string) lib.Stats {
-	xdrConfigMap := parseIntoMap(rawMap[cmd], ";", "=")
+	xdrConfigMap := ParseIntoMap(rawMap[cmd], ";", "=")
 
 	if xdrConfigMap == nil {
 		return nil
 	}
 
-	dcNamesRaw := xdrConfigMap.TryString(constStatDCNames, "")
-	dcNames := strings.Split(dcNamesRaw, ",")
+	var dcNames []string
 
+	dcNamesRaw := xdrConfigMap.TryString(constStatDCNames, "")
 	delete(xdrConfigMap, constStatDCNames)
-	xdrConfigMap[ConfigDCContext] = make(lib.Stats, len(dcNames))
+
+	if dcNamesRaw == "" {
+		dcNames = []string{}
+		xdrConfigMap[ConfigDCContext] = struct{}{}
+	} else {
+		dcNames = strings.Split(dcNamesRaw, ",")
+		xdrConfigMap[ConfigDCContext] = make(lib.Stats, len(dcNames))
+	}
 
 	for _, dc := range dcNames {
-		dcMap := parseIntoMap(rawMap[cmd+";dc="+dc], ";", "=")
+		dcMap := ParseIntoMap(rawMap[cmd+";dc="+dc], ";", "=")
 
 		if len(dcMap) == 0 {
 			continue
 		}
 
 		xdrConfigMap[ConfigDCContext].(lib.Stats)[dc] = dcMap
-		nsNamesRaw := dcMap.TryString(constStatNSNames, "")
-		nsNames := strings.Split(nsNamesRaw, ",")
 
+		var nsNames []string
+
+		nsNamesRaw := dcMap.TryString(constStatNSNames, "")
 		delete(dcMap, constStatNSNames)
-		dcMap[ConfigNamespaceContext] = make(lib.Stats, len(nsNames))
+
+		if nsNamesRaw == "" {
+			nsNames = []string{}
+			dcMap[ConfigNamespaceContext] = struct{}{}
+		} else {
+			nsNames = strings.Split(nsNamesRaw, ",")
+			dcMap[ConfigNamespaceContext] = make(lib.Stats, len(nsNames))
+		}
 
 		for _, ns := range nsNames {
-			nsMap := parseIntoMap(rawMap[cmd+";dc="+dc+";namespace="+ns], ";", "=")
+			nsMap := ParseIntoMap(rawMap[cmd+";dc="+dc+";namespace="+ns], ";", "=")
 			dcMap[ConfigNamespaceContext].(lib.Stats)[ns] = nsMap
 		}
 	}
@@ -1186,7 +1201,7 @@ func parseAllDcConfig(rawMap map[string]string, cmd string) lib.Stats {
 
 func parseBasicConfigInfo(res, sep string) lib.Stats {
 	// Parse
-	conf := parseIntoMap(res, ";", sep)
+	conf := ParseIntoMap(res, ";", sep)
 	return conf
 }
 
@@ -1561,7 +1576,7 @@ func parseNsKeys(rawMap lib.Stats) lib.Stats {
 	return newMap
 }
 
-func parseIntoMap(str, del, sep string) lib.Stats {
+func ParseIntoMap(str, del, sep string) lib.Stats {
 	if str == "" {
 		return nil
 	}
@@ -1621,7 +1636,7 @@ func parseIntoListOfMap(str, del1, del2, sep string) []lib.Stats {
 			continue
 		}
 
-		m := parseIntoMap(s, del2, sep)
+		m := ParseIntoMap(s, del2, sep)
 		// Assume indexname is always there
 		strListMap = append(strListMap, m)
 	}

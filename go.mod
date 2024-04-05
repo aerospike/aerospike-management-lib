@@ -2,8 +2,6 @@ module github.com/aerospike/aerospike-management-lib
 
 go 1.21
 
-require github.com/qdm12/reprint v0.0.0-20200326205758-722754a53494
-
 require (
 	github.com/aerospike/aerospike-client-go/v7 v7.1.0
 	github.com/deckarep/golang-set/v2 v2.3.1
@@ -11,6 +9,7 @@ require (
 	github.com/go-logr/logr v1.2.4
 	github.com/xeipuuv/gojsonschema v1.2.0
 	go.uber.org/mock v0.3.0
+	k8s.io/apimachinery v0.27.2
 )
 
 require (
@@ -27,10 +26,12 @@ require (
 	github.com/opencontainers/image-spec v1.0.2 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
+	github.com/rogpeppe/go-internal v1.12.0 // indirect
 	golang.org/x/mod v0.13.0 // indirect
 	golang.org/x/time v0.5.0 // indirect
 	golang.org/x/tools v0.14.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20231127180814-3a041ad873d4 // indirect
+	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	gotest.tools/v3 v3.5.1 // indirect
 )
