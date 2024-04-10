@@ -13,9 +13,9 @@ const (
 	cmdSetConfigNetwork   = "set-config:context=network;"      // ConfigNetwork
 	cmdSetConfigService   = "set-config:context=service;"      // ConfigService
 	cmdSetConfigNamespace = "set-config:context=namespace;id=" // ConfigNamespace
-	cmdSetConfigXDR       = "set-config:context=xdr"           // ConfigXDR
-	cmdSetConfigSecurity  = "set-config:context=security;"     // ConfigSecurity
-	cmdSetLogging         = "log-set:id="                      // ConfigLogging
+	//	cmdSetConfigXDR       = "set-config:context=xdr"           // ConfigXDR
+	cmdSetConfigSecurity = "set-config:context=security;" // ConfigSecurity
+	cmdSetLogging        = "log-set:id="                  // ConfigLogging
 )
 
 // convertValueToString converts the value of a config to a string.
@@ -247,6 +247,7 @@ func createLogSetCmdList(tokens []string, operationValueMap map[OpType][]string,
 	return cmdList, nil
 }
 
+/*
 // createSetConfigXDRCmdList creates set-config commands for XDR context.
 func createSetConfigXDRCmdList(tokens []string, operationValueMap map[OpType][]string) []string {
 	cmdList := make([]string, 0, len(operationValueMap))
@@ -311,6 +312,7 @@ func createSetConfigXDRCmdList(tokens []string, operationValueMap map[OpType][]s
 
 	return cmdList
 }
+*/
 
 // CreateSetConfigCmdList creates set-config commands for given config.
 func CreateSetConfigCmdList(configMap DynamicConfigMap, conn deployment.ASConnInterface,
@@ -337,8 +339,11 @@ func CreateSetConfigCmdList(configMap DynamicConfigMap, conn deployment.ASConnIn
 		case info.ConfigNamespaceContext:
 			cmdList = append(cmdList, createSetConfigNamespaceCmdList(tokens, val)...)
 
-		case info.ConfigXDRContext:
-			cmdList = append(cmdList, createSetConfigXDRCmdList(tokens, val)...)
+		/*
+			Commenting out XDR context for now because of ordering issues.
+			case info.ConfigXDRContext:
+				cmdList = append(cmdList, createSetConfigXDRCmdList(tokens, val)...)
+		*/
 
 		case info.ConfigLoggingContext:
 			cmds, err := createLogSetCmdList(tokens, val, conn, aerospikePolicy)

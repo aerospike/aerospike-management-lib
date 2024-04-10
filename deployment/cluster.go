@@ -14,7 +14,7 @@ import (
 )
 
 const constTrue = "true"
-const Namespaces = "namespaces"
+const CmdNamespaces = "namespaces"
 
 // cluster represents an aerospike cluster
 type cluster struct {
@@ -646,7 +646,7 @@ func (c *cluster) getQuiescedNodes(hostIDs []string) ([]string, error) {
 func (c *cluster) getClusterNamespaces(hostIDs []string) (
 	map[string][]string, error,
 ) {
-	cmd := Namespaces
+	cmd := CmdNamespaces
 
 	infoResults, err := c.infoOnHosts(hostIDs, cmd)
 	if err != nil {
@@ -656,8 +656,8 @@ func (c *cluster) getClusterNamespaces(hostIDs []string) (
 	namespaces := map[string][]string{}
 
 	for hostID, info := range infoResults {
-		if len(info[Namespaces]) > 0 {
-			namespaces[hostID] = strings.Split(info[Namespaces], ";")
+		if len(info[CmdNamespaces]) > 0 {
+			namespaces[hostID] = strings.Split(info[CmdNamespaces], ";")
 		} else {
 			return nil, fmt.Errorf(
 				"failed to get namespaces for node %v", hostID,
@@ -847,27 +847,13 @@ func (c *cluster) infoCmdsOnHosts(hostIDCmdMap map[string]string) (
 }
 
 func (c *cluster) setMigrateFillDelay(migrateFillDelay int, hosts []*HostConn) error {
-	log := c.log.WithValues("nodes", hosts)
+	log := c.log.WithValues("nodes", getHostIDsFromHostConns(hosts))
 	log.V(1).Info("Running setMigrateFillDelay")
 
 	cmd := fmt.Sprintf("set-config:context=service;migrate-fill-delay=%d", migrateFillDelay)
 
-	infoResults, iErr := c.infoOnHosts(getHostIDsFromHostConns(hosts), cmd)
-	if iErr != nil {
-		return iErr
-	}
-
-	for id, info := range infoResults {
-		output, err := info.toString(cmd)
-		if err != nil {
-			return fmt.Errorf(
-				"failed to execute set-config migrate-fill-delay command on node %s: %v", id, err)
-		}
-
-		if !strings.EqualFold(output, "ok") {
-			return fmt.Errorf("failed to execute set-config migrate-fill-delay"+
-				" command on node %s: %v", id, output)
-		}
+	if err := c.setConfigCommandsOnHosts([]string{cmd}, hosts); err != nil {
+		return err
 	}
 
 	log.V(1).Info("Finished running setMigrateFillDelay")
@@ -877,14 +863,14 @@ func (c *cluster) setMigrateFillDelay(migrateFillDelay int, hosts []*HostConn) e
 
 // setConfigCommandsOnHosts runs the set-config commands on the hosts.
 func (c *cluster) setConfigCommandsOnHosts(cmds []string, hosts []*HostConn) error {
-	log := c.log.WithValues("nodes", hosts)
-	log.V(1).Info("Running set-config")
+	hostIDs := getHostIDsFromHostConns(hosts)
 
-	hostIDS := getHostIDsFromHostConns(hosts)
+	log := c.log.WithValues("nodes", hostIDs)
+	log.V(1).Info("Running set-config")
 
 	// Run all set-config commands on all hosts
 	for _, cmd := range cmds {
-		infoResults, iErr := c.infoOnHosts(hostIDS, cmd)
+		infoResults, iErr := c.infoOnHosts(hostIDs, cmd)
 		if iErr != nil {
 			return iErr
 		}
@@ -893,12 +879,12 @@ func (c *cluster) setConfigCommandsOnHosts(cmds []string, hosts []*HostConn) err
 			output, err := info.toString(cmd)
 			if err != nil {
 				return fmt.Errorf(
-					"ServerError: failed to execute set-config command on node %s: %v", id, err)
+					"ServerError: failed to execute set-config command %s on node %s: %v", cmd, id, err)
 			}
 
 			if !strings.EqualFold(output, "ok") {
 				return fmt.Errorf("ServerError: failed to execute set-config"+
-					" command on node %s: %v", id, output)
+					" command %s on node %s: %v", cmd, id, output)
 			}
 		}
 	}

@@ -114,7 +114,7 @@ func validateSlice(baseKey string, val []string) []*ValidationErr {
 }
 
 func validateString(baseKey, v string) *ValidationErr {
-	literals := strings.Split(v, " ")
+	literals := strings.Fields(v)
 
 	switch baseKey {
 	case keyNodeAddressPorts:
