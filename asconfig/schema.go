@@ -133,9 +133,9 @@ func baseVersion(ver string) (string, error) {
 	return baseVersion, nil
 }
 
-// getDynamic return the map of values which are dynamic
+// GetDynamic return the map of values which are dynamic
 // values.
-func getDynamic(ver string) (sets.Set[string], error) {
+func GetDynamic(ver string) (sets.Set[string], error) {
 	flatSchema, err := getFlatSchema(ver)
 	if err != nil {
 		return nil, err
@@ -178,14 +178,14 @@ func getDynamicSchema(flatSchema map[string]interface{}) sets.Set[string] {
 
 // IsAllDynamicConfig returns true if all the fields in the given configMap are dynamically configured.
 func IsAllDynamicConfig(log logr.Logger, configMap DynamicConfigMap, version string) (bool, error) {
-	dynamic, err := getDynamic(version)
+	dynamic, err := GetDynamic(version)
 	if err != nil {
 		// retry error fall back to rolling restart.
 		return false, err
 	}
 
 	for confKey := range configMap {
-		if !isDynamicConfig(log, dynamic, confKey, configMap[confKey]) {
+		if !IsDynamicConfig(log, dynamic, confKey, configMap[confKey]) {
 			return false, nil
 		}
 	}
@@ -193,8 +193,8 @@ func IsAllDynamicConfig(log logr.Logger, configMap DynamicConfigMap, version str
 	return true, nil
 }
 
-// isDynamicConfig returns true if the given field is dynamically configured.
-func isDynamicConfig(log logr.Logger, dynamic sets.Set[string], conf string,
+// IsDynamicConfig returns true if the given field is dynamically configured.
+func IsDynamicConfig(log logr.Logger, dynamic sets.Set[string], conf string,
 	valueMap map[Operation]interface{}) bool {
 	tokens := SplitKey(log, conf, sep)
 	baseKey := tokens[len(tokens)-1]
