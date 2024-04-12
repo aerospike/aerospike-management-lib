@@ -61,7 +61,7 @@ func SetMigrateFillDelay(log logr.Logger, policy *aero.ClientPolicy, allHosts []
 
 // SetConfigCommandsOnHosts runs set config command for dynamic config on all the given cluster nodes
 func SetConfigCommandsOnHosts(log logr.Logger, policy *aero.ClientPolicy, allHosts, selectedHosts []*HostConn,
-	cmds []string) (map[string]bool, error) {
+	cmds []string) ([]string, error) {
 	c, err := newCluster(log, policy, allHosts, selectedHosts)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create a cluster copy for running aeroinfo: %v", err)
