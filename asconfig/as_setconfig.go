@@ -191,10 +191,14 @@ func createSetConfigNamespaceCmdList(tokens []string, operationValueMap map[Oper
 				cmd += strings.Trim(token, "{}")
 			}
 		} else {
-			if prevToken == "index-type" || prevToken == "sindex-type" {
+			switch prevToken {
+			case "index-type", "sindex-type":
 				cmd += fmt.Sprintf(";%s.%s", prevToken, token)
 				prevToken = ""
-			} else {
+			case "geo2dsphere-within":
+				cmd += fmt.Sprintf(";%s-%s", prevToken, token)
+				prevToken = ""
+			default:
 				prevToken = token
 			}
 		}
