@@ -3,6 +3,7 @@ package asconfig
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/aerospike/aerospike-management-lib/info"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -12,8 +13,6 @@ import (
 
 	sets "github.com/deckarep/golang-set/v2"
 	"github.com/go-logr/logr"
-
-	"github.com/aerospike/aerospike-management-lib/info"
 )
 
 // map of version to schema
@@ -200,12 +199,12 @@ func IsDynamicConfig(log logr.Logger, dynamic sets.Set[string], conf string,
 	baseKey := tokens[len(tokens)-1]
 	context := tokens[0]
 
-	if context == info.ConfigXDRContext {
-		// XDR context is always considered static.
-		return false
+	if baseKey == "replication-factor" || baseKey == keyNodeAddressPorts {
+		return true
 	}
 
-	if baseKey == "replication-factor" {
+	// Name key for XDR context is considered as dynamic, as both DCs and Namespaces in DCs can be added dynamically.
+	if context == info.ConfigXDRContext && baseKey == KeyName {
 		return true
 	}
 
