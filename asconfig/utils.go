@@ -1070,7 +1070,7 @@ func getContextAndName(log logr.Logger, key, _ string) (context, name string) {
 	return strings.Trim(ctx, "/"), keys[len(keys)-1]
 }
 
-func getFlatKey(tokens []string) string {
+func GetFlatKey(tokens []string) string {
 	var key string
 
 	for _, token := range tokens {

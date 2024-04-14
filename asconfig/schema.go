@@ -3,7 +3,6 @@ package asconfig
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/aerospike/aerospike-management-lib/info"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -13,6 +12,8 @@ import (
 
 	sets "github.com/deckarep/golang-set/v2"
 	"github.com/go-logr/logr"
+
+	"github.com/aerospike/aerospike-management-lib/info"
 )
 
 // map of version to schema
@@ -222,14 +223,14 @@ func IsDynamicConfig(log logr.Logger, dynamic sets.Set[string], conf string,
 		}
 	}
 
-	return dynamic.Contains(getFlatKey(tokens))
+	return dynamic.Contains(GetFlatKey(tokens))
 }
 
 // getDefaultValue returns the default value of a particular config
 func getDefaultValue(defaultMap map[string]interface{}, conf string) interface{} {
 	tokens := strings.Split(conf, ".")
 
-	return defaultMap[getFlatKey(tokens)]
+	return defaultMap[GetFlatKey(tokens)]
 }
 
 // GetDefault return the map of default values.
