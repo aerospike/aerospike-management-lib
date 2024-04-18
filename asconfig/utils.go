@@ -900,7 +900,7 @@ func isSizeOrTime(key string) (bool, humanize) {
 		"stop-writes-count", "stop-writes-size",
 		"mounts-budget", "data-size",
 		"quarantine-allocations", "flush-size",
-		"post-write-cache":
+		"post-write-cache", "indexes-memory-budget":
 		return true, deHumanizeSize
 
 	default:
