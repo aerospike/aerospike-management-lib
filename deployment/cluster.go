@@ -311,7 +311,7 @@ func (c *cluster) InfoQuiesce(hostsToBeQuiesced, hostIDs, removedNamespaces []st
 		}
 	}
 
-	if err := c.infoRecluster(hostIDs); err != nil {
+	if err := c.InfoRecluster(hostIDs); err != nil {
 		return err
 	}
 
@@ -718,10 +718,10 @@ func (c *cluster) InfoQuiesceUndo(hostIDs []string) error {
 		}
 	}
 
-	return c.infoRecluster(hostIDs)
+	return c.InfoRecluster(hostIDs)
 }
 
-func (c *cluster) infoRecluster(hostIDs []string) error {
+func (c *cluster) InfoRecluster(hostIDs []string) error {
 	lg := c.log.WithValues("nodes", hostIDs)
 
 	lg.V(1).Info("Running recluster command")
