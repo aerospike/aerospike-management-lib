@@ -572,7 +572,7 @@ func (s *transformKeyValuesStep) execute(conf Conf) error {
 		}
 
 		if undefinedOrNull(value) {
-			value = ""
+			continue
 		}
 
 		if isTypedSection(key) {
