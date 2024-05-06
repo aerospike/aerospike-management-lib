@@ -1,21 +1,23 @@
 package asconfig
 
 import (
+	"container/list"
 	"fmt"
 	"strings"
 
 	aero "github.com/aerospike/aerospike-client-go/v7"
 	"github.com/aerospike/aerospike-management-lib/deployment"
 	"github.com/aerospike/aerospike-management-lib/info"
+	"github.com/go-logr/logr"
 )
 
 const (
 	cmdSetConfigNetwork   = "set-config:context=network;"      // ConfigNetwork
 	cmdSetConfigService   = "set-config:context=service;"      // ConfigService
 	cmdSetConfigNamespace = "set-config:context=namespace;id=" // ConfigNamespace
-	//	cmdSetConfigXDR       = "set-config:context=xdr"           // ConfigXDR
-	cmdSetConfigSecurity = "set-config:context=security;" // ConfigSecurity
-	cmdSetLogging        = "log-set:id="                  // ConfigLogging
+	cmdSetConfigXDR       = "set-config:context=xdr"           // ConfigXDR
+	cmdSetConfigSecurity  = "set-config:context=security;"     // ConfigSecurity
+	cmdSetLogging         = "log-set:id="                      // ConfigLogging
 )
 
 // convertValueToString converts the value of a config to a string.
@@ -191,10 +193,14 @@ func createSetConfigNamespaceCmdList(tokens []string, operationValueMap map[Oper
 				cmd += strings.Trim(token, "{}")
 			}
 		} else {
-			if prevToken == "index-type" || prevToken == "sindex-type" {
+			switch prevToken {
+			case "index-type", "sindex-type":
 				cmd += fmt.Sprintf(";%s.%s", prevToken, token)
 				prevToken = ""
-			} else {
+			case "geo2dsphere-within":
+				cmd += fmt.Sprintf(";%s-%s", prevToken, token)
+				prevToken = ""
+			default:
 				prevToken = token
 			}
 		}
@@ -247,7 +253,6 @@ func createLogSetCmdList(tokens []string, operationValueMap map[Operation][]stri
 	return cmdList, nil
 }
 
-/*
 // createSetConfigXDRCmdList creates set-config commands for XDR context.
 func createSetConfigXDRCmdList(tokens []string, operationValueMap map[Operation][]string) []string {
 	cmdList := make([]string, 0, len(operationValueMap))
@@ -312,15 +317,15 @@ func createSetConfigXDRCmdList(tokens []string, operationValueMap map[Operation]
 
 	return cmdList
 }
-*/
 
 // CreateSetConfigCmdList creates set-config commands for given config.
-func CreateSetConfigCmdList(configMap DynamicConfigMap, conn deployment.ASConnInterface,
+func CreateSetConfigCmdList(log logr.Logger, configMap DynamicConfigMap, conn deployment.ASConnInterface,
 	aerospikePolicy *aero.ClientPolicy,
 ) ([]string, error) {
 	cmdList := make([]string, 0, len(configMap))
 
-	for c := range configMap {
+	orderedConfList := rearrangeConfigMap(log, configMap)
+	for _, c := range orderedConfList {
 		tokens := strings.Split(c, sep)
 		context := tokens[0]
 
@@ -339,11 +344,8 @@ func CreateSetConfigCmdList(configMap DynamicConfigMap, conn deployment.ASConnIn
 		case info.ConfigNamespaceContext:
 			cmdList = append(cmdList, createSetConfigNamespaceCmdList(tokens, val)...)
 
-		/*
-			Commenting out XDR context for now because of ordering issues.
-			case info.ConfigXDRContext:
-				cmdList = append(cmdList, createSetConfigXDRCmdList(tokens, val)...)
-		*/
+		case info.ConfigXDRContext:
+			cmdList = append(cmdList, createSetConfigXDRCmdList(tokens, val)...)
 
 		case info.ConfigLoggingContext:
 			cmds, err := createLogSetCmdList(tokens, val, conn, aerospikePolicy)
@@ -361,7 +363,6 @@ func CreateSetConfigCmdList(configMap DynamicConfigMap, conn deployment.ASConnIn
 	return cmdList, nil
 }
 
-/*
 // Returns a list of config keys in the order in which they should be applied.
 // The order is as follows:
 // 1. Removed Namespaces -- If user has to change some of the DC direct fields, they will have to remove the namespace
@@ -397,7 +398,7 @@ func rearrangeConfigMap(log logr.Logger, configMap DynamicConfigMap) []string {
 					// If namespace is removed, directly add it to the final list
 					finalList = append(finalList, k)
 				} else {
-					// If namespace is added, add it after all DCs and their direct fields
+					// If namespace is added, add it after all DCs and their direct configs
 					if lastDCConfig == nil {
 						if lastDC != nil {
 							rearrangedConfigMap.InsertAfter(k, lastDC)
@@ -418,23 +419,19 @@ func rearrangeConfigMap(log logr.Logger, configMap DynamicConfigMap) []string {
 			// Handle DC direct fields
 			if tokens[len(tokens)-3] == info.ConfigDCContext {
 				var nap *list.Element
-				// Check if the key is related to 'node-address-ports'
-				isNodeAddressPortsKey := strings.HasSuffix(k, sep+keyNodeAddressPorts)
-
-				if isNodeAddressPortsKey {
+				// Check if the key is 'node-address-ports'
+				if strings.HasSuffix(k, sep+keyNodeAddressPorts) {
 					if _, ok := v[Remove]; ok {
 						dc := rearrangedConfigMap.PushFront(k)
 						if lastDC == nil {
 							lastDC = dc
 						}
 						continue
-					} else {
-						if lastDCConfig != nil {
-							// Add 'node-address-ports' after all DC direct fields
-							// There are certain fields that must be set before 'node-address-ports', for example, 'tls-name'.
-							lastDCConfig = rearrangedConfigMap.InsertAfter(k, lastDCConfig)
-							continue
-						}
+					} else if lastDCConfig != nil {
+						// Add 'node-address-ports' after all DC direct fields
+						// There are certain fields that must be set before 'node-address-ports', for example, 'tls-name'.
+						lastDCConfig = rearrangedConfigMap.InsertAfter(k, lastDCConfig)
+						continue
 					}
 				}
 
@@ -459,4 +456,3 @@ func rearrangeConfigMap(log logr.Logger, configMap DynamicConfigMap) []string {
 
 	return finalList
 }
-*/

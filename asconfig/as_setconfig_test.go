@@ -3,6 +3,7 @@ package asconfig
 import (
 	"testing"
 
+	"github.com/go-logr/logr"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
 
@@ -62,11 +63,12 @@ func (s *AsSetConfigTestSuite) TestCreateSetConfigCmdList() {
 
 	for _, tc := range testCases {
 		s.Run(tc.name, func() {
+			logger := logr.Discard()
 			policy := &aero.ClientPolicy{}
 
 			s.mockASConn.EXPECT().RunInfo(gomock.Any(), gomock.Any()).Return(map[string]string{
 				"logs": "0:stderr"}, nil).AnyTimes()
-			result, err := CreateSetConfigCmdList(tc.inputConf, s.mockASConn, policy)
+			result, err := CreateSetConfigCmdList(logger, tc.inputConf, s.mockASConn, policy)
 
 			s.Assert().Nil(err)
 			s.Assert().True(gomock.InAnyOrder(result).Matches(tc.expected))
@@ -74,7 +76,6 @@ func (s *AsSetConfigTestSuite) TestCreateSetConfigCmdList() {
 	}
 }
 
-/*
 func (s *AsSetConfigTestSuite) TestCreateSetConfigCmdListOrdered() {
 	testCases := []struct {
 		name      string
@@ -87,7 +88,7 @@ func (s *AsSetConfigTestSuite) TestCreateSetConfigCmdListOrdered() {
 				"xdr.dcs.{DC1}.namespaces.{ns1}.bin-policy": {Update: "no-bins"},
 				"xdr.dcs.{DC3}.name":                        {Add: "DC3"},
 				"xdr.dcs.{DC1}.namespaces.{ns2}.name":       {Remove: "ns2"},
-				"xdr.dcs.{DC1}.node-address-ports":          {Add: []string{"1.1.1.1:3000:tls-name"},
+				"xdr.dcs.{DC1}.node-address-ports":          {Add: []string{"1.1.1.1:3000:tls-name"}},
 				"xdr.dcs.{DC1}.namespaces.{ns1}.name":       {Add: "ns1"},
 				"xdr.dcs.{DC1}.tls-name":                    {Update: "tls-name"},
 			},
@@ -114,7 +115,6 @@ func (s *AsSetConfigTestSuite) TestCreateSetConfigCmdListOrdered() {
 		})
 	}
 }
-*/
 
 func TestAsSetConfigTestSuite(t *testing.T) {
 	suite.Run(t, new(AsSetConfigTestSuite))
