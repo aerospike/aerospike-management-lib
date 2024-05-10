@@ -280,7 +280,8 @@ func detailedDiff(log logr.Logger, desired, current Conf, isFlat,
 	// or if type or value is different add/update/remove it
 	for key, desiredValue := range desired {
 		bN := BaseKey(key)
-		if isNodeSpecificField(bN) || bN == keyIndex {
+		//if isNodeSpecificField(bN) || bN == keyIndex {
+		if isNodeSpecificField(bN) {
 			// Ignore node specific details and ordering
 			continue
 		}

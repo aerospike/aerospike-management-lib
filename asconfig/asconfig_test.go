@@ -197,6 +197,8 @@ func (s *AsConfigTestSuite) TestAsConfigGetDiff() {
 				"xdr.dcs.{DC1}.namespaces.{ns1}.ignore-sets": {Add: []string{"set1"}},
 				"namespaces.{test}.replication-factor":       {Update: 3},
 				"namespaces.{bar}.replication-factor":        {Update: uint64(2)},
+				"xdr.dcs.{DC1}.<index>":                      {Update: 0},
+				"xdr.dcs.{DC1}.namespaces.{ns1}.<index>":     {Update: 0},
 			},
 		},
 		{
@@ -312,6 +314,7 @@ func (s *AsConfigTestSuite) TestAsConfigGetDiff() {
 				"xdr.dcs.{DC3}.namespaces.{ns1}.name":       {Add: "ns1"},
 				"xdr.dcs.{DC3}.namespaces.{ns2}.name":       {Remove: "ns2"},
 				"xdr.dcs.{DC3}.namespaces.{ns1}.bin-policy": {Update: "all"},
+				"xdr.dcs.{DC3}.namespaces.{ns1}.<index>":    {Update: 0},
 			},
 		},
 	}
