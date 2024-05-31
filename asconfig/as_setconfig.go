@@ -5,11 +5,10 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/go-logr/logr"
-
 	aero "github.com/aerospike/aerospike-client-go/v7"
 	"github.com/aerospike/aerospike-management-lib/deployment"
 	"github.com/aerospike/aerospike-management-lib/info"
+	"github.com/go-logr/logr"
 )
 
 const (

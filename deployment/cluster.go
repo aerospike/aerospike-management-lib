@@ -311,7 +311,7 @@ func (c *cluster) InfoQuiesce(hostsToBeQuiesced, hostIDs, removedNamespaces []st
 		}
 	}
 
-	if err := c.infoRecluster(hostIDs); err != nil {
+	if err := c.InfoRecluster(hostIDs); err != nil {
 		return err
 	}
 
@@ -718,10 +718,10 @@ func (c *cluster) InfoQuiesceUndo(hostIDs []string) error {
 		}
 	}
 
-	return c.infoRecluster(hostIDs)
+	return c.InfoRecluster(hostIDs)
 }
 
-func (c *cluster) infoRecluster(hostIDs []string) error {
+func (c *cluster) InfoRecluster(hostIDs []string) error {
 	lg := c.log.WithValues("nodes", hostIDs)
 
 	lg.V(1).Info("Running recluster command")
@@ -852,7 +852,7 @@ func (c *cluster) setMigrateFillDelay(migrateFillDelay int, hosts []*HostConn) e
 
 	cmd := fmt.Sprintf("set-config:context=service;migrate-fill-delay=%d", migrateFillDelay)
 
-	if err := c.setConfigCommandsOnHosts([]string{cmd}, hosts); err != nil {
+	if _, err := c.setConfigCommandsOnHosts([]string{cmd}, hosts); err != nil {
 		return err
 	}
 
@@ -862,8 +862,9 @@ func (c *cluster) setMigrateFillDelay(migrateFillDelay int, hosts []*HostConn) e
 }
 
 // setConfigCommandsOnHosts runs the set-config commands on the hosts.
-func (c *cluster) setConfigCommandsOnHosts(cmds []string, hosts []*HostConn) error {
+func (c *cluster) setConfigCommandsOnHosts(cmds []string, hosts []*HostConn) ([]string, error) {
 	hostIDs := getHostIDsFromHostConns(hosts)
+	succeededCmds := make([]string, 0, len(cmds))
 
 	log := c.log.WithValues("nodes", hostIDs)
 	log.V(1).Info("Running set-config")
@@ -872,26 +873,28 @@ func (c *cluster) setConfigCommandsOnHosts(cmds []string, hosts []*HostConn) err
 	for _, cmd := range cmds {
 		infoResults, iErr := c.infoOnHosts(hostIDs, cmd)
 		if iErr != nil {
-			return iErr
+			return succeededCmds, iErr
 		}
 
 		for id, info := range infoResults {
 			output, err := info.toString(cmd)
 			if err != nil {
-				return fmt.Errorf(
+				return succeededCmds, fmt.Errorf(
 					"ServerError: failed to execute set-config command %s on node %s: %v", cmd, id, err)
 			}
 
 			if !strings.EqualFold(output, "ok") {
-				return fmt.Errorf("ServerError: failed to execute set-config"+
+				return succeededCmds, fmt.Errorf("ServerError: failed to execute set-config"+
 					" command %s on node %s: %v", cmd, id, output)
 			}
 		}
+
+		succeededCmds = append(succeededCmds, cmd)
 	}
 
 	log.V(1).Info("Finished running set-config")
 
-	return nil
+	return succeededCmds, nil
 }
 
 func (c *cluster) findHost(hostID string) (*host, error) {
