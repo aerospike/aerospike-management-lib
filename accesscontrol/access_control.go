@@ -257,29 +257,6 @@ func (roleCreate AerospikeRoleCreateUpdate) UpdateRole(
 	privilegesToRevoke := SliceSubtract(currentPrivileges, desiredPrivileges)
 	privilegesToGrant := SliceSubtract(desiredPrivileges, currentPrivileges)
 
-	if len(privilegesToRevoke) > 0 {
-		aerospikePrivileges, err := privilegeStringToAerospikePrivilege(privilegesToRevoke)
-		if err != nil {
-			return fmt.Errorf(
-				"could not update role %s: %v", roleCreate.Name, err,
-			)
-		}
-
-		if err := client.RevokePrivileges(
-			adminPolicy, roleCreate.Name, aerospikePrivileges,
-		); err != nil {
-			return fmt.Errorf(
-				"error revoking privileges for role %s: %v", roleCreate.Name,
-				err,
-			)
-		}
-
-		logger.Info(
-			"Revoked privileges for role", "role name", roleCreate.Name,
-			"privileges", privilegesToRevoke,
-		)
-	}
-
 	if len(privilegesToGrant) > 0 {
 		aerospikePrivileges, err := privilegeStringToAerospikePrivilege(privilegesToGrant)
 		if err != nil {
@@ -300,6 +277,29 @@ func (roleCreate AerospikeRoleCreateUpdate) UpdateRole(
 		logger.Info(
 			"Granted privileges to role", "role name", roleCreate.Name,
 			"privileges", privilegesToGrant,
+		)
+	}
+
+	if len(privilegesToRevoke) > 0 {
+		aerospikePrivileges, err := privilegeStringToAerospikePrivilege(privilegesToRevoke)
+		if err != nil {
+			return fmt.Errorf(
+				"could not update role %s: %v", roleCreate.Name, err,
+			)
+		}
+
+		if err := client.RevokePrivileges(
+			adminPolicy, roleCreate.Name, aerospikePrivileges,
+		); err != nil {
+			return fmt.Errorf(
+				"error revoking privileges for role %s: %v", roleCreate.Name,
+				err,
+			)
+		}
+
+		logger.Info(
+			"Revoked privileges for role", "role name", roleCreate.Name,
+			"privileges", privilegesToRevoke,
 		)
 	}
 
