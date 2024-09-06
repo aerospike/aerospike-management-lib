@@ -741,7 +741,7 @@ func isSizeOrTime(key string) (bool, humanize) {
 	switch key {
 	case "default-ttl", "max-ttl", "tomb-raider-eligible-age",
 		"tomb-raider-period", "nsup-period", "migrate-fill-delay",
-		"tls-refresh-period":
+		"tls-refresh-period", "skip-versions-within":
 		return true, deHumanizeTime
 
 	case "memory-size", "filesize", "write-block-size",
