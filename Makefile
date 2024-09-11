@@ -35,7 +35,7 @@ test: mocks
 
 .PHONY: coverage
 coverage: mocks
-	go test ./... -coverprofile coverage.cov -coverpkg ./... || true
+	go test ./... -coverprofile coverage.cov -coverpkg ./...
 	grep -v "_mock.go" coverage.cov > coverage_no_mocks.cov && mv coverage_no_mocks.cov coverage.cov
 	grep -v "test/" coverage.cov > coverage_no_mocks.cov && mv coverage_no_mocks.cov coverage.cov
 	go tool cover -func coverage.cov

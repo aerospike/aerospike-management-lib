@@ -1148,7 +1148,7 @@ func parseAllXDRConfig(rawMap map[string]string, cmd string) lib.Stats {
 
 	if dcNamesRaw == "" {
 		dcNames = []string{}
-		xdrConfigMap[ConfigDCContext] = struct{}{}
+		xdrConfigMap[ConfigDCContext] = make(lib.Stats)
 	} else {
 		dcNames = strings.Split(dcNamesRaw, ",")
 		xdrConfigMap[ConfigDCContext] = make(lib.Stats, len(dcNames))
