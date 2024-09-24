@@ -741,7 +741,7 @@ func isSizeOrTime(key string) (bool, humanize) {
 	switch key {
 	case "default-ttl", "max-ttl", "tomb-raider-eligible-age",
 		"tomb-raider-period", "nsup-period", "migrate-fill-delay",
-		"tls-refresh-period", "skip-versions-within":
+		"tls-refresh-period", "ship-versions-interval":
 		return true, deHumanizeTime
 
 	case "memory-size", "filesize", "write-block-size",
@@ -845,7 +845,7 @@ func isStringField(key string) bool {
 		"user-dn-pattern", "scheduler-mode", "token-hash-method",
 		"remote-namespace", "tls-ca-file", "role-query-base-dn", "set-enable-xdr",
 		"secrets-tls-context", "secrets-uds-path", "secrets-address-port",
-		"default-password-file":
+		"default-password-file", "ship-versions-policy":
 		return true
 	}
 
