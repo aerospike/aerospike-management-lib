@@ -656,7 +656,7 @@ func (c *cluster) getClusterNamespaces(hostIDs []string) (
 	namespaces := map[string][]string{}
 
 	for hostID, info := range infoResults {
-		if len(info[CmdNamespaces]) > 0 {
+		if info[CmdNamespaces] != "" {
 			namespaces[hostID] = strings.Split(info[CmdNamespaces], ";")
 		} else {
 			return nil, fmt.Errorf(
