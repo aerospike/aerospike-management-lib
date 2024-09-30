@@ -965,6 +965,7 @@ func convertInterfaceSlice(log logr.Logger, k string, v []interface{}) (result i
 		switch v1.(type) {
 		case string:
 			temp := make([]string, len(v))
+
 			for i, s := range v {
 				if boolVal, isBool := s.(bool); isBool && isSpecialStringField(k) {
 					temp[i] = strconv.FormatBool(boolVal)
@@ -977,11 +978,13 @@ func convertInterfaceSlice(log logr.Logger, k string, v []interface{}) (result i
 
 		case map[string]interface{}, lib.Stats:
 			temp := make([]Conf, len(v))
+
 			for i, m := range v {
 				m1, ok := m.(map[string]interface{})
 				if !ok {
 					m1, ok = m.(lib.Stats)
 				}
+
 				if ok {
 					temp[i] = toConf(log, m1)
 				} else {

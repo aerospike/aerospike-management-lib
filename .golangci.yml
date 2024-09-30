@@ -11,9 +11,9 @@ linters-settings:
       - performance
       - style
   govet:
-    check-shadowing: true
     enable:
       - fieldalignment
+      - shadow
   nolintlint:
     require-explanation: true
     require-specific: true
@@ -56,7 +56,7 @@ linters:
 
 run:
   issues-exit-code: 1
-  go: '1.21'
+  go: '1.22'
 #  skip-dirs:
 #    - sample
 #  skip-files:

@@ -85,6 +85,7 @@ func (s *GenerateUnitTestSuite) TestGenerate() {
 		s.Run(tc.name, func() {
 			s.mockGetter.EXPECT().AllConfigs().Return(convertIntToInt64(tc.allConfigs), nil)
 			s.mockGetter.EXPECT().GetAsInfo("metadata").Return(tc.metadata, nil)
+
 			logger := logr.Discard()
 			expected := newGenConf(
 				convertIntToInt64(tc.expected),
