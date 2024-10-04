@@ -184,7 +184,7 @@ func validateSCClusterNsState(scNamespacesPerHost map[*host][]string, ignorableN
 				continue
 			}
 
-			kvMap, err := getNamespaceStats(clHost, ns)
+			kvMap, err := GetNamespaceStats(clHost, ns)
 			if err != nil {
 				return err
 			}
@@ -256,7 +256,7 @@ func recluster(clHost *host) error {
 	return nil
 }
 
-func getNamespaceStats(clHost *host, namespace string) (map[string]string, error) {
+func GetNamespaceStats(clHost *host, namespace string) (map[string]string, error) {
 	cmd := fmt.Sprintf("namespace/%s", namespace)
 
 	res, err := clHost.asConnInfo.asInfo.RequestInfo(cmd)
