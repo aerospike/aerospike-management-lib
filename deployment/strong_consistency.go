@@ -184,7 +184,7 @@ func validateSCClusterNsState(scNamespacesPerHost map[*host][]string, ignorableN
 				continue
 			}
 
-			kvMap, err := GetNamespaceStats(clHost, ns)
+			kvMap, err := getNamespaceStatsPerHost(clHost, ns)
 			if err != nil {
 				return err
 			}
@@ -256,21 +256,6 @@ func recluster(clHost *host) error {
 	return nil
 }
 
-func GetNamespaceStats(clHost *host, namespace string) (map[string]string, error) {
-	cmd := fmt.Sprintf("namespace/%s", namespace)
-
-	res, err := clHost.asConnInfo.asInfo.RequestInfo(cmd)
-	if err != nil {
-		return nil, err
-	}
-
-	cmdOutput := res[cmd]
-
-	clHost.log.V(1).Info("Run info command", "cmd", cmd)
-
-	return ParseInfoIntoMap(cmdOutput, ";", "=")
-}
-
 func setRoster(clHost *host, namespace, observedNodes string) error {
 	cmd := fmt.Sprintf("roster-set:namespace=%s;nodes=%s", namespace, observedNodes)
 
@@ -305,36 +290,6 @@ func getRoster(clHost *host, namespace string) (map[string]string, error) {
 	return ParseInfoIntoMap(cmdOutput, ":", "=")
 }
 
-func getNamespaces(clHost *host) ([]string, error) {
-	cmd := CmdNamespaces
-
-	res, err := clHost.asConnInfo.asInfo.RequestInfo(cmd)
-	if err != nil {
-		return nil, err
-	}
-
-	cmdOutput := res[cmd]
-
-	clHost.log.V(1).Info("Run info command", "cmd", cmd, "output", cmdOutput)
-
-	if cmdOutput != "" {
-		return strings.Split(cmdOutput, ";"), nil
-	}
-
-	return nil, nil
-}
-
-// ContainsString check whether list contains given string
-func containsString(list []string, ele string) bool {
-	for _, listEle := range list {
-		if strings.EqualFold(ele, listEle) {
-			return true
-		}
-	}
-
-	return false
-}
-
 func isNodeInRoster(clHost *host, ns string) (bool, error) {
 	nodeID, err := getNodeID(clHost)
 	if err != nil {
@@ -359,40 +314,4 @@ func isNodeInRoster(clHost *host, ns string) (bool, error) {
 	}
 
 	return false, nil
-}
-
-func getNodeID(clHost *host) (string, error) {
-	cmd := "node"
-
-	res, err := clHost.asConnInfo.asInfo.RequestInfo(cmd)
-	if err != nil {
-		return "", err
-	}
-
-	return res[cmd], nil
-}
-
-// ParseInfoIntoMap parses info string into a map.
-func ParseInfoIntoMap(str, del, sep string) (map[string]string, error) {
-	m := map[string]string{}
-	if str == "" {
-		return m, nil
-	}
-
-	items := strings.Split(str, del)
-
-	for _, item := range items {
-		if item == "" {
-			continue
-		}
-
-		kv := strings.Split(item, sep)
-		if len(kv) < 2 {
-			return nil, fmt.Errorf("error parsing info item %s", item)
-		}
-
-		m[kv[0]] = strings.Join(kv[1:], sep)
-	}
-
-	return m, nil
 }
