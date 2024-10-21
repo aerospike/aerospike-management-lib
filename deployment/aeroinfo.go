@@ -39,6 +39,16 @@ func InfoQuiesceUndo(log logr.Logger, policy *aero.ClientPolicy, allHosts []*Hos
 	return c.InfoQuiesceUndo(getHostIDsFromHostConns(allHosts))
 }
 
+// InfoRecluster recluster hosts.
+func InfoRecluster(log logr.Logger, policy *aero.ClientPolicy, allHosts []*HostConn) error {
+	c, err := newCluster(log, policy, allHosts, allHosts)
+	if err != nil {
+		return fmt.Errorf("unable to create a cluster copy for running aeroinfo: %v", err)
+	}
+
+	return c.InfoRecluster(getHostIDsFromHostConns(allHosts))
+}
+
 // GetQuiescedNodes returns a list of node hostIDs of all nodes that are pending_quiesce=true.
 func GetQuiescedNodes(log logr.Logger, policy *aero.ClientPolicy, allHosts []*HostConn) ([]string, error) {
 	c, err := newCluster(log, policy, allHosts, allHosts)
@@ -57,6 +67,17 @@ func SetMigrateFillDelay(log logr.Logger, policy *aero.ClientPolicy, allHosts []
 	}
 
 	return c.setMigrateFillDelay(migrateFillDelay, allHosts)
+}
+
+// SetConfigCommandsOnHosts runs set config command for dynamic config on all the given cluster nodes
+func SetConfigCommandsOnHosts(log logr.Logger, policy *aero.ClientPolicy, allHosts, selectedHosts []*HostConn,
+	cmds []string) ([]string, error) {
+	c, err := newCluster(log, policy, allHosts, selectedHosts)
+	if err != nil {
+		return nil, fmt.Errorf("unable to create a cluster copy for running aeroinfo: %v", err)
+	}
+
+	return c.setConfigCommandsOnHosts(cmds, selectedHosts)
 }
 
 // GetClusterNamespaces gets the cluster namespaces

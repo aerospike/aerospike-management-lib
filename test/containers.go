@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"github.com/aerospike/aerospike-client-go/v7"
-	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
@@ -23,7 +23,7 @@ var PortStart = 10000
 var IP = "127.0.0.1"
 var WordDirAbs = "test/work"
 var Image = "aerospike/aerospike-server-enterprise:7.0.0.2"
-var ContainerPrefix = "aerospike_mgmt_lib_test_" //nolint:gosec // This is not a credential
+var ContainerPrefix = "aerospike_mgmt_lib_test_"
 var User = "admin"
 var Password = "admin"
 
@@ -105,7 +105,7 @@ func Start(size int) error {
 	ctx := context.Background()
 	containers.dockerCLI = cli
 	containers.workDir, _ = filepath.Abs(WordDirAbs)
-	reader, err := cli.ImagePull(ctx, Image, types.ImagePullOptions{})
+	reader, err := cli.ImagePull(ctx, Image, image.PullOptions{})
 
 	if err != nil {
 		log.Printf("Unable to pull aerospike image: %s", err)
@@ -340,7 +340,7 @@ func RunAerospikeContainer(
 		return nil, err
 	}
 
-	err = cli.ContainerStart(ctx, name, types.ContainerStartOptions{})
+	err = cli.ContainerStart(ctx, name, container.StartOptions{})
 
 	if err != nil {
 		log.Printf("Unable to start container %s: %s", name, err)
@@ -403,5 +403,5 @@ func RmAerospikeContainer(name string) error {
 	cli := containers.dockerCLI
 	ctx := context.Background()
 
-	return cli.ContainerRemove(ctx, name, types.ContainerRemoveOptions{Force: true})
+	return cli.ContainerRemove(ctx, name, container.RemoveOptions{Force: true})
 }

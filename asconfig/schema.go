@@ -10,7 +10,10 @@ import (
 	"strconv"
 	"strings"
 
+	sets "github.com/deckarep/golang-set/v2"
 	"github.com/go-logr/logr"
+
+	"github.com/aerospike/aerospike-management-lib/info"
 )
 
 // map of version to schema
@@ -130,14 +133,24 @@ func baseVersion(ver string) (string, error) {
 	return baseVersion, nil
 }
 
+// GetDynamic return the map of values which are dynamic
+// values.
+func GetDynamic(ver string) (sets.Set[string], error) {
+	flatSchema, err := getFlatSchema(ver)
+	if err != nil {
+		return nil, err
+	}
+
+	return getDynamicSchema(flatSchema), nil
+}
+
 func normalizeFlatSchema(flatSchema map[string]interface{}) map[string]interface{} {
-	keys := sortKeys(flatSchema)
 	normMap := make(map[string]interface{})
 
+	keys := sortKeys(flatSchema)
 	for _, k := range keys {
 		v := flatSchema[k]
 		key := removeJSONSpecKeywords(k)
-
 		normMap[key] = eval(v)
 	}
 
@@ -146,23 +159,88 @@ func normalizeFlatSchema(flatSchema map[string]interface{}) map[string]interface
 
 // getDynamicSchema return the map of values which are dynamic
 // values.
-func getDynamicSchema(flatSchema map[string]interface{}) map[string]bool {
-	dynMap := make(map[string]bool)
+func getDynamicSchema(flatSchema map[string]interface{}) sets.Set[string] {
+	dynSet := sets.NewSet[string]()
 
 	for k, v := range flatSchema {
 		if dynRegex.MatchString(k) {
 			key := removeJSONSpecKeywords(k)
 			key = dynRegex.ReplaceAllString(key, "${1}")
 
-			if dyn, ok := v.(bool); ok {
-				dynMap[key] = dyn
-			} else {
-				dynMap[key] = false
+			if dyn, ok := v.(bool); ok && dyn {
+				dynSet.Add(key)
 			}
 		}
 	}
 
-	return dynMap
+	return dynSet
+}
+
+// IsAllDynamicConfig returns true if all the fields in the given configMap are dynamically configured.
+func IsAllDynamicConfig(log logr.Logger, configMap DynamicConfigMap, version string) (bool, error) {
+	dynamic, err := GetDynamic(version)
+	if err != nil {
+		// retry error fall back to rolling restart.
+		return false, err
+	}
+
+	for confKey := range configMap {
+		if !IsDynamicConfig(log, dynamic, confKey, configMap[confKey]) {
+			return false, nil
+		}
+	}
+
+	return true, nil
+}
+
+// IsDynamicConfig returns true if the given field is dynamically configured.
+func IsDynamicConfig(log logr.Logger, dynamic sets.Set[string], conf string,
+	valueMap map[Operation]interface{}) bool {
+	tokens := SplitKey(log, conf, sep)
+	baseKey := tokens[len(tokens)-1]
+	context := tokens[0]
+
+	if baseKey == "replication-factor" || baseKey == keyNodeAddressPorts {
+		return true
+	}
+
+	// Name key for XDR context is considered as dynamic, as both DCs and Namespaces in DCs can be added dynamically.
+	if context == info.ConfigXDRContext && baseKey == KeyName {
+		return true
+	}
+
+	// Marking these fields as static as corresponding set-config commands are not straight forward.
+	staticFieldSet := sets.NewSet("rack-id")
+	if staticFieldSet.Contains(baseKey) {
+		return false
+	}
+
+	// Marking these fields as static as removing an entry from these slices is not supported dynamically.
+	conditionalStaticFieldSet := sets.NewSet("ignore-bins", "ignore-sets", "ship-bins", "ship-sets")
+	if conditionalStaticFieldSet.Contains(baseKey) {
+		if _, ok := valueMap[Remove]; ok {
+			return false
+		}
+	}
+
+	return dynamic.Contains(GetFlatKey(tokens))
+}
+
+// getDefaultValue returns the default value of a particular config
+func getDefaultValue(defaultMap map[string]interface{}, conf string) interface{} {
+	tokens := strings.Split(conf, ".")
+
+	return defaultMap[GetFlatKey(tokens)]
+}
+
+// GetDefault return the map of default values.
+func GetDefault(ver string) (map[string]interface{}, error) {
+	flatSchema, err := getFlatSchema(ver)
+	if err != nil {
+		return nil, err
+	}
+
+	return getDefaultSchema(flatSchema), nil
 }
 
 // getDefaultSchema return the map of values which are default
