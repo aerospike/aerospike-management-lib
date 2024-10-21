@@ -97,3 +97,99 @@ func getHostsFromHostConns(hostConns []*HostConn, policy *as.ClientPolicy) ([]*h
 
 	return hosts, nil
 }
+
+func getNamespaceStats(hosts []*host, namespace string) (map[string]InfoResult, error) {
+	stats := make(map[string]InfoResult, len(hosts))
+
+	for _, host := range hosts {
+		ir, err := getNamespaceStatsPerHost(host, namespace)
+		if err != nil {
+			return nil, err
+		}
+
+		stats[host.id] = ir
+	}
+
+	return stats, nil
+}
+
+func getNamespaceStatsPerHost(clHost *host, namespace string) (map[string]string, error) {
+	cmd := fmt.Sprintf("namespace/%s", namespace)
+
+	res, err := clHost.asConnInfo.asInfo.RequestInfo(cmd)
+	if err != nil {
+		return nil, err
+	}
+
+	cmdOutput := res[cmd]
+
+	clHost.log.V(1).Info("Run info command", "cmd", cmd)
+
+	return ParseInfoIntoMap(cmdOutput, ";", "=")
+}
+
+func getNodeID(clHost *host) (string, error) {
+	cmd := "node"
+
+	res, err := clHost.asConnInfo.asInfo.RequestInfo(cmd)
+	if err != nil {
+		return "", err
+	}
+
+	return res[cmd], nil
+}
+
+// ParseInfoIntoMap parses info string into a map.
+func ParseInfoIntoMap(str, del, sep string) (map[string]string, error) {
+	m := map[string]string{}
+	if str == "" {
+		return m, nil
+	}
+
+	items := strings.Split(str, del)
+
+	for _, item := range items {
+		if item == "" {
+			continue
+		}
+
+		kv := strings.Split(item, sep)
+		if len(kv) < 2 {
+			return nil, fmt.Errorf("error parsing info item %s", item)
+		}
+
+		m[kv[0]] = strings.Join(kv[1:], sep)
+	}
+
+	return m, nil
+}
+
+// ContainsString check whether list contains given string
+func containsString(list []string, ele string) bool {
+	for _, listEle := range list {
+		if strings.EqualFold(ele, listEle) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func getNamespaces(clHost *host) ([]string, error) {
+	cmd := CmdNamespaces
+
+	res, err := clHost.asConnInfo.asInfo.RequestInfo(cmd)
+	if err != nil {
+		return nil, err
+	}
+
+	cmdOutput := res[cmd]
+
+	clHost.log.V(1).Info("Run info command", "cmd", cmd, "output", cmdOutput)
+
+	if cmdOutput != "" {
+		return strings.Split(cmdOutput, ";"), nil
+	}
+
+	return nil, nil
+}
