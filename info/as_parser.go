@@ -1681,17 +1681,3 @@ func parseIntoDcMap(str, del, sep string) lib.Stats {
 
 	return m.ToParsedValues()
 }
-
-func contains(list []string, str string) bool {
-	if len(list) == 0 {
-		return false
-	}
-
-	for _, s := range list {
-		if s == str {
-			return true
-		}
-	}
-
-	return false
-}

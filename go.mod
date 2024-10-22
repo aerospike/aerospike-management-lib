@@ -3,7 +3,7 @@ module github.com/aerospike/aerospike-management-lib
 go 1.22
 
 require (
-	github.com/aerospike/aerospike-client-go/v7 v7.1.0
+	github.com/aerospike/aerospike-client-go/v7 v7.4.0
 	github.com/deckarep/golang-set/v2 v2.3.1
 	github.com/docker/go-connections v0.4.0
 	github.com/go-logr/logr v1.4.1
@@ -54,6 +54,6 @@ require (
 	golang.org/x/sync v0.7.0 // indirect
 	golang.org/x/sys v0.21.0 // indirect
 	golang.org/x/text v0.16.0 // indirect
-	google.golang.org/grpc v1.63.0 // indirect
+	google.golang.org/grpc v1.63.2 // indirect
 	google.golang.org/protobuf v1.33.0 // indirect
 )
