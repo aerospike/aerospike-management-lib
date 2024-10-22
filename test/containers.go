@@ -10,12 +10,13 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/aerospike/aerospike-client-go/v7"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
+
+	"github.com/aerospike/aerospike-client-go/v7"
 )
 
 var ClusterName = "mgmt-lib-test"
@@ -105,16 +106,16 @@ func Start(size int) error {
 	ctx := context.Background()
 	containers.dockerCLI = cli
 	containers.workDir, _ = filepath.Abs(WordDirAbs)
-	reader, err := cli.ImagePull(ctx, Image, image.PullOptions{})
 
+	reader, err := cli.ImagePull(ctx, Image, image.PullOptions{})
 	if err != nil {
 		log.Printf("Unable to pull aerospike image: %s", err)
 		return err
 	}
 
 	defer reader.Close()
-	_, err = io.Copy(os.Stdout, reader)
 
+	_, err = io.Copy(os.Stdout, reader)
 	if err != nil {
 		log.Printf("Unable to pull aerospike image: %s", err)
 		return err
@@ -311,11 +312,6 @@ func RunAerospikeContainer(
 		},
 	}
 
-	if err != nil {
-		log.Printf("Unable to get absolute path for work directory: %s", err)
-		return nil, err
-	}
-
 	hostConfig := &container.HostConfig{
 		PortBindings: nat.PortMap{
 			nat.Port(ports[0]): []nat.PortBinding{{
@@ -340,9 +336,7 @@ func RunAerospikeContainer(
 		return nil, err
 	}
 
-	err = cli.ContainerStart(ctx, name, container.StartOptions{})
-
-	if err != nil {
+	if err = cli.ContainerStart(ctx, name, container.StartOptions{}); err != nil {
 		log.Printf("Unable to start container %s: %s", name, err)
 		return nil, err
 	}
