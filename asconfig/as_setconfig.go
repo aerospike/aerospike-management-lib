@@ -271,25 +271,30 @@ func createSetConfigXDRCmdList(tokens []string, operationValueMap map[OpType][]s
 			// Assuming there are only 2 section types in XDR context (DC and Namespace)
 			if token == KeyName {
 				objectAddedOrRemoved = true
+
 				if prevToken == info.ConfigDCContext {
 					// example of a command: set-config:context=xdr;dc=dc1;action=create
 					if _, ok := operationValueMap[Add]; ok {
 						action = "create"
 					}
+
 					if _, ok := operationValueMap[Remove]; ok {
 						action = "delete"
 					}
 				}
+
 				if prevToken == info.ConfigNamespaceContext {
 					// example of a command: set-config:context=xdr;dc=dc1;namespace=test;action=add
 					if _, ok := operationValueMap[Add]; ok {
 						action = Add
 					}
+
 					if _, ok := operationValueMap[Remove]; ok {
 						action = Remove
 					}
 				}
 			}
+
 			prevToken = token
 		}
 	}
@@ -423,9 +428,11 @@ func rearrangeConfigMap(log logr.Logger, configMap DynamicConfigMap) []string {
 				if strings.HasSuffix(k, sep+keyNodeAddressPorts) {
 					if _, ok := v[Remove]; ok {
 						dc := rearrangedConfigMap.PushFront(k)
+
 						if lastDC == nil {
 							lastDC = dc
 						}
+
 						continue
 					} else if lastDCConfig != nil {
 						// Add 'node-address-ports' after all DC direct fields
@@ -441,6 +448,7 @@ func rearrangeConfigMap(log logr.Logger, configMap DynamicConfigMap) []string {
 					// Add modified DC direct fields after the DC names and before the namespaces
 					nap = rearrangedConfigMap.InsertAfter(k, lastDC)
 				}
+
 				if lastDCConfig == nil {
 					lastDCConfig = nap
 				}

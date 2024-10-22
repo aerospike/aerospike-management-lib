@@ -501,7 +501,7 @@ func (c *cluster) infoClusterStable(hostIDs []string) error {
 	lg.V(1).Info("Executing cluster-stable command")
 
 	cmd := fmt.Sprintf(
-		"cluster-stable:size=%d;ignore-migrations=no", len(hostIDs),
+		"cluster-stable:size=%d;ignore-migrations=false", len(hostIDs),
 	)
 
 	infoResults, err := c.infoOnHosts(hostIDs, cmd)
@@ -562,7 +562,7 @@ func (c *cluster) infoClusterStablePerNamespace(hostIDs, removedNamespaces []str
 
 	for ns := range effectiveNamespaces.Iter() {
 		cmd := fmt.Sprintf(
-			"cluster-stable:size=%d;ignore-migrations=no;namespace=%s", len(hostIDs), ns,
+			"cluster-stable:size=%d;ignore-migrations=false;namespace=%s", len(hostIDs), ns,
 		)
 
 		infoResults, err := c.infoOnHosts(hostIDs, cmd)
@@ -656,7 +656,7 @@ func (c *cluster) getClusterNamespaces(hostIDs []string) (
 	namespaces := map[string][]string{}
 
 	for hostID, info := range infoResults {
-		if len(info[CmdNamespaces]) > 0 {
+		if info[CmdNamespaces] != "" {
 			namespaces[hostID] = strings.Split(info[CmdNamespaces], ";")
 		} else {
 			return nil, fmt.Errorf(

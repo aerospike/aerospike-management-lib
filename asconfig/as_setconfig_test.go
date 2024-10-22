@@ -68,6 +68,7 @@ func (s *AsSetConfigTestSuite) TestCreateSetConfigCmdList() {
 
 			s.mockASConn.EXPECT().RunInfo(gomock.Any(), gomock.Any()).Return(map[string]string{
 				"logs": "0:stderr"}, nil).AnyTimes()
+
 			result, err := CreateSetConfigCmdList(logger, tc.inputConf, s.mockASConn, policy)
 
 			s.Assert().Nil(err)

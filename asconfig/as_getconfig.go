@@ -88,6 +88,7 @@ func traverseConfig(logger logr.Logger, conf interface{}, path, context string) 
 			if !ok {
 				return nil, fmt.Errorf("invalid configuration type")
 			}
+
 			conf = stats[token]
 		}
 
