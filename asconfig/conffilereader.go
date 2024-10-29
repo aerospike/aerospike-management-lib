@@ -181,8 +181,16 @@ func writeConf(log logr.Logger, tok []string, conf Conf) error {
 	// Handle human readable content
 	if ok, humanizeFn := isSizeOrTime(cfgName); ok {
 		conf[cfgName], _ = humanizeFn(tok[1])
+
+		// TOOLS-2979 Handle special case for sindex-stage-size
+		err := is128MPowerOf2MultipleValid(cfgName, conf[cfgName])
+		if err != nil {
+			return err
+		}
+
 		return nil
 	}
+
 	// More special Case handling
 	switch cfgName {
 	case "context":

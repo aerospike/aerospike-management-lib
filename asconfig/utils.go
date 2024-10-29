@@ -29,6 +29,8 @@ const (
 	NONE    sysproptype = "NONE"
 )
 
+const SIZE_128M = 1024 * 1024 * 128
+
 var portRegex = regexp.MustCompile("port")
 
 type humanize func(string) (uint64, error)
@@ -757,6 +759,46 @@ func isSizeOrTime(key string) (bool, humanize) {
 	default:
 		return false, nil
 	}
+}
+
+// Special size based fields generally like 128M, 256M etc.
+// Allowed values are possible with power of 2s multiple 128M.
+func is128MPowerOf2MultipleField(key string) bool {
+	switch key {
+	case "sindex-stage-size":
+		return true
+	}
+
+	return false
+}
+
+// is128MPowerOf2MultipleValid checks if the given value is a valid multiple of 128M and a power of 2.
+// It first verifies if the key is a 128M power of 2 multiple field. If not, it returns nil.
+// Then, it checks if the value is of type uint64. If not, it returns an error indicating an invalid value type.
+// Finally, it checks if the value is a non-zero multiple of 128M and a power of 2. If so, it returns nil.
+// Otherwise, it returns an error indicating an invalid value.
+//
+// Parameters:
+//   - key: The key to check if it is a 128M power of 2 multiple field.
+//   - val: The value to validate.
+//
+// Returns:
+//   - error: An error if the value is invalid, otherwise nil.
+func is128MPowerOf2MultipleValid(key string, val interface{}) error {
+	if !is128MPowerOf2MultipleField(key) {
+		return nil
+	}
+
+	specFieldValue, ok := val.(uint64)
+	if !ok {
+		return fmt.Errorf("invalid value type for %s: %v", key, val)
+	}
+
+	if specFieldValue != 0 && (specFieldValue%SIZE_128M == 0 && (specFieldValue/SIZE_128M&(specFieldValue/SIZE_128M-1)) == 0) {
+		return nil
+	}
+
+	return fmt.Errorf("invalid value for %s: %v", key, val)
 }
 
 func isStorageEngineKey(key string) bool {
