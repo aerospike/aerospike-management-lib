@@ -29,7 +29,7 @@ const (
 	NONE    sysproptype = "NONE"
 )
 
-const SIZE_128M = 1024 * 1024 * 128
+const size128M = 1024 * 1024 * 128
 
 var portRegex = regexp.MustCompile("port")
 
@@ -767,9 +767,10 @@ func is128MPowerOf2MultipleField(key string) bool {
 	switch key {
 	case "sindex-stage-size":
 		return true
-	}
 
-	return false
+	default:
+		return false
+	}
 }
 
 // is128MPowerOf2MultipleValid checks if the given value is a valid multiple of 128M and a power of 2.
@@ -794,7 +795,8 @@ func is128MPowerOf2MultipleValid(key string, val interface{}) error {
 		return fmt.Errorf("invalid value type for %s: %v", key, val)
 	}
 
-	if specFieldValue != 0 && (specFieldValue%SIZE_128M == 0 && (specFieldValue/SIZE_128M&(specFieldValue/SIZE_128M-1)) == 0) {
+	if specFieldValue != 0 && (specFieldValue%size128M == 0 &&
+		(specFieldValue/size128M&(specFieldValue/size128M-1)) == 0) {
 		return nil
 	}
 
