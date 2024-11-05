@@ -741,7 +741,7 @@ func isSizeOrTime(key string) (bool, humanize) {
 	switch key {
 	case "default-ttl", "max-ttl", "tomb-raider-eligible-age",
 		"tomb-raider-period", "nsup-period", "migrate-fill-delay",
-		"tls-refresh-period":
+		"tls-refresh-period", "ship-versions-interval":
 		return true, deHumanizeTime
 
 	case "memory-size", "filesize", "write-block-size",
@@ -750,7 +750,8 @@ func isSizeOrTime(key string) (bool, humanize) {
 		"stop-writes-count", "stop-writes-size",
 		"mounts-budget", "data-size",
 		"quarantine-allocations", "flush-size",
-		"post-write-cache", "indexes-memory-budget":
+		"post-write-cache", "indexes-memory-budget",
+		"sindex-stage-size":
 		return true, deHumanizeSize
 
 	default:
@@ -845,7 +846,7 @@ func isStringField(key string) bool {
 		"user-dn-pattern", "scheduler-mode", "token-hash-method",
 		"remote-namespace", "tls-ca-file", "role-query-base-dn", "set-enable-xdr",
 		"secrets-tls-context", "secrets-uds-path", "secrets-address-port",
-		"default-password-file":
+		"default-password-file", "ship-versions-policy":
 		return true
 	}
 
@@ -965,6 +966,7 @@ func convertInterfaceSlice(log logr.Logger, k string, v []interface{}) (result i
 		switch v1.(type) {
 		case string:
 			temp := make([]string, len(v))
+
 			for i, s := range v {
 				if boolVal, isBool := s.(bool); isBool && isSpecialStringField(k) {
 					temp[i] = strconv.FormatBool(boolVal)
@@ -977,11 +979,13 @@ func convertInterfaceSlice(log logr.Logger, k string, v []interface{}) (result i
 
 		case map[string]interface{}, lib.Stats:
 			temp := make([]Conf, len(v))
+
 			for i, m := range v {
 				m1, ok := m.(map[string]interface{})
 				if !ok {
 					m1, ok = m.(lib.Stats)
 				}
+
 				if ok {
 					temp[i] = toConf(log, m1)
 				} else {

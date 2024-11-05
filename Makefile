@@ -8,7 +8,7 @@ endif
 MOCKGEN ?= $(GOBIN)/mockgen
 MOCKGEN_VERSION ?= v0.3.0
 GOLANGCI_LINT ?= $(GOBIN)/golangci-lint
-GOLANGCI_LINT_VERSION ?= v1.54.0
+GOLANGCI_LINT_VERSION ?= v1.59.1
 
 .PHONY: golanci-lint
 golanci-lint: $(GOLANGCI_LINT) ## Download golangci-lint locally if necessary.
@@ -35,7 +35,7 @@ test: mocks
 
 .PHONY: coverage
 coverage: mocks
-	go test ./... -coverprofile coverage.cov -coverpkg ./... || true
+	go test ./... -coverprofile coverage.cov -coverpkg ./...
 	grep -v "_mock.go" coverage.cov > coverage_no_mocks.cov && mv coverage_no_mocks.cov coverage.cov
 	grep -v "test/" coverage.cov > coverage_no_mocks.cov && mv coverage_no_mocks.cov coverage.cov
 	go tool cover -func coverage.cov

@@ -57,7 +57,7 @@ const (
 	constStatSIndex   = "sindex/"    // StatSindex
 	constStatNSNames  = "namespaces" // StatNamespaces
 	constStatDCNames  = "dcs"        // StatDcs need dc names
-	constStatLogIDS   = "logs"       // StatLogs need logging id
+	constStatLogIDs   = "logs"       // StatLogs need logging id
 
 	cmdConfigNetwork   = "get-config:context=network"       // ConfigNetwork
 	cmdConfigService   = "get-config:context=service"       // ConfigService
@@ -397,7 +397,7 @@ func GetTLSNamesCmd() string {
 
 // GetLogNamesCmd returns the command to get log names
 func GetLogNamesCmd() string {
-	return constStatLogIDS
+	return constStatLogIDs
 }
 
 // GetSindexNamesCmd returns the command to get sindex names
@@ -436,7 +436,7 @@ func ParseTLSNames(m map[string]string) []string {
 
 // ParseLogNames parses all log names
 func ParseLogNames(m map[string]string) []string {
-	logs := ParseIntoMap(m[constStatLogIDS], ";", ":")
+	logs := ParseIntoMap(m[constStatLogIDs], ";", ":")
 	names := make([]string, 0, len(logs))
 
 	for _, l := range logs {
@@ -467,7 +467,7 @@ func ParseSetNames(m map[string]string, ns string) []string {
 
 func (info *AsInfo) getCoreInfo() (map[string]string, error) {
 	m, err := info.RequestInfo(
-		constStatNSNames, constStatDCNames, constStatSIndex, constStatLogIDS, cmdMetaBuild,
+		constStatNSNames, constStatDCNames, constStatSIndex, constStatLogIDs, cmdMetaBuild,
 	)
 	if err != nil {
 		return nil, err
@@ -589,7 +589,7 @@ func (info *AsInfo) createConfigCmdList(
 			cmdList = append(cmdList, cmdConfigSecurity)
 
 		case ConfigLoggingContext:
-			logs := ParseIntoMap(m[constStatLogIDS], ";", ":")
+			logs := ParseIntoMap(m[constStatLogIDs], ";", ":")
 			for id := range logs {
 				cmdList = append(cmdList, cmdConfigLogging+id)
 			}
@@ -1070,7 +1070,7 @@ func parseConfigInfo(rawMap map[string]string) lib.Stats {
 
 func parseAllLoggingConfig(rawMap map[string]string, cmd string) lib.Stats {
 	logConfigMap := make(lib.Stats)
-	logs := ParseIntoMap(rawMap[constStatLogIDS], ";", ":")
+	logs := ParseIntoMap(rawMap[constStatLogIDs], ";", ":")
 
 	for id := range logs {
 		m := parseBasicConfigInfo(rawMap[cmd+id], ":")
@@ -1118,7 +1118,7 @@ func parseConfigSetsInfo(res string) lib.Stats {
 
 	for _, setStat := range ml {
 		set := setStat.TryString("set", "")
-		if len(set) > 0 {
+		if set != "" {
 			for k := range setStat {
 				if !strings.Contains(k, "-") {
 					// TODO: Is it good enough to consider keys with '-' as
@@ -1148,7 +1148,7 @@ func parseAllXDRConfig(rawMap map[string]string, cmd string) lib.Stats {
 
 	if dcNamesRaw == "" {
 		dcNames = []string{}
-		xdrConfigMap[ConfigDCContext] = struct{}{}
+		xdrConfigMap[ConfigDCContext] = make(lib.Stats)
 	} else {
 		dcNames = strings.Split(dcNamesRaw, ",")
 		xdrConfigMap[ConfigDCContext] = make(lib.Stats, len(dcNames))
@@ -1170,7 +1170,7 @@ func parseAllXDRConfig(rawMap map[string]string, cmd string) lib.Stats {
 
 		if nsNamesRaw == "" {
 			nsNames = []string{}
-			dcMap[ConfigNamespaceContext] = struct{}{}
+			dcMap[ConfigNamespaceContext] = make(lib.Stats)
 		} else {
 			nsNames = strings.Split(nsNamesRaw, ",")
 			dcMap[ConfigNamespaceContext] = make(lib.Stats, len(nsNames))
@@ -1448,6 +1448,7 @@ func parseLatencyInfo(log logr.Logger, rawStr string) lib.Stats {
 			}
 
 			nstats["tps"] = nstats.TryFloat("tps", 0) + opsCount
+
 			nBuckets := nstats["buckets"].([]string)
 			if len(buckets) > len(nBuckets) {
 				nstats["buckets"] = append(nBuckets, buckets[len(nBuckets):]...)
