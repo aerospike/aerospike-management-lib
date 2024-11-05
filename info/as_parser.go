@@ -928,7 +928,7 @@ func parseAllDcStats(rawMap map[string]string) lib.Stats {
 	dcNames := ParseDCNames(rawMap)
 
 	for _, dc := range dcNames {
-		newCmd := constStatDC + "/" + dc
+		newCmd := constStatDC + dc
 		s := parseBasicInfo(rawMap[newCmd])
 		dcStats[dc] = s
 	}
