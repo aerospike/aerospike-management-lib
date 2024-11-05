@@ -41,23 +41,20 @@ const (
 )
 
 const (
-	DefaultTimeout = 2 * time.Second
-
 	// Explicit constants are defined with `const` prefix when
 	// 1. string values which are not commands
 	// 2. string values which are used to generate other commands
 	// 3. string values which are both command and constant
-	constStatXDRPre50 = "statistics/xdr" // StatXdr
-	constStatXDR      = "get-stats:context=xdr"
-	constStatNS       = "namespace/" // StatNamespace
-	constStatDCpre50  = "dc/"        // statDC
-	constStatDC       = "get-stats:context=xdr;dc="
-	constStatSet      = "sets/"      // StatSets
-	constStatBin      = "bins/"      // StatBins
-	constStatSIndex   = "sindex/"    // StatSindex
-	constStatNSNames  = "namespaces" // StatNamespaces
-	constStatDCNames  = "dcs"        // StatDcs need dc names
-	constStatLogIDs   = "logs"       // StatLogs need logging id
+	constStatXDR     = "statistics/xdr" // StatXdr
+	constStatNS      = "namespace/"     // StatNamespace
+	constStatDCpre50 = "dc/"            // statDC
+	constStatDC      = "get-stats:context=xdr;dc="
+	constStatSet     = "sets/"      // StatSets
+	constStatBin     = "bins/"      // StatBins
+	constStatSIndex  = "sindex/"    // StatSindex
+	constStatNSNames = "namespaces" // StatNamespaces
+	constStatDCNames = "dcs"        // StatDcs need dc names
+	constStatLogIDs  = "logs"       // StatLogs need logging id
 
 	cmdConfigNetwork   = "get-config:context=network"       // ConfigNetwork
 	cmdConfigService   = "get-config:context=service"       // ConfigService
@@ -387,11 +384,6 @@ func GetNamespaceNamesCmd() string {
 	return constStatNSNames
 }
 
-// GetDCNamesCmd returns the command to get DC namespace
-func GetDCNamesCmd() string {
-	return constStatDCNames
-}
-
 // GetTLSNamesCmd returns the command to get TLS names
 func GetTLSNamesCmd() string {
 	return cmdConfigNetwork
@@ -419,7 +411,23 @@ func ParseNamespaceNames(m map[string]string) []string {
 
 // ParseDCNames parses all DC names
 func ParseDCNames(m map[string]string) []string {
-	return getNames(m[constStatDCNames])
+	rawXDRConfig := m[cmdConfigXDR]
+	xdrConfig := ParseIntoMap(rawXDRConfig, ";", "=")
+	rawNames, ok := xdrConfig[constStatDCNames].(string)
+
+	var dcNames []string
+
+	if ok {
+		if rawNames == "" {
+			dcNames = []string{}
+		} else {
+			dcNames = strings.Split(rawNames, ",")
+		}
+	} else {
+		dcNames = []string{}
+	}
+
+	return dcNames
 }
 
 // ParseTLSNames parses all TLS names
@@ -469,7 +477,7 @@ func ParseSetNames(m map[string]string, ns string) []string {
 
 func (info *AsInfo) getCoreInfo() (map[string]string, error) {
 	m, err := info.RequestInfo(
-		constStatNSNames, constStatDCNames, constStatSIndex, constStatLogIDs, cmdMetaBuild,
+		constStatNSNames, cmdConfigXDR, constStatSIndex, constStatLogIDs, cmdMetaBuild,
 	)
 	if err != nil {
 		return nil, err
@@ -512,7 +520,7 @@ func (info *AsInfo) createCmdList(
 }
 
 func (info *AsInfo) createStatCmdList(m map[string]string) []string {
-	cmdList := []string{ConstStat, constStatXDRPre50, constStatNSNames, constStatDCNames}
+	cmdList := []string{ConstStat, constStatXDR, constStatNSNames}
 
 	nsNames := getNames(m[constStatNSNames])
 	for _, ns := range nsNames {
@@ -643,22 +651,8 @@ func (info *AsInfo) createXDRConfigCmdList(build string, m map[string]string) ([
 		return nil, err
 	}
 
-	var dcNames []string
-
 	m = mergeDicts(m, resp)
-	rawXDRConfig := resp[cmdConfigXDR]
-	xdrConfig := ParseIntoMap(rawXDRConfig, ";", "=")
-	rawNames, ok := xdrConfig[constStatDCNames].(string)
-
-	if ok {
-		if rawNames == "" {
-			dcNames = []string{}
-		} else {
-			dcNames = strings.Split(rawNames, ",")
-		}
-	} else {
-		dcNames = []string{}
-	}
+	dcNames := ParseDCNames(m)
 
 	results := make(chan error, len(dcNames))
 
@@ -931,7 +925,7 @@ func parseStatInfo(rawMap map[string]string) lib.Stats {
 // AllDCStats returns statistics of all dc's on the host.
 func parseAllDcStats(rawMap map[string]string) lib.Stats {
 	dcStats := make(lib.Stats)
-	dcNames := getNames(rawMap[constStatDCNames])
+	dcNames := ParseDCNames(rawMap)
 
 	for _, dc := range dcNames {
 		newCmd := constStatDC + "/" + dc
