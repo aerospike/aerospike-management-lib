@@ -332,6 +332,8 @@ func (info *AsInfo) GetAsInfo(cmdList ...string) (NodeAsStats, error) {
 		return nil, fmt.Errorf("failed to create cmd list: %w", err)
 	}
 
+	info.log.V(1).Info("Raw command list", "commands", rawCmdList)
+
 	return info.execute(info.log, rawCmdList, m, cmdList...)
 }
 
