@@ -136,7 +136,7 @@ func (s *AsParserTestSuite) TestAsInfoGetAsConfig() {
 	for _, tc := range testCases {
 		s.Run(tc.context, func() {
 			// Call GetAsInfo with the input from the test case
-			s.mockConn.EXPECT().RequestInfo([]string{"namespaces", "dcs", "sindex/", "logs", "build"}).Return(tc.coreInfoResp, nil)
+			s.mockConn.EXPECT().RequestInfo([]string{"namespaces", "get-config:context=xdr", "sindex/", "logs", "build"}).Return(tc.coreInfoResp, nil)
 
 			if tc.req != nil {
 				s.mockConn.EXPECT().RequestInfo(tc.req).Return(tc.resp, nil)
@@ -155,7 +155,7 @@ func (s *AsParserTestSuite) TestAsInfoGetAsConfigXDR5Enabled() {
 	coreInfoResp := map[string]string{"build": "5.0.0.0"}
 
 	// Call GetAsInfo with the input from the test case
-	s.mockConn.EXPECT().RequestInfo([]string{"namespaces", "dcs", "sindex/", "logs", "build"}).Return(coreInfoResp, nil)
+	s.mockConn.EXPECT().RequestInfo([]string{"namespaces", "get-config:context=xdr", "sindex/", "logs", "build"}).Return(coreInfoResp, nil)
 	s.mockConn.EXPECT().RequestInfo([]string{"get-config:context=xdr"}).Return(map[string]string{"get-config:context=xdr": "dcs=DC1,DC2;src-id=0;trace-sample=0"}, nil)
 	s.mockConn.EXPECT().RequestInfo([]string{"get-config:context=xdr;dc=DC1"}).Return(map[string]string{"get-config:context=xdr;dc=DC1": "auth-mode=none;auth-password-file=null;auth-user=null;connector=false;max-recoveries-interleaved=0;node-address-port=;period-ms=100;tls-name=null;use-alternate-access-address=false;namespaces=test"}, nil)
 	s.mockConn.EXPECT().RequestInfo([]string{"get-config:context=xdr;dc=DC2"}).Return(map[string]string{"get-config:context=xdr;dc=DC2": "auth-mode=none;auth-password-file=null;auth-user=null;connector=false;max-recoveries-interleaved=0;node-address-port=;period-ms=100;tls-name=null;use-alternate-access-address=false;namespaces=bar"}, nil)
@@ -185,7 +185,7 @@ func (s *AsParserTestSuite) TestAsInfoGetAsConfigXDR5Disabled() {
 	coreInfoResp := map[string]string{"build": "5.0.0.0"}
 
 	// Call GetAsInfo with the input from the test case
-	s.mockConn.EXPECT().RequestInfo([]string{"namespaces", "dcs", "sindex/", "logs", "build"}).Return(coreInfoResp, nil)
+	s.mockConn.EXPECT().RequestInfo([]string{"namespaces", "get-config:context=xdr", "sindex/", "logs", "build"}).Return(coreInfoResp, nil)
 	s.mockConn.EXPECT().RequestInfo([]string{"get-config:context=xdr"}).Return(map[string]string{"get-config:context=xdr": "dcs=;src-id=0;trace-sample=0"}, nil)
 
 	expected := lib.Stats{"xdr": lib.Stats{

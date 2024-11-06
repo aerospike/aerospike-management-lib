@@ -329,8 +329,6 @@ func (info *AsInfo) GetAsInfo(cmdList ...string) (NodeAsStats, error) {
 		return nil, fmt.Errorf("failed to create cmd list: %w", err)
 	}
 
-	info.log.V(1).Info("Raw command list", "commands", rawCmdList)
-
 	return info.execute(info.log, rawCmdList, m, cmdList...)
 }
 
@@ -411,6 +409,10 @@ func ParseNamespaceNames(m map[string]string) []string {
 
 // ParseDCNames parses all DC names
 func ParseDCNames(m map[string]string) []string {
+	if r, _ := lib.CompareVersions(m[cmdMetaBuild], "5.0"); r == -1 {
+		return getNames(m[constStatDCNames])
+	}
+
 	rawXDRConfig := m[cmdConfigXDR]
 	xdrConfig := ParseIntoMap(rawXDRConfig, ";", "=")
 	rawNames, ok := xdrConfig[constStatDCNames].(string)
