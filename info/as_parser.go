@@ -45,16 +45,16 @@ const (
 	// 1. string values which are not commands
 	// 2. string values which are used to generate other commands
 	// 3. string values which are both command and constant
-	constStatXDR     = "statistics/xdr" // StatXdr
-	constStatNS      = "namespace/"     // StatNamespace
-	constStatDCpre50 = "dc/"            // statDC
-	constStatDC      = "get-stats:context=xdr;dc="
-	constStatSet     = "sets/"      // StatSets
-	constStatBin     = "bins/"      // StatBins
-	constStatSIndex  = "sindex/"    // StatSindex
-	constStatNSNames = "namespaces" // StatNamespaces
-	constStatDCNames = "dcs"        // StatDcs need dc names
-	constStatLogIDs  = "logs"       // StatLogs need logging id
+	constStatXDRpre50 = "statistics/xdr" // StatXdr
+	constStatNS       = "namespace/"     // StatNamespace
+	constStatDCpre50  = "dc/"            // statDC
+	constStatDC       = "get-stats:context=xdr;dc="
+	constStatSet      = "sets/"      // StatSets
+	constStatBin      = "bins/"      // StatBins
+	constStatSIndex   = "sindex/"    // StatSindex
+	constStatNSNames  = "namespaces" // StatNamespaces
+	constStatDCNames  = "dcs"        // StatDcs need dc names
+	constStatLogIDs   = "logs"       // StatLogs need logging id
 
 	cmdConfigNetwork   = "get-config:context=network"       // ConfigNetwork
 	cmdConfigService   = "get-config:context=service"       // ConfigService
@@ -533,8 +533,12 @@ func (info *AsInfo) createStatCmdList(m map[string]string) []string {
 	for _, ns := range nsNames {
 		// namespace, sets, bins, sindex
 		cmdList = append(
-			cmdList, constStatNS+ns, constStatSet+ns, constStatBin+ns, constStatSIndex+ns,
+			cmdList, constStatNS+ns, constStatSet+ns, constStatSIndex+ns,
 		)
+
+		if r, _ := lib.CompareVersions(m[cmdMetaBuild], "7.0"); r == -1 {
+			cmdList = append(cmdList, constStatBin+ns)
+		}
 
 		indexNames := sindexNames(m[constStatSIndex], ns)
 		for _, index := range indexNames {
@@ -922,9 +926,12 @@ func parseStatInfo(rawMap map[string]string) lib.Stats {
 	statMap := make(lib.Stats)
 
 	statMap["service"] = parseBasicInfo(rawMap[ConstStat])
-	statMap["xdr"] = parseBasicInfo(rawMap[constStatXDR])
 	statMap["dc"] = parseAllDcStats(rawMap)
 	statMap["namespace"] = parseAllNsStats(rawMap)
+
+	if r, _ := lib.CompareVersions(rawMap[cmdMetaBuild], "5.0"); r == -1 {
+		statMap["xdr"] = parseBasicInfo(rawMap[constStatXDRpre50])
+	}
 
 	return statMap
 }
@@ -951,7 +958,11 @@ func parseAllNsStats(rawMap map[string]string) lib.Stats {
 		m := make(lib.Stats)
 		m["service"] = parseStatNsInfo(rawMap[constStatNS+ns])
 		m["set"] = parseStatSetsInfo(rawMap[constStatSet+ns])
-		m["bin"] = parseStatBinsInfo(rawMap[constStatBin+ns])
+
+		if r, _ := lib.CompareVersions(rawMap[cmdMetaBuild], "7.0"); r == -1 {
+			m["bin"] = parseStatBinsInfo(rawMap[constStatBin+ns])
+		}
+
 		m["sindex"] = parseStatSindexsInfo(rawMap, ns)
 
 		nsStatMap[ns] = m
