@@ -1,6 +1,6 @@
 package asconfig
 
-type Operation string
+type OpType string
 
 // All the aerospike config related keys
 const (
@@ -33,8 +33,8 @@ const (
 	equal                = "="
 	colon                = ":"
 
-	// Enum values for Operation
-	Add    Operation = "add"
-	Remove Operation = "remove"
-	Update Operation = "update"
+	// Enum values for OpType
+	Add    OpType = "add"
+	Remove OpType = "remove"
+	Update OpType = "update"
 )
