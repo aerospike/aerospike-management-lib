@@ -1135,4 +1135,4 @@ var ReCurlyBraces = regexp.MustCompile(`^\{.*\}$`)
 
 // DynamicConfigMap is a map of config flatten keys and their operations and values
 // for eg: "xdr.dcs.{DC3}.node-address-ports": {Remove: []string{"1.1.2.1 3000"}}
-type DynamicConfigMap map[string]map[OpType]interface{}
+type DynamicConfigMap map[string]map[Operation]interface{}

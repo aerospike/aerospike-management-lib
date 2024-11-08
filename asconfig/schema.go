@@ -195,7 +195,7 @@ func IsAllDynamicConfig(log logr.Logger, configMap DynamicConfigMap, version str
 
 // IsDynamicConfig returns true if the given field is dynamically configured.
 func IsDynamicConfig(log logr.Logger, dynamic sets.Set[string], conf string,
-	valueMap map[OpType]interface{}) bool {
+	valueMap map[Operation]interface{}) bool {
 	tokens := SplitKey(log, conf, sep)
 	baseKey := tokens[len(tokens)-1]
 	context := tokens[0]
