@@ -45,23 +45,20 @@ const (
 	// 1. string values which are not commands
 	// 2. string values which are used to generate other commands
 	// 3. string values which are both command and constant
-	constStatXDRpre50 = "statistics/xdr" // StatXdr
-	constStatNS       = "namespace/"     // StatNamespace
-	constStatDCpre50  = "dc/"            // statDC
-	constStatDC       = "get-stats:context=xdr;dc="
-	constStatSet      = "sets/"      // StatSets
-	constStatBin      = "bins/"      // StatBins
-	constStatSIndex   = "sindex/"    // StatSindex
-	constStatNSNames  = "namespaces" // StatNamespaces
-	constStatDCNames  = "dcs"        // StatDcs need dc names
-	constStatLogIDs   = "logs"       // StatLogs need logging id
+	constStatNS      = "namespace/" // StatNamespace
+	constStatDC      = "get-stats:context=xdr;dc="
+	constStatSet     = "sets/"      // StatSets
+	constStatBin     = "bins/"      // StatBins
+	constStatSIndex  = "sindex/"    // StatSindex
+	constStatNSNames = "namespaces" // StatNamespaces
+	constStatDCNames = "dcs"        // StatDcs need dc names
+	constStatLogIDs  = "logs"       // StatLogs need logging id
 
 	cmdConfigNetwork   = "get-config:context=network"       // ConfigNetwork
 	cmdConfigService   = "get-config:context=service"       // ConfigService
 	cmdConfigNamespace = "get-config:context=namespace;id=" // ConfigNamespace
 	cmdConfigXDR       = "get-config:context=xdr"           // ConfigXDR
 	cmdConfigSecurity  = "get-config:context=security"      // ConfigSecurity
-	cmdConfigDCPre50   = "get-dc-config:context=dc;dc="     // ConfigDC
 	cmdConfigDC        = "get-config:context=xdr;dc="       // ConfigDC
 	cmdConfigMESH      = "mesh"                             // ConfigMesh
 	cmdConfigRacks     = "racks:"                           // configRacks
@@ -414,10 +411,6 @@ func ParseNamespaceNames(m map[string]string) []string {
 
 // ParseDCNames parses all DC names
 func ParseDCNames(m map[string]string) []string {
-	if r, _ := lib.CompareVersions(m[cmdMetaBuild], "5.0"); r == -1 {
-		return getNames(m[constStatDCNames])
-	}
-
 	rawXDRConfig := m[cmdConfigXDR]
 	xdrConfig := ParseIntoMap(rawXDRConfig, ";", "=")
 	rawNames, ok := xdrConfig[constStatDCNames].(string)
@@ -590,21 +583,13 @@ func (info *AsInfo) createConfigCmdList(
 			)
 
 		case ConfigXDRContext:
-			xdrCmdList, err := info.createXDRConfigCmdList(m[cmdMetaBuild], m)
-
+			xdrCmdList, err := info.createXDRConfigCmdList(m)
 			if err != nil {
 				// TODO: log?
 				return nil, err
 			}
 
 			cmdList = append(cmdList, xdrCmdList...)
-
-		// Pre 4.9 Only. Post 4.9 all DC configs are in xdr context.
-		case ConfigDCContext:
-			cmdList = append(
-				cmdList,
-				info.createDCConfigCmdListPre49(m[cmdMetaBuild], ParseDCNames(m)...)...,
-			)
 
 		case ConfigSecurityContext:
 			cmdList = append(cmdList, cmdConfigSecurity)
@@ -650,21 +635,16 @@ func (info *AsInfo) createSetConfigCmdList(nsNames ...string) []string {
 	return cmdList
 }
 
-func (info *AsInfo) createXDRConfigCmdList(build string, m map[string]string) ([]string, error) {
-	if r, _ := lib.CompareVersions(build, "5.0"); r == -1 {
-		return []string{cmdConfigXDR}, nil
-	}
-
+func (info *AsInfo) createXDRConfigCmdList(m map[string]string) ([]string, error) {
 	cmdList := make([]string, 0, 1)
-	resp, err := info.doInfo(cmdConfigXDR)
 
+	resp, err := info.doInfo(cmdConfigXDR)
 	if err != nil {
 		return nil, err
 	}
 
 	m = mergeDicts(m, resp)
 	dcNames := ParseDCNames(m)
-
 	results := make(chan error, len(dcNames))
 
 	var (
@@ -729,21 +709,6 @@ func (info *AsInfo) createDCNamespaceConfigCmdList(dc string, namespaces ...stri
 
 	for _, ns := range namespaces {
 		cmdList = append(cmdList, cmdConfigDC+dc+";namespace="+ns)
-	}
-
-	return cmdList
-}
-
-// createDCConfigCmdList creates get-config command for DC
-func (info *AsInfo) createDCConfigCmdListPre49(build string, dcNames ...string) []string {
-	if r, _ := lib.CompareVersions(build, "5.0"); r != -1 {
-		return nil
-	}
-
-	cmdList := make([]string, 0, len(dcNames))
-
-	for _, dc := range dcNames {
-		cmdList = append(cmdList, cmdConfigDCPre50+dc)
 	}
 
 	return cmdList
@@ -929,10 +894,6 @@ func parseStatInfo(rawMap map[string]string) lib.Stats {
 	statMap["dc"] = parseAllDcStats(rawMap)
 	statMap["namespace"] = parseAllNsStats(rawMap)
 
-	if r, _ := lib.CompareVersions(rawMap[cmdMetaBuild], "5.0"); r == -1 {
-		statMap["xdr"] = parseBasicInfo(rawMap[constStatXDRpre50])
-	}
-
 	return statMap
 }
 
@@ -958,12 +919,11 @@ func parseAllNsStats(rawMap map[string]string) lib.Stats {
 		m := make(lib.Stats)
 		m["service"] = parseStatNsInfo(rawMap[constStatNS+ns])
 		m["set"] = parseStatSetsInfo(rawMap[constStatSet+ns])
+		m["sindex"] = parseStatSindexsInfo(rawMap, ns)
 
 		if r, _ := lib.CompareVersions(rawMap[cmdMetaBuild], "7.0"); r == -1 {
 			m["bin"] = parseStatBinsInfo(rawMap[constStatBin+ns])
 		}
-
-		m["sindex"] = parseStatSindexsInfo(rawMap, ns)
 
 		nsStatMap[ns] = m
 	}
@@ -1045,23 +1005,10 @@ func parseConfigInfo(rawMap map[string]string) lib.Stats {
 		configMap[ConfigNamespaceContext] = nsc
 	}
 
-	var xc lib.Stats
-	if r, _ := lib.CompareVersions(rawMap[cmdMetaBuild], "5.0"); r == -1 {
-		xc = parseBasicConfigInfo(rawMap[cmdConfigXDR], "=")
-	} else {
-		xc = parseAllXDRConfig(rawMap, cmdConfigXDR)
-	}
+	xc := parseAllXDRConfig(rawMap, cmdConfigXDR)
 
 	if len(xc) > 0 {
 		configMap[ConfigXDRContext] = xc
-	}
-
-	if r, _ := lib.CompareVersions(rawMap[cmdMetaBuild], "5.0"); r == -1 {
-		// Pre 5.0 Only. 5.0 and later all DC configs are nested in xdr context.
-		dcc := parseAllDcConfig(rawMap, cmdConfigDCPre50)
-		if len(dcc) > 0 {
-			configMap[ConfigDCContext] = dcc
-		}
 	}
 
 	sec := parseBasicConfigInfo(rawMap[cmdConfigSecurity], "=")

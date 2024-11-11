@@ -5,11 +5,12 @@ import (
 	"testing"
 	"time"
 
-	aero "github.com/aerospike/aerospike-client-go/v7"
-	lib "github.com/aerospike/aerospike-management-lib"
 	"github.com/go-logr/logr"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
+
+	aero "github.com/aerospike/aerospike-client-go/v7"
+	lib "github.com/aerospike/aerospike-management-lib"
 )
 
 type AsParserTestSuite struct {
@@ -68,26 +69,6 @@ func (s *AsParserTestSuite) TestAsInfoGetAsConfig() {
 			[]string{"sets/test", "sets/bar"},
 			map[string]string{"sets/test": "ns=test:set=testset:objects=1:tombstones=0:memory_data_bytes=311142:device_data_bytes=0:truncate_lut=0:sindexes=0:index_populating=false:truncating=false:disable-eviction=false:enable-index=false:stop-writes-count=1:stop-writes-size=1;", "sets/bar": "ns=test:set=testset:objects=2:tombstones=0:memory_data_bytes=311142:device_data_bytes=0:truncate_lut=0:sindexes=0:index_populating=false:truncating=false:disable-eviction=false:enable-index=false:stop-writes-count=2:stop-writes-size=2;"},
 			lib.Stats{"namespaces": lib.Stats{"test": lib.Stats{"sets": lib.Stats{"testset": lib.Stats{"disable-eviction": false, "enable-index": false, "stop-writes-count": int64(1), "stop-writes-size": int64(1)}}}, "bar": lib.Stats{"sets": lib.Stats{"testset": lib.Stats{"disable-eviction": false, "enable-index": false, "stop-writes-count": int64(2), "stop-writes-size": int64(2)}}}}},
-		},
-		{
-			"xdr",
-			map[string]string{"build": "4.9.0.35"}, // xdr5 test is below
-			[]string{"get-config:context=xdr"},
-			map[string]string{"get-config:context=xdr": "enable-xdr=false;enable-change-notification=false;forward-xdr-writes=false;xdr-delete-shipping-enabled=true;xdr-nsup-deletes-enabled=false"},
-			lib.Stats{"xdr": lib.Stats{"enable-xdr": false, "enable-change-notification": false, "forward-xdr-writes": false, "xdr-delete-shipping-enabled": true, "xdr-nsup-deletes-enabled": false}},
-		},
-		{
-			"dcs",
-			map[string]string{"build": "4.9.0.35", "dcs": "DC1;DC2"},
-			[]string{"get-dc-config:context=dc;dc=DC1", "get-dc-config:context=dc;dc=DC2"},
-			map[string]string{
-				"get-dc-config:context=dc;dc=DC1": "dc-name=DC1:dc-type=aerospike:tls-name=:dc-security-config-file=:dc-ship-bins=true:nodes=1.1.1.1+3000:auth-mode=internal:int-ext-ipmap=:dc-connections=64:dc-connections-idle-ms=55000:dc-use-alternate-services=false:namespaces=",
-				"get-dc-config:context=dc;dc=DC2": "dc-name=DC2:dc-type=aerospike:tls-name=:dc-security-config-file=:dc-ship-bins=true:nodes=1.1.1.1+3000:auth-mode=internal:int-ext-ipmap=:dc-connections=64:dc-connections-idle-ms=55000:dc-use-alternate-services=false:namespaces=",
-			},
-			lib.Stats{"dcs": lib.Stats{
-				"DC1": lib.Stats{"dc-name": "DC1", "dc-type": "aerospike", "tls-name": "", "dc-security-config-file": "", "dc-ship-bins": true, "nodes": "1.1.1.1+3000", "auth-mode": "internal", "int-ext-ipmap": "", "dc-connections": int64(64), "dc-connections-idle-ms": int64(55000), "dc-use-alternate-services": false, "namespaces": ""},
-				"DC2": lib.Stats{"dc-name": "DC2", "dc-type": "aerospike", "tls-name": "", "dc-security-config-file": "", "dc-ship-bins": true, "nodes": "1.1.1.1+3000", "auth-mode": "internal", "int-ext-ipmap": "", "dc-connections": int64(64), "dc-connections-idle-ms": int64(55000), "dc-use-alternate-services": false, "namespaces": ""},
-			}},
 		},
 		{
 			"dcs",
