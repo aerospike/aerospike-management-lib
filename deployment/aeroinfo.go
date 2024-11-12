@@ -100,3 +100,13 @@ func GetInfoOnHosts(log logr.Logger, policy *aero.ClientPolicy,
 
 	return c.infoOnHosts(getHostIDsFromHostConns(allHosts), cmd)
 }
+
+func GetNamespaceStats(hostConns []*HostConn, policy *aero.ClientPolicy,
+	namespace string) (map[string]InfoResult, error) {
+	clHosts, err := getHostsFromHostConns(hostConns, policy)
+	if err != nil {
+		return nil, err
+	}
+
+	return getNamespaceStats(clHosts, namespace)
+}
