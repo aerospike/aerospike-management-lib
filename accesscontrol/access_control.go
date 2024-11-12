@@ -13,9 +13,6 @@ import (
 	as "github.com/aerospike/aerospike-client-go/v7"
 )
 
-// logger type alias.
-type logger = logr.Logger
-
 const (
 
 	// Error marker for user not found errors.
@@ -165,7 +162,7 @@ func AerospikePrivilegeToPrivilegeString(aerospikePrivileges []as.Privilege) (
 type AerospikeAccessControlReconcileCmd interface {
 	// Execute executes the command. The implementation should be idempotent.
 	Execute(
-		client *as.Client, adminPolicy *as.AdminPolicy, logger logger,
+		client *as.Client, adminPolicy *as.AdminPolicy, logger logr.Logger,
 	) error
 }
 
@@ -191,7 +188,7 @@ type AerospikeRoleCreateUpdate struct {
 
 // Execute creates a new Aerospike role or updates an existing one.
 func (roleCreate AerospikeRoleCreateUpdate) Execute(
-	client *as.Client, adminPolicy *as.AdminPolicy, logger logger,
+	client *as.Client, adminPolicy *as.AdminPolicy, logger logr.Logger,
 ) error {
 	role, err := client.QueryRole(adminPolicy, roleCreate.Name)
 	isCreate := false
@@ -218,7 +215,7 @@ func (roleCreate AerospikeRoleCreateUpdate) Execute(
 
 // CreateRole creates a new Aerospike role.
 func (roleCreate AerospikeRoleCreateUpdate) CreateRole(
-	client *as.Client, adminPolicy *as.AdminPolicy, logger logger,
+	client *as.Client, adminPolicy *as.AdminPolicy, logger logr.Logger,
 ) error {
 	logger.Info("Creating role", "role name", roleCreate.Name)
 
@@ -242,7 +239,7 @@ func (roleCreate AerospikeRoleCreateUpdate) CreateRole(
 // UpdateRole updates an existing Aerospike role.
 func (roleCreate AerospikeRoleCreateUpdate) UpdateRole(
 	client *as.Client, adminPolicy *as.AdminPolicy, role *as.Role,
-	logger logger,
+	logger logr.Logger,
 ) error {
 	// Update the role.
 	logger.Info("Updating role", "role name", roleCreate.Name)
@@ -343,7 +340,7 @@ type AerospikeUserCreateUpdate struct {
 
 // Execute creates a new Aerospike user or updates an existing one.
 func (userCreate AerospikeUserCreateUpdate) Execute(
-	client *as.Client, adminPolicy *as.AdminPolicy, logger logger,
+	client *as.Client, adminPolicy *as.AdminPolicy, logger logr.Logger,
 ) error {
 	user, err := client.QueryUser(adminPolicy, userCreate.Name)
 	isCreate := false
@@ -370,7 +367,7 @@ func (userCreate AerospikeUserCreateUpdate) Execute(
 
 // CreateUser creates a new Aerospike user.
 func (userCreate AerospikeUserCreateUpdate) CreateUser(
-	client *as.Client, adminPolicy *as.AdminPolicy, logger logger,
+	client *as.Client, adminPolicy *as.AdminPolicy, logger logr.Logger,
 ) error {
 	logger.Info("Creating user", "username", userCreate.Name)
 
@@ -394,7 +391,7 @@ func (userCreate AerospikeUserCreateUpdate) CreateUser(
 // UpdateUser updates an existing Aerospike user.
 func (userCreate AerospikeUserCreateUpdate) UpdateUser(
 	client *as.Client, adminPolicy *as.AdminPolicy, user *as.UserRoles,
-	logger logger,
+	logger logr.Logger,
 ) error {
 	// Update the user.
 	logger.Info("Updating user", "username", userCreate.Name)
@@ -458,7 +455,7 @@ type AerospikeUserDrop struct {
 
 // Execute implements dropping the user.
 func (userDrop AerospikeUserDrop) Execute(
-	client *as.Client, adminPolicy *as.AdminPolicy, logger logger,
+	client *as.Client, adminPolicy *as.AdminPolicy, logger logr.Logger,
 ) error {
 	logger.Info("Dropping user", "username", userDrop.Name)
 
@@ -482,7 +479,7 @@ type AerospikeRoleDrop struct {
 
 // Execute implements dropping the role.
 func (roleDrop AerospikeRoleDrop) Execute(
-	client *as.Client, adminPolicy *as.AdminPolicy, logger logger,
+	client *as.Client, adminPolicy *as.AdminPolicy, logger logr.Logger,
 ) error {
 	logger.Info("Dropping role", "role", roleDrop.Name)
 
