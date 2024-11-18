@@ -409,23 +409,19 @@ func ParseNamespaceNames(m map[string]string) []string {
 
 // ParseDCNames parses all DC names
 func ParseDCNames(m map[string]string) []string {
-	rawXDRConfig := m[cmdConfigXDR]
-	xdrConfig := ParseIntoMap(rawXDRConfig, ";", "=")
-	rawNames, ok := xdrConfig[constStatDCNames].(string)
-
-	var dcNames []string
-
-	if ok {
-		if rawNames == "" {
-			dcNames = []string{}
-		} else {
-			dcNames = strings.Split(rawNames, ",")
-		}
-	} else {
-		dcNames = []string{}
+	rawXDRConfig, exists := m[cmdConfigXDR]
+	if !exists || rawXDRConfig == "" {
+		return []string{}
 	}
 
-	return dcNames
+	xdrConfig := ParseIntoMap(rawXDRConfig, ";", "=")
+
+	rawNames, ok := xdrConfig[constStatDCNames].(string)
+	if !ok || rawNames == "" {
+		return []string{}
+	}
+
+	return strings.Split(rawNames, ",")
 }
 
 // ParseTLSNames parses all TLS names
