@@ -64,9 +64,7 @@ const (
 	cmdConfigRacks     = "racks:"                           // configRacks
 	cmdConfigLogging   = "log/"                             // ConfigLog
 
-	cmdLatency      = "latency:"
-	constThroughput = "throughput"
-	cmdThroughput   = "throughput:"
+	cmdLatency = "latency:"
 
 	cmdMetaBuild             = "build"              // Build
 	cmdMetaVersion           = "version"            // Version
@@ -120,7 +118,7 @@ const (
 )
 
 var asCmds = []string{
-	ConstStat, ConstConfigs, ConstMetadata, ConstLatency, constThroughput,
+	ConstStat, ConstConfigs, ConstMetadata, ConstLatency,
 }
 
 var networkTLSNameRe = regexp.MustCompile(`^tls\[(\d+)].name$`)
@@ -308,7 +306,7 @@ func (info *AsInfo) Close() error {
 // *******************************************************************************************
 
 // GetAsInfo function fetch and parse data for given commands from given host
-// Input: cmdList - Options [statistics, configs, metadata, latency, throughput]
+// Input: cmdList - Options [statistics, configs, metadata, latency]
 func (info *AsInfo) GetAsInfo(cmdList ...string) (NodeAsStats, error) {
 	// These info will be used for creating other info commands
 	//  statNSNames, statDCNames, statSIndex, statLogIDS
@@ -508,8 +506,6 @@ func (info *AsInfo) createCmdList(
 			rawCmdList = append(rawCmdList, cmds...)
 		case ConstLatency:
 			rawCmdList = append(rawCmdList, cmdLatency)
-		case constThroughput:
-			rawCmdList = append(rawCmdList, cmdThroughput)
 
 		default:
 			info.log.V(1).Info("Invalid cmd to parse asinfo", "command", cmd)
@@ -829,8 +825,6 @@ func parseCmdResults(
 			asMap[cmd] = parseMetadataInfo(rawMap)
 		case ConstLatency:
 			asMap[cmd] = parseLatencyInfo(log, rawMap[cmdLatency])
-		case constThroughput:
-			asMap[cmd] = parseThroughputInfo(rawMap[cmdThroughput])
 
 		default:
 			log.V(1).Info("Invalid cmd to parse asinfo", "command", cmd)
@@ -1209,93 +1203,7 @@ func parseListTypeMetaInfo(rawMap map[string]string, cmd string) []string {
 }
 
 // ***************************************************************************
-// parse latency and throughput
-func parseThroughputInfo(rawStr string) lib.Stats {
-	ip := lib.NewInfoParser(rawStr)
-
-	// typical format is {test}-read:15:43:18-GMT,ops/sec;15:43:28,0.0;
-	nodeStats := lib.Stats{}
-	res := map[string]lib.Stats{}
-
-	for {
-		if err := ip.Expect("{"); err != nil {
-			// it's an error string, read to next section
-			if _, err := ip.ReadUntil(';'); err != nil {
-				break
-			}
-
-			continue
-		}
-
-		ns, err := ip.ReadUntil('}')
-		if err != nil {
-			break
-		}
-
-		if err = ip.Expect("-"); err != nil {
-			break
-		}
-
-		op, err := ip.ReadUntil(':')
-		if err != nil {
-			break
-		}
-		// first timestamp
-		if _, err = ip.ReadUntil(','); err != nil {
-			break
-		}
-		// ops/sec
-		if _, err = ip.ReadUntil(';'); err != nil {
-			break
-		}
-		// second timestamp
-		if _, err = ip.ReadUntil(','); err != nil {
-			break
-		}
-
-		opsCount, err := ip.ReadFloat(';')
-		if err != nil {
-			break
-		}
-
-		if res[ns] == nil {
-			res[ns] = lib.Stats{
-				op: opsCount,
-			}
-		} else {
-			res[ns][op] = opsCount
-		}
-	}
-	// TODO Cross-check with khosrow, was it double accounting. for latency also
-	// calc totals
-	for _, mp := range res {
-		for op, tps := range mp {
-			// nodeStats[op] is interface{} type, so will be nil at start.
-			if nodeStats[op] == nil {
-				nodeStats[op] = float64(0)
-			}
-
-			nodeStats[op] = nodeStats[op].(float64) + tps.(float64)
-		}
-	}
-
-	throughputMap := make(lib.Stats)
-	newNodeStats := make(lib.Stats)
-	newRes := make(lib.Stats)
-
-	for k, v := range nodeStats {
-		newNodeStats[k] = v
-	}
-
-	for k, v := range res {
-		newRes[k] = v
-	}
-
-	throughputMap["namespace"] = newRes
-	throughputMap["total"] = newNodeStats
-
-	return throughputMap
-}
+// parse latency
 
 // TODO: check diff lat bucket in agg
 // typical format is {test}-read:10:17:37-GMT,ops/sec,>1ms,>8ms,>64ms;10:17:47,29648.2,3.44,0.08,0.00;
