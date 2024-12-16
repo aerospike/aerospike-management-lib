@@ -677,23 +677,6 @@ func isSpecialOrNormalBoolField(key string) bool {
 	return key == "run-as-daemon"
 }
 
-// isSpecialBoolField returns true if the passed key
-// in aerospike config is boolean type field but does not
-// need true or false in config file. Their mere presence
-// config file is true/false.
-// e.g. namespace and storage level benchmark fields
-func isSpecialBoolField(key string) bool {
-	switch key {
-	case "enable-benchmarks-batch-sub", "enable-benchmarks-read",
-		"enable-benchmarks-udf", "enable-benchmarks-write",
-		"enable-benchmarks-udf-sub", "enable-benchmarks-storage":
-		return true
-
-	default:
-		return false
-	}
-}
-
 // isSpecialStringField returns true if the passed key
 // in aerospike config is string type field but can have
 // bool value also
