@@ -266,7 +266,9 @@ func process(log logr.Logger, scanner *bufio.Scanner, conf Conf) (Conf, error) {
 		// Except end of section there should
 		// be atleast 2 tokens
 		if len(tok) < 2 {
-			if isSpecialOrNormalBoolField(tok[0]) {
+			// if enable benchmark presence is
+			// enable
+			if isSpecialBoolField(tok[0]) || isSpecialOrNormalBoolField(tok[0]) {
 				conf[tok[0]] = true
 				continue
 			}
