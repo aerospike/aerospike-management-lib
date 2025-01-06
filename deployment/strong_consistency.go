@@ -9,6 +9,7 @@ import (
 	"github.com/go-logr/logr"
 
 	as "github.com/aerospike/aerospike-client-go/v7"
+	lib "github.com/aerospike/aerospike-management-lib"
 )
 
 const (
@@ -92,7 +93,7 @@ func setFilteredRosterNodes(clHost *host, scNs string, rosterNodes map[string]st
 	for _, obn := range observedNodesList {
 		// nodeRoster: nodeID + "@" + rackID
 		obnNodeID := strings.Split(obn, "@")[0]
-		if !containsString(rosterNodeBlockList, obnNodeID) {
+		if !lib.ContainsString(rosterNodeBlockList, obnNodeID) {
 			newObservedNodesList = append(newObservedNodesList, obn)
 		}
 	}
@@ -322,17 +323,6 @@ func getNamespaces(clHost *host) ([]string, error) {
 	}
 
 	return nil, nil
-}
-
-// ContainsString check whether list contains given string
-func containsString(list []string, ele string) bool {
-	for _, listEle := range list {
-		if strings.EqualFold(ele, listEle) {
-			return true
-		}
-	}
-
-	return false
 }
 
 func isNodeInRoster(clHost *host, ns string) (bool, error) {

@@ -29,6 +29,13 @@ const (
 	NONE    sysproptype = "NONE"
 )
 
+var BenchmarkConfigs = []string{
+	"enable-benchmarks-batch-sub", "enable-benchmarks-read",
+	"enable-benchmarks-udf", "enable-benchmarks-write",
+	"enable-benchmarks-udf-sub", "enable-benchmarks-storage",
+	"enable-benchmarks-fabric", "enable-benchmarks-ops-sub",
+}
+
 var portRegex = regexp.MustCompile("port")
 
 type humanize func(string) (uint64, error)
@@ -683,15 +690,7 @@ func isSpecialOrNormalBoolField(key string) bool {
 // config file is true/false.
 // e.g. namespace and storage level benchmark fields
 func isSpecialBoolField(key string) bool {
-	switch key {
-	case "enable-benchmarks-batch-sub", "enable-benchmarks-read",
-		"enable-benchmarks-udf", "enable-benchmarks-write",
-		"enable-benchmarks-udf-sub", "enable-benchmarks-storage":
-		return true
-
-	default:
-		return false
-	}
+	return lib.ContainsString(BenchmarkConfigs, key)
 }
 
 // isSpecialStringField returns true if the passed key
