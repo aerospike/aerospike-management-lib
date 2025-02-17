@@ -8,7 +8,7 @@ import (
 	sets "github.com/deckarep/golang-set/v2"
 	"github.com/go-logr/logr"
 
-	as "github.com/aerospike/aerospike-client-go/v7"
+	as "github.com/aerospike/aerospike-client-go/v8"
 	lib "github.com/aerospike/aerospike-management-lib"
 )
 
