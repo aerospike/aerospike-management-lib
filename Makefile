@@ -8,7 +8,7 @@ endif
 MOCKGEN ?= $(GOBIN)/mockgen
 MOCKGEN_VERSION ?= v0.3.0
 GOLANGCI_LINT ?= $(GOBIN)/golangci-lint
-GOLANGCI_LINT_VERSION ?= v1.59.1
+GOLANGCI_LINT_VERSION ?= v1.60.2
 
 .PHONY: golanci-lint
 golanci-lint: $(GOLANGCI_LINT) ## Download golangci-lint locally if necessary.
