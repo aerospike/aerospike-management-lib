@@ -781,7 +781,7 @@ func compareDefaults(log logr.Logger, defVal, confVal interface{}) bool {
 				return false
 			}
 
-			return val == int64(confVal)
+			return uint64(val) == confVal
 		case int64:
 			return val == confVal
 		default:

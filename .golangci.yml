@@ -26,7 +26,7 @@ linters:
     - dogsled
     - dupl
     - errcheck
-    - exportloopref
+    - copyloopvar
     - exhaustive
     - goconst
     - gocritic
@@ -56,7 +56,7 @@ linters:
 
 run:
   issues-exit-code: 1
-  go: '1.22'
+  go: '1.23'
 #  skip-dirs:
 #    - sample
 #  skip-files:
