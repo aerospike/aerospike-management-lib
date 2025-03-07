@@ -20,6 +20,7 @@ const (
 	keyTLSAlternateAccessAddress = "tls-alternate-access-address"
 	keyTLSAuthenticateClient     = "tls-authenticate-client"
 	keyNodeAddressPorts          = "node-address-ports"
+	keyNodeID                    = "node-id"
 
 	keyReportDataOp = "report-data-op"
 	keyNamespace    = "namespace"
