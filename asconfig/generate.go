@@ -272,6 +272,10 @@ func (s *copyEffectiveRackIDStep) execute(conf Conf) error {
 	for _, rackInfo := range effectiveRacks {
 		ns := rackInfo["ns"].(string)
 
+		// Remove the ns key from the rack info as it is no longer needed
+		// Keeping it will cause an error while finding the rack id when ns name contains nodeID
+		delete(rackInfo, "ns")
+
 		// For this ns find which rack this node belongs to
 		for rack, nodesStr := range rackInfo {
 			if !strings.Contains(nodesStr.(string), nodeID) {
@@ -710,14 +714,12 @@ func (s *removeSecurityIfDisabledStep) execute(conf Conf) error {
 			return err
 		}
 
-		if securityEnabled {
-			if cmp >= 0 {
+		if cmp >= 0 {
+			if securityEnabled {
 				delete(flatConf, "security.enable-security")
-			}
-		} else {
-			// 5.7 and newer can't have any security configs. An empty security
-			// context will enable-security.
-			if cmp >= 0 {
+			} else {
+				// In versions 5.7 and newer, any security-related config must be removed,
+				// as an empty security context will automatically enable security.
 				for key := range flatConf {
 					if securityRe.MatchString(key) {
 						delete(flatConf, key)
