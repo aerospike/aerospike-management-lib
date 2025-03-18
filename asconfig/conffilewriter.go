@@ -210,7 +210,7 @@ func writeField(buf *bytes.Buffer, key, value string, indent int) {
 	// To prevent such configurations from being misinterpreted as enabled,
 	// benchmark configurations with a value of false are now omitted entirely.
 	case isSpecialBoolField(key):
-		if strings.EqualFold(value, "false") {
+		if strings.EqualFold(value, keyFalse) {
 			return
 		}
 	}

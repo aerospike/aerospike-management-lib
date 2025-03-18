@@ -886,7 +886,7 @@ func (s *removeDefaultsStep) execute(conf Conf) error {
 			delete(flatConf, context)
 		}
 
-		flatConf[loggingContext+sep+"any"] = freq
+		flatConf[loggingContext+sep+keyAny] = freq
 	}
 
 	if securityFound {

@@ -12,6 +12,7 @@ const (
 	keyIndex          = "<index>"
 
 	keyStorageEngine             = "storage-engine"
+	keyTLSName                   = "tls-name"
 	keyAddress                   = "address"
 	keyTLSAddress                = "tls-address"
 	keyAccessAddress             = "access-address"
@@ -26,6 +27,8 @@ const (
 	keyNamespace    = "namespace"
 	keySet          = "set"
 	keyLogs         = "logs"
+	keyAny          = "any"
+	keyFalse        = "false"
 
 	sep                  = "."
 	SectionNameStartChar = '{'

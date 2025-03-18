@@ -983,7 +983,7 @@ func convertInterfaceSlice(log logr.Logger, k string, v []interface{}) (result i
 
 func convertString(k, v string) (result interface{}) {
 	if ok, _ := isListField(k); ok && k != keyFeatureKeyFile {
-		if k == keyTLSAuthenticateClient && (v == "any" || v == "false") {
+		if k == keyTLSAuthenticateClient && (v == keyAny || v == keyFalse) {
 			result = v
 		} else {
 			result = []string{v}
