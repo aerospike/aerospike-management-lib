@@ -1209,7 +1209,7 @@ func parseBasicConfigInfo(res, sep string) lib.Stats {
 func parseConfigRacksInfo(res string) []lib.Stats {
 	ml := parseIntoListOfMap(res, ";", ":", "=")
 
-	// "racks" command return a list of racks and nodeID per namespace eg:ns=test:rack_1=1A0,1A1:rack_2=2A1,2A0
+	// "racks" command return a list of racks and nodeID per namespace eg:ns=test:rack_1=1A0,1A1:rack_2=2A0,2A1
 	// nodeID take hexadecimal values, so value 12345 is also a valid nodeID. So convert all int values to string values.
 	for idx := range ml {
 		for key, value := range ml[idx] {

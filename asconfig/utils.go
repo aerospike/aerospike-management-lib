@@ -708,13 +708,6 @@ func isSpecialStringField(key string) bool {
 	}
 }
 
-// IsHexadecimalValueField returns true if the passed key
-// in aerospike config has hexadecimal value
-// e.g. node-id
-func IsHexadecimalValueField(key string) bool {
-	return key == keyNodeID
-}
-
 // isNodeSpecificField returns true if the passed key
 // in aerospike config is Node specific field.
 func isNodeSpecificField(key string) bool {
