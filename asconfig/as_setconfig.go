@@ -129,10 +129,10 @@ func createSetConfigSecurityCmdList(tokens []string, operationValueMap map[Opera
 			namespaceAndSet := strings.Split(v, colon)
 			switch len(namespaceAndSet) {
 			case 2:
-				finalCMD = cmd + baseKey + equal + "false" + semicolon + keyNamespace + equal + namespaceAndSet[0] + semicolon +
+				finalCMD = cmd + baseKey + equal + keyFalse + semicolon + keyNamespace + equal + namespaceAndSet[0] + semicolon +
 					keySet + equal + namespaceAndSet[1]
 			case 1:
-				finalCMD = cmd + baseKey + equal + "false" + semicolon + keyNamespace + equal + namespaceAndSet[0]
+				finalCMD = cmd + baseKey + equal + keyFalse + semicolon + keyNamespace + equal + namespaceAndSet[0]
 			}
 
 			cmdList = append(cmdList, finalCMD)
@@ -148,7 +148,7 @@ func createSetConfigSecurityCmdList(tokens []string, operationValueMap map[Opera
 
 		removedValues := operationValueMap[Remove]
 		for _, v := range removedValues {
-			finalCMD := cmd + keyReportDataOp + equal + "false" + semicolon + "role" + equal + v
+			finalCMD := cmd + keyReportDataOp + equal + keyFalse + semicolon + "role" + equal + v
 			cmdList = append(cmdList, finalCMD)
 		}
 
@@ -162,7 +162,7 @@ func createSetConfigSecurityCmdList(tokens []string, operationValueMap map[Opera
 
 		removedValues := operationValueMap[Remove]
 		for _, v := range removedValues {
-			finalCMD := cmd + keyReportDataOp + equal + "false" + semicolon + "user" + equal + v
+			finalCMD := cmd + keyReportDataOp + equal + keyFalse + semicolon + "user" + equal + v
 			cmdList = append(cmdList, finalCMD)
 		}
 

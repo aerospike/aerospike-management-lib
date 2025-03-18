@@ -6,6 +6,7 @@ toolchain go1.23.6
 
 require (
 	github.com/aerospike/aerospike-client-go/v8 v8.0.1
+	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2
 	github.com/deckarep/golang-set/v2 v2.3.1
 	github.com/docker/docker v26.1.0+incompatible
 	github.com/docker/go-connections v0.4.0

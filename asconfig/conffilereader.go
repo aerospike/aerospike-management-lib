@@ -140,7 +140,7 @@ func writeConf(log logr.Logger, tok []string, conf Conf) error {
 		}
 
 		v := strings.ToLower(tok[1])
-		if v == "false" || v == "any" {
+		if v == keyFalse || v == keyAny {
 			if _, ok := conf[cfgName]; ok {
 				log.Error(ErrConfigParse, "tls-authenticate-client must only use 'any', 'false', or one or more subject names")
 				return ErrConfigParse
