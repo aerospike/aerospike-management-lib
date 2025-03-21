@@ -62,7 +62,7 @@ func (asc *ASConn) AlumniReset(aerospikePolicy *aero.ClientPolicy) error {
 
 // TipClearHostname runs tip clear
 func (asc *ASConn) TipClearHostname(
-	aerospikePolicy *aero.ClientPolicy, address string, heartbeatPort int,
+	aerospikePolicy *aero.ClientPolicy, address string, heartbeatPort int32,
 ) error {
 	res, err := asc.RunInfo(
 		aerospikePolicy,
@@ -75,7 +75,7 @@ func (asc *ASConn) TipClearHostname(
 
 // TipHostname runs tip clear
 func (asc *ASConn) TipHostname(
-	aerospikePolicy *aero.ClientPolicy, address string, heartbeatPort int,
+	aerospikePolicy *aero.ClientPolicy, address string, heartbeatPort int32,
 ) error {
 	res, err := asc.RunInfo(
 		aerospikePolicy,
