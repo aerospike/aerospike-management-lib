@@ -493,247 +493,247 @@ func GetNamespaceReplicationFactor(nsConf map[string]interface{}) (int, error) {
 	return rf, nil
 }
 
-func validateSecurityConfigUpdate(newConfig, oldConfig map[string]interface{}) error {
-	ovflag, err := IsSecurityEnabled(oldConfig)
-	if err != nil {
-		return fmt.Errorf(
-			"failed to validate Security context of old aerospike conf: %w", err,
-		)
-	}
+// func validateSecurityConfigUpdate(newConfig, oldConfig map[string]interface{}) error {
+//	ovflag, err := IsSecurityEnabled(oldConfig)
+//	if err != nil {
+//		return fmt.Errorf(
+//			"failed to validate Security context of old aerospike conf: %w", err,
+//		)
+//	}
+//
+//	ivflag, err := IsSecurityEnabled(newConfig)
+//	if err != nil {
+//		return fmt.Errorf(
+//			"failed to validate Security context of new aerospike conf: %w", err,
+//		)
+//	}
+//
+//	if !ivflag && ovflag {
+//		return fmt.Errorf("cannot disable cluster security in running cluster")
+//	}
+//
+//	return nil
+//}
 
-	ivflag, err := IsSecurityEnabled(newConfig)
-	if err != nil {
-		return fmt.Errorf(
-			"failed to validate Security context of new aerospike conf: %w", err,
-		)
-	}
+// func ValidateAerospikeConfigUpdate(
+//	aslog logr.Logger, version string,
+//	newConfig, oldConfig map[string]interface{}, clSize int,
+// ) error {
+//	aslog.Info("Validate AerospikeConfig update")
+//
+//	if err := ValidateAerospikeConfig(aslog, version, newConfig, clSize); err != nil {
+//		return err
+//	}
+//
+//	if err := validateSecurityConfigUpdate(newConfig, oldConfig); err != nil {
+//		return err
+//	}
+//
+//	if err := validateTLSUpdate(oldConfig, newConfig); err != nil {
+//		return err
+//	}
+//
+//	for _, connectionType := range networkConnectionTypes {
+//		if err := validateNetworkConnectionUpdate(
+//			newConfig, oldConfig, connectionType,
+//		); err != nil {
+//			return err
+//		}
+//	}
+//
+//	return validateNsConfUpdate(newConfig, oldConfig)
+//}
 
-	if !ivflag && ovflag {
-		return fmt.Errorf("cannot disable cluster security in running cluster")
-	}
+// func validateTLSUpdate(oldConf, newConf map[string]interface{}) error {
+//	if newConf == nil || oldConf == nil {
+//		return fmt.Errorf("config cannot be nil")
+//	}
+//
+//	oldTLS, oldExists := oldConf["network"].(map[string]interface{})["tls"]
+//	newTLS, newExists := newConf["network"].(map[string]interface{})["tls"]
+//
+//	if oldExists && newExists && (!reflect.DeepEqual(oldTLS, newTLS)) {
+//		oldTLSCAFileMap := make(map[string]string)
+//		oldTLSCAPathMap := make(map[string]string)
+//		newUsedTLS := sets.NewString()
+//		oldUsedTLS := sets.NewString()
+//
+//		// fetching names of TLS configurations used in connections
+//		for _, connectionType := range networkConnectionTypes {
+//			if connectionConfig, exists := newConf["network"].(map[string]interface{})[connectionType]; exists {
+//				connectionConfigMap := connectionConfig.(map[string]interface{})
+//				if tlsName, ok := connectionConfigMap[keyTLSName]; ok {
+//					newUsedTLS.Insert(tlsName.(string))
+//				}
+//			}
+//		}
+//
+//		// fetching names of TLS configurations used in old connections configurations
+//		for _, connectionType := range networkConnectionTypes {
+//			if connectionConfig, exists := oldConf["network"].(map[string]interface{})[connectionType]; exists {
+//				connectionConfigMap := connectionConfig.(map[string]interface{})
+//				if tlsName, ok := connectionConfigMap[keyTLSName]; ok {
+//					oldUsedTLS.Insert(tlsName.(string))
+//				}
+//			}
+//		}
+//
+//		for _, tls := range oldTLS.([]interface{}) {
+//			tlsMap := tls.(map[string]interface{})
+//			if !oldUsedTLS.Has(tlsMap["name"].(string)) {
+//				continue
+//			}
+//
+//			oldCAFile, oldCAFileOK := tlsMap["ca-file"]
+//			if oldCAFileOK {
+//				oldTLSCAFileMap[tlsMap["name"].(string)] = oldCAFile.(string)
+//			}
+//
+//			oldCAPath, oldCAPathOK := tlsMap["ca-path"]
+//			if oldCAPathOK {
+//				oldTLSCAPathMap[tlsMap["name"].(string)] = oldCAPath.(string)
+//			}
+//		}
+//
+//		for _, tls := range newTLS.([]interface{}) {
+//			tlsMap := tls.(map[string]interface{})
+//			if !newUsedTLS.Has(tlsMap["name"].(string)) {
+//				continue
+//			}
+//
+//			_, newCAPathOK := tlsMap["ca-path"]
+//			newCAFile, newCAFileOK := tlsMap["ca-file"]
+//
+//			oldCAFile, oldCAFileOK := oldTLSCAFileMap[tlsMap["name"].(string)]
+//			_, oldCAPathOK := oldTLSCAPathMap[tlsMap["name"].(string)]
+//
+//			if (oldCAFileOK || oldCAPathOK) && !(newCAPathOK || newCAFileOK) {
+//				return fmt.Errorf(
+//					"cannot remove used `ca-file` or `ca-path` from tls",
+//				)
+//			}
+//
+//			if oldCAFileOK && newCAFileOK && newCAFile.(string) != oldCAFile {
+//				return fmt.Errorf("cannot change ca-file of used tls")
+//			}
+//		}
+//	}
+//
+//	return nil
+//}
 
-	return nil
-}
+// func validateNsConfUpdate(newConf, oldConf map[string]interface{}) error {
+//	if newConf == nil || oldConf == nil {
+//		return fmt.Errorf("namespace conf cannot be nil")
+//	}
+//
+//	newNsConfList := newConf["namespaces"].([]interface{})
+//	oldNsConfList := oldConf["namespaces"].([]interface{})
+//
+//	for _, singleConfInterface := range newNsConfList {
+//		// Validate new namespaceconf
+//		singleConf, ok := singleConfInterface.(map[string]interface{})
+//		if !ok {
+//			return fmt.Errorf(
+//				"namespace conf not in valid format %v", singleConfInterface,
+//			)
+//		}
+//
+//		// Validate new namespace conf from old namespace conf. Few fields cannot be updated
+//		for _, oldSingleConfInterface := range oldNsConfList {
+//			oldSingleConf, ok := oldSingleConfInterface.(map[string]interface{})
+//			if !ok {
+//				return fmt.Errorf(
+//					"namespace conf not in valid format %v",
+//					oldSingleConfInterface,
+//				)
+//			}
+//
+//			if singleConf["name"] == oldSingleConf["name"] {
+//				// replication-factor update not allowed
+//				if isValueUpdated(
+//					oldSingleConf, singleConf, "replication-factor",
+//				) {
+//					return fmt.Errorf(
+//						"replication-factor cannot be updated. old nsconf %v, new nsconf %v",
+//						oldSingleConf, singleConf,
+//					)
+//				}
+//
+//				// strong-consistency update not allowed
+//				if isValueUpdated(
+//					oldSingleConf, singleConf, "strong-consistency",
+//				) {
+//					return fmt.Errorf(
+//						"strong-consistency cannot be updated. old nsconf %v, new nsconf %v",
+//						oldSingleConf, singleConf,
+//					)
+//				}
+//			}
+//		}
+//	}
+//
+//	return nil
+//}
 
-func ValidateAerospikeConfigUpdate(
-	aslog logr.Logger, version string,
-	newConfig, oldConfig map[string]interface{}, clSize int,
-) error {
-	aslog.Info("Validate AerospikeConfig update")
+// func validateNetworkConnectionUpdate(
+//	newConf, oldConf map[string]interface{}, connectionType string,
+// ) error {
+//	var networkPorts = []string{
+//		"port", "access-port",
+//		"alternate-access-port",
+//	}
+//
+//	oldConnectionConfig := oldConf["network"].(map[string]interface{})[connectionType].(map[string]interface{})
+//	newConnectionConfig := newConf["network"].(map[string]interface{})[connectionType].(map[string]interface{})
+//
+//	oldTLSName, oldTLSNameOk := oldConnectionConfig["tls-name"]
+//	newTLSName, newTLSNameOk := newConnectionConfig["tls-name"]
+//
+//	if oldTLSNameOk && newTLSNameOk {
+//		if !reflect.DeepEqual(oldTLSName, newTLSName) {
+//			return fmt.Errorf("cannot modify tls name")
+//		}
+//	}
+//
+//	for _, port := range networkPorts {
+//		if err := validateNetworkPortUpdate(oldConnectionConfig, newConnectionConfig, port); err != nil {
+//			return err
+//		}
+//	}
+//
+//	return nil
+//}
 
-	if err := ValidateAerospikeConfig(aslog, version, newConfig, clSize); err != nil {
-		return err
-	}
-
-	if err := validateSecurityConfigUpdate(newConfig, oldConfig); err != nil {
-		return err
-	}
-
-	if err := validateTLSUpdate(oldConfig, newConfig); err != nil {
-		return err
-	}
-
-	for _, connectionType := range networkConnectionTypes {
-		if err := validateNetworkConnectionUpdate(
-			newConfig, oldConfig, connectionType,
-		); err != nil {
-			return err
-		}
-	}
-
-	return validateNsConfUpdate(newConfig, oldConfig)
-}
-
-func validateTLSUpdate(oldConf, newConf map[string]interface{}) error {
-	if newConf == nil || oldConf == nil {
-		return fmt.Errorf("config cannot be nil")
-	}
-
-	oldTLS, oldExists := oldConf["network"].(map[string]interface{})["tls"]
-	newTLS, newExists := newConf["network"].(map[string]interface{})["tls"]
-
-	if oldExists && newExists && (!reflect.DeepEqual(oldTLS, newTLS)) {
-		oldTLSCAFileMap := make(map[string]string)
-		oldTLSCAPathMap := make(map[string]string)
-		newUsedTLS := sets.NewString()
-		oldUsedTLS := sets.NewString()
-
-		// fetching names of TLS configurations used in connections
-		for _, connectionType := range networkConnectionTypes {
-			if connectionConfig, exists := newConf["network"].(map[string]interface{})[connectionType]; exists {
-				connectionConfigMap := connectionConfig.(map[string]interface{})
-				if tlsName, ok := connectionConfigMap[keyTLSName]; ok {
-					newUsedTLS.Insert(tlsName.(string))
-				}
-			}
-		}
-
-		// fetching names of TLS configurations used in old connections configurations
-		for _, connectionType := range networkConnectionTypes {
-			if connectionConfig, exists := oldConf["network"].(map[string]interface{})[connectionType]; exists {
-				connectionConfigMap := connectionConfig.(map[string]interface{})
-				if tlsName, ok := connectionConfigMap[keyTLSName]; ok {
-					oldUsedTLS.Insert(tlsName.(string))
-				}
-			}
-		}
-
-		for _, tls := range oldTLS.([]interface{}) {
-			tlsMap := tls.(map[string]interface{})
-			if !oldUsedTLS.Has(tlsMap["name"].(string)) {
-				continue
-			}
-
-			oldCAFile, oldCAFileOK := tlsMap["ca-file"]
-			if oldCAFileOK {
-				oldTLSCAFileMap[tlsMap["name"].(string)] = oldCAFile.(string)
-			}
-
-			oldCAPath, oldCAPathOK := tlsMap["ca-path"]
-			if oldCAPathOK {
-				oldTLSCAPathMap[tlsMap["name"].(string)] = oldCAPath.(string)
-			}
-		}
-
-		for _, tls := range newTLS.([]interface{}) {
-			tlsMap := tls.(map[string]interface{})
-			if !newUsedTLS.Has(tlsMap["name"].(string)) {
-				continue
-			}
-
-			_, newCAPathOK := tlsMap["ca-path"]
-			newCAFile, newCAFileOK := tlsMap["ca-file"]
-
-			oldCAFile, oldCAFileOK := oldTLSCAFileMap[tlsMap["name"].(string)]
-			_, oldCAPathOK := oldTLSCAPathMap[tlsMap["name"].(string)]
-
-			if (oldCAFileOK || oldCAPathOK) && !(newCAPathOK || newCAFileOK) {
-				return fmt.Errorf(
-					"cannot remove used `ca-file` or `ca-path` from tls",
-				)
-			}
-
-			if oldCAFileOK && newCAFileOK && newCAFile.(string) != oldCAFile {
-				return fmt.Errorf("cannot change ca-file of used tls")
-			}
-		}
-	}
-
-	return nil
-}
-
-func validateNsConfUpdate(newConf, oldConf map[string]interface{}) error {
-	if newConf == nil || oldConf == nil {
-		return fmt.Errorf("namespace conf cannot be nil")
-	}
-
-	newNsConfList := newConf["namespaces"].([]interface{})
-	oldNsConfList := oldConf["namespaces"].([]interface{})
-
-	for _, singleConfInterface := range newNsConfList {
-		// Validate new namespaceconf
-		singleConf, ok := singleConfInterface.(map[string]interface{})
-		if !ok {
-			return fmt.Errorf(
-				"namespace conf not in valid format %v", singleConfInterface,
-			)
-		}
-
-		// Validate new namespace conf from old namespace conf. Few fields cannot be updated
-		for _, oldSingleConfInterface := range oldNsConfList {
-			oldSingleConf, ok := oldSingleConfInterface.(map[string]interface{})
-			if !ok {
-				return fmt.Errorf(
-					"namespace conf not in valid format %v",
-					oldSingleConfInterface,
-				)
-			}
-
-			if singleConf["name"] == oldSingleConf["name"] {
-				// replication-factor update not allowed
-				if isValueUpdated(
-					oldSingleConf, singleConf, "replication-factor",
-				) {
-					return fmt.Errorf(
-						"replication-factor cannot be updated. old nsconf %v, new nsconf %v",
-						oldSingleConf, singleConf,
-					)
-				}
-
-				// strong-consistency update not allowed
-				if isValueUpdated(
-					oldSingleConf, singleConf, "strong-consistency",
-				) {
-					return fmt.Errorf(
-						"strong-consistency cannot be updated. old nsconf %v, new nsconf %v",
-						oldSingleConf, singleConf,
-					)
-				}
-			}
-		}
-	}
-
-	return nil
-}
-
-func validateNetworkConnectionUpdate(
-	newConf, oldConf map[string]interface{}, connectionType string,
-) error {
-	var networkPorts = []string{
-		"port", "access-port",
-		"alternate-access-port",
-	}
-
-	oldConnectionConfig := oldConf["network"].(map[string]interface{})[connectionType].(map[string]interface{})
-	newConnectionConfig := newConf["network"].(map[string]interface{})[connectionType].(map[string]interface{})
-
-	oldTLSName, oldTLSNameOk := oldConnectionConfig["tls-name"]
-	newTLSName, newTLSNameOk := newConnectionConfig["tls-name"]
-
-	if oldTLSNameOk && newTLSNameOk {
-		if !reflect.DeepEqual(oldTLSName, newTLSName) {
-			return fmt.Errorf("cannot modify tls name")
-		}
-	}
-
-	for _, port := range networkPorts {
-		if err := validateNetworkPortUpdate(oldConnectionConfig, newConnectionConfig, port); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func validateNetworkPortUpdate(oldConnectionConfig, newConnectionConfig map[string]interface{}, port string) error {
-	oldPort, oldPortOk := oldConnectionConfig[port]
-	newPort, newPortOk := newConnectionConfig[port]
-	tlsPort := "tls-" + port
-
-	if oldPortOk && newPortOk {
-		if !reflect.DeepEqual(oldPort, newPort) {
-			return fmt.Errorf("cannot modify %s number: old value %v, new value %v", port, oldPort, newPort)
-		}
-	}
-
-	oldTLSPort, oldTLSPortOk := oldConnectionConfig[tlsPort]
-	newTLSPort, newTLSPortOk := newConnectionConfig[tlsPort]
-
-	if oldTLSPortOk && newTLSPortOk {
-		if !reflect.DeepEqual(oldTLSPort, newTLSPort) {
-			return fmt.Errorf(
-				"cannot modify %s number: old value %v, new value %v", tlsPort, oldTLSPort, newTLSPort)
-		}
-	}
-
-	if (!newTLSPortOk && oldTLSPortOk) || (!newPortOk && oldPortOk) {
-		if !(oldPortOk && oldTLSPortOk) {
-			return fmt.Errorf("cannot remove tls or non-tls configurations unless both configurations have been set initially")
-		}
-	}
-
-	return nil
-}
+// func validateNetworkPortUpdate(oldConnectionConfig, newConnectionConfig map[string]interface{}, port string) error {
+//	oldPort, oldPortOk := oldConnectionConfig[port]
+//	newPort, newPortOk := newConnectionConfig[port]
+//	tlsPort := "tls-" + port
+//
+//	if oldPortOk && newPortOk {
+//		if !reflect.DeepEqual(oldPort, newPort) {
+//			return fmt.Errorf("cannot modify %s number: old value %v, new value %v", port, oldPort, newPort)
+//		}
+//	}
+//
+//	oldTLSPort, oldTLSPortOk := oldConnectionConfig[tlsPort]
+//	newTLSPort, newTLSPortOk := newConnectionConfig[tlsPort]
+//
+//	if oldTLSPortOk && newTLSPortOk {
+//		if !reflect.DeepEqual(oldTLSPort, newTLSPort) {
+//			return fmt.Errorf(
+//				"cannot modify %s number: old value %v, new value %v", tlsPort, oldTLSPort, newTLSPort)
+//		}
+//	}
+//
+//	if (!newTLSPortOk && oldTLSPortOk) || (!newPortOk && oldPortOk) {
+//		if !(oldPortOk && oldTLSPortOk) {
+//			return fmt.Errorf("cannot remove tls or non-tls configurations unless both configurations have been set initially")
+//		}
+//	}
+//
+//	return nil
+//}
 
 func ValidateStorageEngineDeviceList(nsConfList []interface{}) (deviceList, fileList map[string]string, err error) {
 	deviceList = map[string]string{}
