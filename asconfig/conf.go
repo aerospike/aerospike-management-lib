@@ -30,11 +30,13 @@ type CfgValue struct {
 // then returns json validation error string. String is nil in case of other
 // error conditions.
 func confIsValid(log logr.Logger, flatConf *Conf, ver string) (bool, []*ValidationErr, error) {
-	confJSON, err := json.Marshal(expandConf(log, flatConf, sep))
+	exp := expandConf(log, flatConf, sep)
+	log.V(1).Info("exp is", "exp", exp)
+	confJSON, err := json.Marshal(exp)
 	if err != nil {
 		return false, nil, fmt.Errorf("failed to do json.Marshal for flatten aerospike conf: %v", err)
 	}
-
+	log.V(1).Info("confJSON is", "confJSON", string(confJSON))
 	confLoader := gojsonschema.NewStringLoader(string(confJSON))
 
 	schema, err := getSchema(ver)
