@@ -197,24 +197,22 @@ func writeListField(
 	}
 }
 
-func writeSpecialBoolField(buf *bytes.Buffer, key string, indent int) {
-	buf.WriteString(indentString(indent) + key + "\n")
-}
-
 func writeField(buf *bytes.Buffer, key, value string, indent int) {
 	switch {
 	case isFormField(key):
 		return
-
 	case isEmptyField(key, value):
 		return
-
+	// Skipping the writing of benchmark configurations when their corresponding value is false.
+	// In server versions without the fix for AER-6767 (https://aerospike.atlassian.net/browse/AER-6767),
+	// the presence of these fields implied that the corresponding benchmark was enabled,
+	// even if the value was explicitly set to false.
+	// To prevent such configurations from being misinterpreted as enabled,
+	// benchmark configurations with a value of false are now omitted entirely.
 	case isSpecialBoolField(key):
-		if strings.EqualFold(value, "true") {
-			writeSpecialBoolField(buf, key, indent)
+		if strings.EqualFold(value, "false") {
+			return
 		}
-
-		return
 	}
 
 	buf.WriteString(indentString(indent) + key + "    " + value + "\n")

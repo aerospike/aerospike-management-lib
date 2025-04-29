@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	aero "github.com/aerospike/aerospike-client-go/v7"
+	aero "github.com/aerospike/aerospike-client-go/v8"
 	"github.com/aerospike/aerospike-management-lib/deployment"
 	"github.com/aerospike/aerospike-management-lib/info"
 	"github.com/go-logr/logr"
