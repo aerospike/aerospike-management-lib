@@ -1,5 +1,7 @@
 package asconfig
 
+import "fmt"
+
 type Operation string
 
 // All the aerospike config related keys
@@ -39,3 +41,13 @@ const (
 	Remove Operation = "remove"
 	Update Operation = "update"
 )
+
+type Format string
+
+const (
+	Invalid    Format = ""
+	YAML       Format = "yaml"
+	AeroConfig Format = "asconfig"
+)
+
+var ErrInvalidFormat = fmt.Errorf("invalid config format")

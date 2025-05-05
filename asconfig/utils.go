@@ -17,6 +17,7 @@ import (
 	"github.com/go-logr/logr"
 
 	lib "github.com/aerospike/aerospike-management-lib"
+	"github.com/aerospike/aerospike-management-lib/info"
 )
 
 type sysproptype string
@@ -858,6 +859,13 @@ func toConf(log logr.Logger, input map[string]interface{}) Conf {
 		}
 
 		handleValueType(log, k, v, result)
+
+		// Handle logging configuration as a special case.
+		// In the general Aerospike configuration, fields like "namespace" and "tls" are typically lists.
+		// However, in the logging section, these same fields are represented as strings instead.
+		if k == info.ConfigLoggingContext {
+			handleLoggingConfig(result)
+		}
 	}
 
 	return result
@@ -904,6 +912,23 @@ func handleValueType(log logr.Logger, key string, value interface{}, result Conf
 	default:
 		result[key] = value
 	}
+}
+
+func handleLoggingConfig(result Conf) {
+	loggings := result[info.ConfigLoggingContext].([]Conf)
+	for i := range loggings {
+		for k, v := range loggings[i] {
+			// Adjust the result for logging configuration by converting list-type fields to string-type,
+			// since logging expects fields like "namespace" and "tls" as strings instead of lists.
+			//nolint:gocritic //readability
+			switch val := v.(type) {
+			case []string:
+				loggings[i][k] = val[0]
+			}
+		}
+	}
+
+	result[info.ConfigLoggingContext] = loggings
 }
 
 // Add other helper functions here...
@@ -1065,7 +1090,27 @@ func GetFlatKey(tokens []string) string {
 	return strings.TrimSuffix(key, ".")
 }
 
-func ToPlural(k string, v any, m Conf) {
+/*
+toPlural converts the keys that the management lib asconf parser
+parses as singular, to the plural keys that the yaml schemas expect
+Ex configMap
+
+	configMap{
+		"namespace": []configMap{
+			...
+		}
+	}
+
+->
+
+	configMap{
+		"namespaces": []configMap{
+			...
+		}
+	}
+*/
+
+func ToPlural(k string, v any, m configMap) error {
 	// convert asconfig fields/contexts that need to be plural
 	// in order to create valid asconfig yaml.
 	if plural := PluralOf(k); plural != k {
@@ -1075,7 +1120,7 @@ func ToPlural(k string, v any, m Conf) {
 		// than []string this might have to change.
 		if isListOrString(k) {
 			if _, ok := v.([]string); !ok {
-				return
+				return nil
 			}
 
 			if len(v.([]string)) == 1 {
@@ -1084,13 +1129,19 @@ func ToPlural(k string, v any, m Conf) {
 				// fields are actually scalars then overwrite the list
 				// with the single value
 				m[k] = v.([]string)[0]
-				return
+				return nil
 			}
 		}
 
 		delete(m, k)
 		m[plural] = v
+	} else if SingularOf(k) != k {
+		// if the plural is the same as the original
+		// plural config in input is not allowed
+		return fmt.Errorf("%s is not a valid config key", k)
 	}
+
+	return nil
 }
 
 // isListOrString returns true for special config fields that may be a
