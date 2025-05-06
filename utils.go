@@ -130,3 +130,11 @@ func ContainsString(list []string, ele string) bool {
 
 	return false
 }
+
+func GetKeys(m map[string]interface{}) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	return keys
+}

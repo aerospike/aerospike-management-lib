@@ -124,23 +124,25 @@ type mapping func(k string, v any, m configMap) error
 func mutateMap(in configMap, funcs []mapping) error {
 	var errs []error
 
-	for k, v := range in {
+	keys := lib.GetKeys(in)
+	for idx := range keys {
+		v := in[keys[idx]]
 		switch v := v.(type) {
 		case configMap:
 			if err := mutateMap(v, funcs); err != nil {
-				errs = append(errs, fmt.Errorf("error in nested map for key %s: %w", k, err))
+				errs = append(errs, fmt.Errorf("error in nested map for key %s: %w", keys[idx], err))
 			}
 		case []configMap:
 			for i, lv := range v {
 				if err := mutateMap(lv, funcs); err != nil {
-					errs = append(errs, fmt.Errorf("error in array element %d for key %s: %w", i, k, err))
+					errs = append(errs, fmt.Errorf("error in array element %d for key %s: %w", i, keys[idx], err))
 				}
 			}
 		}
 
 		for _, f := range funcs {
-			if err := f(k, in[k], in); err != nil {
-				errs = append(errs, fmt.Errorf("error in mapping function for key %s: %w", k, err))
+			if err := f(keys[idx], in[keys[idx]], in); err != nil {
+				errs = append(errs, fmt.Errorf("error in mapping function for key %s: %w", keys[idx], err))
 			}
 		}
 	}
