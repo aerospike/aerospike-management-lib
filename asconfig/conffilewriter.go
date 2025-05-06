@@ -14,12 +14,11 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/aerospike/aerospike-management-lib/info"
-
 	sets "github.com/deckarep/golang-set/v2"
 	"github.com/go-logr/logr"
 
 	lib "github.com/aerospike/aerospike-management-lib"
+	"github.com/aerospike/aerospike-management-lib/info"
 )
 
 const (

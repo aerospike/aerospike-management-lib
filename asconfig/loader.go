@@ -115,26 +115,24 @@ func loadAsConf(log logr.Logger, src []byte) (*AsConfig, error) {
 	return c, nil
 }
 
-type configMap = lib.Stats
-
 // mapping functions get mapped to each key value pair in a management lib Stats map
 // m is the map that k and v came from
-type mapping func(k string, v any, m configMap) error
+type mapping func(k string, v any, m Conf) error
 
 // mutateMap maps functions to each key value pair in the management lib's Stats map
 // the functions are applied sequentially to each k,v pair.
-func mutateMap(in configMap, funcs []mapping) error {
+func mutateMap(in Conf, funcs []mapping) error {
 	var errs []error
 
 	keys := lib.GetKeys(in)
 	for idx := range keys {
 		v := in[keys[idx]]
 		switch v := v.(type) {
-		case configMap:
+		case Conf:
 			if err := mutateMap(v, funcs); err != nil {
 				errs = append(errs, fmt.Errorf("error in nested map for key %s: %w", keys[idx], err))
 			}
-		case []configMap:
+		case []Conf:
 			for i, lv := range v {
 				if err := mutateMap(lv, funcs); err != nil {
 					errs = append(errs, fmt.Errorf("error in array element %d for key %s: %w", i, keys[idx], err))
@@ -162,29 +160,29 @@ parses as literal strings into the objects that the yaml schemas expect.
 NOTE: As of server 7.0 a context is required for storage-engine memory
 so it will no longer be a string. This is still needed for compatibility
 with older servers.
-Ex configMap
+Ex Conf
 
-	configMap{
+	Conf{
 		"storage-engine": "memory"
 	}
 
 ->
 
-	configMap{
-		"storage-engine": configMap{
+	Conf{
+		"storage-engine": Conf{
 			"type": "memory"
 		}
 	}
 */
-func typedContextsToObject(k string, _ any, m configMap) error {
+func typedContextsToObject(k string, _ any, m Conf) error {
 	if isTypedSection(k) {
 		v := m[k]
 		// if a typed context does not have a map value.
 		// then it's value is a string like "memory" or "flash"
 		// in order to make valid asconfig yaml we convert this context
 		// to a map where "type" maps to the value
-		if _, ok := v.(configMap); !ok {
-			m[k] = configMap{keyType: v}
+		if _, ok := v.(Conf); !ok {
+			m[k] = Conf{keyType: v}
 		}
 	}
 
@@ -201,14 +199,14 @@ namespace ns1 {}
 namespace ns1 {}
 namespace ns2 {}
 
-Ex matching configMap
+Ex matching Conf
 
-	configMap{
-		"namespace": []configMap{
-			configMap{
+	Conf{
+		"namespace": []Conf{
+			Conf{
 				"name": "ns2",
 			},
-			configMap{
+			Conf{
 				"name": "ns1",
 			},
 		}
@@ -216,19 +214,19 @@ Ex matching configMap
 
 ->
 
-	configMap{
-		"namespace": []configMap{
-			configMap{
+	Conf{
+		"namespace": []Conf{
+			Conf{
 				"name": "ns1",
 			},
-			configMap{
+			Conf{
 				"name": "ns2",
 			},
 		}
 	}
 */
-func sortLists(k string, v any, m configMap) error {
-	if v, ok := v.([]configMap); ok {
+func sortLists(k string, v any, m Conf) error {
+	if v, ok := v.([]Conf); ok {
 		sort.Slice(v, func(i int, j int) bool {
 			iv, iok := v[i]["name"]
 			jv, jok := v[j]["name"]

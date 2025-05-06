@@ -14,11 +14,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/aerospike/aerospike-management-lib/info"
-
 	"github.com/go-logr/logr"
 
 	lib "github.com/aerospike/aerospike-management-lib"
+	"github.com/aerospike/aerospike-management-lib/info"
 )
 
 type sysproptype string
@@ -1108,7 +1107,7 @@ Ex configMap
 	}
 */
 
-func ToPlural(k string, v any, m configMap) error {
+func ToPlural(k string, v any, m Conf) error {
 	// convert asconfig fields/contexts that need to be plural
 	// in order to create valid asconfig yaml.
 	if plural := PluralOf(k); plural != k {
