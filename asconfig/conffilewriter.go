@@ -14,6 +14,8 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/aerospike/aerospike-management-lib/info"
+
 	sets "github.com/deckarep/golang-set/v2"
 	"github.com/go-logr/logr"
 
@@ -125,7 +127,7 @@ func writeSpecialListSection(
 	indent int,
 ) {
 	section = SingularOf(section)
-	if section == "logging" {
+	if section == info.ConfigLoggingContext {
 		writeLogSection(log, buf, section, confList, indent)
 		return
 	}
