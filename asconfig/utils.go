@@ -915,7 +915,11 @@ func handleValueType(log logr.Logger, key string, value interface{}, result Conf
 }
 
 func handleLoggingConfig(result Conf) {
-	loggings := result[info.ConfigLoggingContext].([]Conf)
+	loggings, ok := result[info.ConfigLoggingContext].([]Conf)
+	if !ok {
+		return
+	}
+
 	for i := range loggings {
 		for k, v := range loggings[i] {
 			// Adjust the result for logging configuration by converting list-type fields to string-type,
