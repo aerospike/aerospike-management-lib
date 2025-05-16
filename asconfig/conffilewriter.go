@@ -18,6 +18,7 @@ import (
 	"github.com/go-logr/logr"
 
 	lib "github.com/aerospike/aerospike-management-lib"
+	"github.com/aerospike/aerospike-management-lib/info"
 )
 
 const (
@@ -125,7 +126,7 @@ func writeSpecialListSection(
 	indent int,
 ) {
 	section = SingularOf(section)
-	if section == "logging" {
+	if section == info.ConfigLoggingContext {
 		writeLogSection(log, buf, section, confList, indent)
 		return
 	}

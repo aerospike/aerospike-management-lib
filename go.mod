@@ -2,7 +2,7 @@ module github.com/aerospike/aerospike-management-lib
 
 go 1.23.0
 
-toolchain go1.23.6
+toolchain go1.23.8
 
 require (
 	github.com/aerospike/aerospike-client-go/v8 v8.2.1

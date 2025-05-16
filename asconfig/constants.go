@@ -1,6 +1,9 @@
 package asconfig
 
-type Operation string
+type (
+	Operation string
+	Format    string
+)
 
 // All the aerospike config related keys
 const (
@@ -38,4 +41,8 @@ const (
 	Add    Operation = "add"
 	Remove Operation = "remove"
 	Update Operation = "update"
+
+	Invalid    Format = ""
+	YAML       Format = "yaml"
+	AeroConfig Format = "asconfig"
 )
