@@ -19,6 +19,9 @@ jobs:
         with:
           go-version-file: go.mod
 
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3
+
       - name: Cleanup asconfig directory if it exists
         run: |
             if [ -d "asconfig" ]; then
