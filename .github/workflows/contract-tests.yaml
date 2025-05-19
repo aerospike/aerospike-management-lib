@@ -26,7 +26,7 @@ jobs:
         run: |
           mkdir -p ../asconfig-workspace
           cd ../asconfig-workspace
-          git clone https://github.com/aerospike/asconfig.git
+          git clone --recurse-submodules https://github.com/aerospike/asconfig.git
 
       - name: Replace aerospike-management-lib in asconfig with PR branch
         run: |
