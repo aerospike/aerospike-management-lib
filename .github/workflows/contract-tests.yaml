@@ -19,6 +19,11 @@ jobs:
         with:
           go-version-file: go.mod
 
+      - name: Cleanup asconfig directory if it exists
+        run: |
+            if [ -d "asconfig" ]; then
+                rm -rf asconfig
+            fi
       - name: Clone asconfig (CLI)
         run: git clone https://github.com/aerospike/asconfig.git
 
