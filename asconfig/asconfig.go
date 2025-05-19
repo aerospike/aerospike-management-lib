@@ -1,5 +1,7 @@
 package asconfig
 
+// This is a placeholder package to satisfy imports from asconfig CLI.
+
 import (
 	"bufio"
 	"io"
