@@ -864,7 +864,7 @@ func toConf(log logr.Logger, input map[string]interface{}) Conf {
 		// In the general Aerospike configuration, fields like "namespace" and "tls" are typically lists.
 		// However, in the logging section, these same fields are represented as strings instead.
 		if k == info.ConfigLoggingContext {
-			handleLoggingConfig(result)
+			handleLoggingConfig(log, result)
 		}
 	}
 
@@ -914,9 +914,14 @@ func handleValueType(log logr.Logger, key string, value interface{}, result Conf
 	}
 }
 
-func handleLoggingConfig(result Conf) {
+func handleLoggingConfig(log logr.Logger, result Conf) {
 	loggings, ok := result[info.ConfigLoggingContext].([]Conf)
 	if !ok {
+		log.V(1).Info(
+			"logging config is not of expected type []Conf",
+			"logging", result[info.ConfigLoggingContext],
+		)
+
 		return
 	}
 
@@ -924,10 +929,14 @@ func handleLoggingConfig(result Conf) {
 		for k, v := range loggings[i] {
 			// Adjust the result for logging configuration by converting list-type fields to string-type,
 			// since logging expects fields like "namespace" and "tls" as strings instead of lists.
-			//nolint:gocritic //readability
 			switch val := v.(type) {
 			case []string:
 				loggings[i][k] = val[0]
+			default:
+				log.V(1).Info(
+					"Unexpected value",
+					"type", reflect.TypeOf(v), "key", k, "value", v,
+				)
 			}
 		}
 	}
