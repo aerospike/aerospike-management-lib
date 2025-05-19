@@ -1,4 +1,4 @@
-name: Tests
+name: Contract Tests
 on:
   push:
     branches:
@@ -18,9 +18,6 @@ jobs:
         uses: actions/setup-go@v4
         with:
           go-version-file: go.mod
-
-      - name: Setup tmate session
-        uses: mxschmitt/action-tmate@v3
 
       - name: Create parent directory and clone asconfig (CLI)
         run: |
