@@ -1,6 +1,9 @@
 package asconfig
 
-type OpType string
+type (
+	OpType string
+	Format string
+)
 
 // All the aerospike config related keys
 const (
@@ -20,6 +23,7 @@ const (
 	keyTLSAlternateAccessAddress = "tls-alternate-access-address"
 	keyTLSAuthenticateClient     = "tls-authenticate-client"
 	keyNodeAddressPorts          = "node-address-ports"
+	keyNodeID                    = "node-id"
 
 	keyReportDataOp = "report-data-op"
 	keyNamespace    = "namespace"
@@ -37,4 +41,8 @@ const (
 	Add    OpType = "add"
 	Remove OpType = "remove"
 	Update OpType = "update"
+
+	Invalid    Format = ""
+	YAML       Format = "yaml"
+	AeroConfig Format = "asconfig"
 )

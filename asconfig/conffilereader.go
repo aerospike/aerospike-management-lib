@@ -15,6 +15,8 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
+
+	"github.com/aerospike/aerospike-management-lib/utils"
 )
 
 var leadcloseWhtspRegex = regexp.MustCompile(`^[\s\p{Zs}]+|[\s\p{Zs}]+$`)
@@ -220,7 +222,7 @@ func parseValue(k string, val interface{}) interface{} {
 		return val
 	}
 
-	if isStringField(k) {
+	if utils.IsStringField(k) {
 		return val
 	}
 

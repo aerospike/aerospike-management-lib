@@ -17,6 +17,7 @@ import (
 	"github.com/go-logr/logr"
 
 	lib "github.com/aerospike/aerospike-management-lib"
+	"github.com/aerospike/aerospike-management-lib/info"
 )
 
 type sysproptype string
@@ -28,6 +29,13 @@ const (
 	DEVICE  sysproptype = "DEVICE"
 	NONE    sysproptype = "NONE"
 )
+
+var BenchmarkConfigs = []string{
+	"enable-benchmarks-batch-sub", "enable-benchmarks-read",
+	"enable-benchmarks-udf", "enable-benchmarks-write",
+	"enable-benchmarks-udf-sub", "enable-benchmarks-storage",
+	"enable-benchmarks-fabric", "enable-benchmarks-ops-sub",
+}
 
 var portRegex = regexp.MustCompile("port")
 
@@ -622,7 +630,7 @@ func isSpecialListSection(section string) bool {
 	section = SingularOf(section)
 
 	switch section {
-	case "logging":
+	case info.ConfigLoggingContext:
 		return true
 
 	default:
@@ -683,15 +691,7 @@ func isSpecialOrNormalBoolField(key string) bool {
 // config file is true/false.
 // e.g. namespace and storage level benchmark fields
 func isSpecialBoolField(key string) bool {
-	switch key {
-	case "enable-benchmarks-batch-sub", "enable-benchmarks-read",
-		"enable-benchmarks-udf", "enable-benchmarks-write",
-		"enable-benchmarks-udf-sub", "enable-benchmarks-storage":
-		return true
-
-	default:
-		return false
-	}
+	return lib.ContainsString(BenchmarkConfigs, key)
 }
 
 // isSpecialStringField returns true if the passed key
@@ -715,7 +715,7 @@ func isNodeSpecificField(key string) bool {
 	key = SingularOf(key)
 	switch key {
 	case keyFile, keyDevice, "pidfile",
-		"node-id", keyAddress, "port", keyAccessAddress, "access-port",
+		keyNodeID, keyAddress, "port", keyAccessAddress, "access-port",
 		"external-address", "interface-address", keyAlternateAccessAddress,
 		keyTLSAddress, "tls-port", keyTLSAccessAddress, "tls-access-port",
 		keyTLSAlternateAccessAddress, "tls-alternate-access-port", "alternate-access-port",
@@ -741,7 +741,7 @@ func isSizeOrTime(key string) (bool, humanize) {
 	switch key {
 	case "default-ttl", "max-ttl", "tomb-raider-eligible-age",
 		"tomb-raider-period", "nsup-period", "migrate-fill-delay",
-		"tls-refresh-period", "ship-versions-interval":
+		"tls-refresh-period", "ship-versions-interval", "mrt-duration":
 		return true, deHumanizeTime
 
 	case "memory-size", "filesize", "write-block-size",
@@ -828,31 +828,6 @@ func addStorageEngineConfig(
 	}
 }
 
-// TODO derive these from the schema file
-func isStringField(key string) bool {
-	switch key {
-	// NOTE: before 7.0 "debug-allocations" was a string field. Since it does not except
-	// numeric values it is safe to remove from this table so that it functions as a bool
-	// when parsing server 7.0+ config files
-	case "tls-name", "encryption", "query-user-password-file", "encryption-key-file",
-		keyTLSAuthenticateClient, "mode", "auto-pin", "compression", "user-path",
-		"auth-user", "user", "cipher-suite", "ca-path", "write-policy", "vault-url",
-		"protocols", "bin-policy", "ca-file", "key-file", "pidfile", "cluster-name",
-		"auth-mode", "encryption-old-key-file", "group", "work-directory", "write-commit-level-override",
-		"vault-ca", "cert-blacklist", "vault-token-file", "query-user-dn", "node-id",
-		"conflict-resolution-policy", "server", "query-base-dn", "node-id-interface",
-		"auth-password-file", keyFeatureKeyFile, "read-consistency-level-override",
-		"cert-file", "user-query-pattern", "key-file-password", "protocol", "vault-path",
-		"user-dn-pattern", "scheduler-mode", "token-hash-method",
-		"remote-namespace", "tls-ca-file", "role-query-base-dn", "set-enable-xdr",
-		"secrets-tls-context", "secrets-uds-path", "secrets-address-port",
-		"default-password-file", "ship-versions-policy":
-		return true
-	}
-
-	return false
-}
-
 // isDelimitedStringField returns true for configuration fields that
 // are delimited strings, but not members of a list section. The separator
 // represents the delimiter used in the .yml config as opposed to the
@@ -884,6 +859,13 @@ func toConf(log logr.Logger, input map[string]interface{}) Conf {
 		}
 
 		handleValueType(log, k, v, result)
+
+		// Handle logging configuration as a special case.
+		// In the general Aerospike configuration, fields like "namespace" and "tls" are typically lists.
+		// However, in the logging section, these same fields are represented as strings instead.
+		if k == info.ConfigLoggingContext {
+			handleLoggingConfig(log, result)
+		}
 	}
 
 	return result
@@ -930,6 +912,36 @@ func handleValueType(log logr.Logger, key string, value interface{}, result Conf
 	default:
 		result[key] = value
 	}
+}
+
+func handleLoggingConfig(log logr.Logger, result Conf) {
+	loggings, ok := result[info.ConfigLoggingContext].([]Conf)
+	if !ok {
+		log.V(1).Info(
+			"logging config is not of expected type []Conf",
+			"logging", result[info.ConfigLoggingContext],
+		)
+
+		return
+	}
+
+	for i := range loggings {
+		for k, v := range loggings[i] {
+			// Adjust the result for logging configuration by converting list-type fields to string-type,
+			// since logging expects fields like "namespace" and "tls" as strings instead of lists.
+			switch val := v.(type) {
+			case []string:
+				loggings[i][k] = val[0]
+			default:
+				log.V(1).Info(
+					"Unexpected value",
+					"type", reflect.TypeOf(v), "key", k, "value", v,
+				)
+			}
+		}
+	}
+
+	result[info.ConfigLoggingContext] = loggings
 }
 
 // Add other helper functions here...
@@ -1091,7 +1103,24 @@ func GetFlatKey(tokens []string) string {
 	return strings.TrimSuffix(key, ".")
 }
 
-func ToPlural(k string, v any, m Conf) {
+/*
+ToPlural converts the keys that the management lib asconf parser
+parses as singular, to the plural keys that the yaml schemas expect
+Ex configMap
+	configMap{
+		"namespace": []configMap{
+			...
+		}
+	}
+->
+	configMap{
+		"namespaces": []configMap{
+			...
+		}
+	}
+*/
+
+func ToPlural(k string, v any, m Conf) error {
 	// convert asconfig fields/contexts that need to be plural
 	// in order to create valid asconfig yaml.
 	if plural := PluralOf(k); plural != k {
@@ -1101,7 +1130,7 @@ func ToPlural(k string, v any, m Conf) {
 		// than []string this might have to change.
 		if isListOrString(k) {
 			if _, ok := v.([]string); !ok {
-				return
+				return nil
 			}
 
 			if len(v.([]string)) == 1 {
@@ -1110,13 +1139,19 @@ func ToPlural(k string, v any, m Conf) {
 				// fields are actually scalars then overwrite the list
 				// with the single value
 				m[k] = v.([]string)[0]
-				return
+				return nil
 			}
 		}
 
 		delete(m, k)
 		m[plural] = v
+	} else if SingularOf(k) != k {
+		// if the plural is the same as the original
+		// plural config in input is not allowed
+		return fmt.Errorf("%s is not a valid config key", k)
 	}
+
+	return nil
 }
 
 // isListOrString returns true for special config fields that may be a

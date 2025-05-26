@@ -119,3 +119,23 @@ func CompareVersionsIgnoreRevision(version1, version2 string) (int, error) {
 
 	return 0, nil
 }
+
+// ContainsString check whether list contains given string
+func ContainsString(list []string, ele string) bool {
+	for _, listEle := range list {
+		if strings.EqualFold(ele, listEle) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func GetKeys(m map[string]interface{}) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+
+	return keys
+}
