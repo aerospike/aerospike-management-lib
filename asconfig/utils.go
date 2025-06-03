@@ -932,6 +932,8 @@ func handleLoggingConfig(log logr.Logger, result Conf) {
 			switch val := v.(type) {
 			case []string:
 				loggings[i][k] = val[0]
+			case string:
+				// If the value is a string, we keep it as is.
 			default:
 				log.V(1).Info(
 					"Unexpected value",

@@ -472,7 +472,7 @@ func ParseSetNames(m map[string]string, ns string) []string {
 
 func (info *AsInfo) getCoreInfo() (map[string]string, error) {
 	m, err := info.RequestInfo(
-		constStatNSNames, cmdConfigXDR, constStatSIndex, constStatLogIDs, cmdMetaBuild,
+		constStatNSNames, cmdConfigXDR, constStatSIndex, constStatLogIDs, cmdMetaBuild, cmdMetaEdition,
 	)
 	if err != nil {
 		return nil, err
@@ -549,7 +549,11 @@ func (info *AsInfo) createConfigCmdList(
 			ConfigServiceContext, ConfigNetworkContext, ConfigNamespaceContext,
 			ConfigSetContext, ConfigXDRContext, ConfigDCContext,
 			ConfigSecurityContext, ConfigLoggingContext, ConfigDCNames,
-			ConfigNamespaceNames, ConfigLogIDs, ConfigRacksContext,
+			ConfigNamespaceNames, ConfigLogIDs,
+		}
+
+		if strings.Contains(m[cmdMetaEdition], "Enterprise") {
+			contextList = append(contextList, ConfigRacksContext)
 		}
 	}
 
@@ -593,6 +597,10 @@ func (info *AsInfo) createConfigCmdList(
 				cmdList = append(cmdList, cmdConfigLogging+id)
 			}
 		case ConfigRacksContext:
+			if !strings.Contains(m[cmdMetaEdition], "Enterprise") {
+				return cmdList, fmt.Errorf("racks config not supported in community edition")
+			}
+
 			cmdList = append(cmdList, cmdConfigRacks)
 
 		default:
@@ -997,7 +1005,6 @@ func parseConfigInfo(rawMap map[string]string) lib.Stats {
 	}
 
 	xc := parseAllXDRConfig(rawMap, cmdConfigXDR)
-
 	if len(xc) > 0 {
 		configMap[ConfigXDRContext] = xc
 	}
@@ -1460,14 +1467,18 @@ func ParseIntoMap(str, del, sep string) lib.Stats {
 	}
 
 	m := make(lib.Stats)
-	items := strings.Split(str, del)
 
+	items := strings.Split(str, del)
 	for _, item := range items {
 		if item == "" {
 			continue
 		}
 
 		kv := strings.Split(item, sep)
+		if len(kv) < 2 {
+			return m
+		}
+
 		if m[kv[0]] != nil {
 			// If key already exists assume it is a list of strings.
 			// This was chosen rather than turning the value into []string to
@@ -1561,18 +1572,4 @@ func parseIntoDcMap(str, del, sep string) lib.Stats {
 	}
 
 	return m.ToParsedValues()
-}
-
-func contains(list []string, str string) bool {
-	if len(list) == 0 {
-		return false
-	}
-
-	for _, s := range list {
-		if s == str {
-			return true
-		}
-	}
-
-	return false
 }
