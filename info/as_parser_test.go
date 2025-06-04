@@ -101,7 +101,7 @@ func (s *AsParserTestSuite) TestAsInfoGetAsConfig() {
 		},
 		{
 			"racks",
-			nil,
+			map[string]string{cmdMetaEdition: "Aerospike Enterprise Edition"},
 			[]string{"racks:"},
 			map[string]string{
 				"racks:": "ns=test:rack_0=1B;ns=bar:rack_0=2B;",
