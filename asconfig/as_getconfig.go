@@ -24,6 +24,8 @@ func GetASConfig(paths []string, conn *deployment.ASConn, aerospikePolicy *aero.
 	asinfo := info.NewAsInfo(conn.Log, &h, aerospikePolicy)
 	ctxs := sets.NewSet[string]()
 
+	defer asinfo.Close()
+
 	for _, path := range paths {
 		ctx := ContextKey(path)
 		ctxs.Add(ctx)
