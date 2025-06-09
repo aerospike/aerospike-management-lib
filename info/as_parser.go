@@ -552,7 +552,7 @@ func (info *AsInfo) createConfigCmdList(
 			ConfigNamespaceNames, ConfigLogIDs,
 		}
 
-		if strings.Contains(m[cmdMetaEdition], "Enterprise") {
+		if strings.Contains(m[cmdMetaEdition], "Enterprise") || strings.Contains(m[cmdMetaEdition], "Federal") {
 			contextList = append(contextList, ConfigRacksContext)
 		}
 	}
@@ -597,7 +597,7 @@ func (info *AsInfo) createConfigCmdList(
 				cmdList = append(cmdList, cmdConfigLogging+id)
 			}
 		case ConfigRacksContext:
-			if !strings.Contains(m[cmdMetaEdition], "Enterprise") {
+			if strings.Contains(m[cmdMetaEdition], "Community") {
 				return cmdList, fmt.Errorf("racks config not supported in community edition")
 			}
 

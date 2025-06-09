@@ -509,7 +509,7 @@ func CreateConfigSetCmdsUsingPatch(
 
 		if ok, _ := isListField(k); ok {
 			// Ignore these fields as these operations are not update operations
-			//TODO: Should we through an error if these fields are present in the configMap patch?
+			//TODO: Should we throw an error if these fields are present in the configMap patch?
 			continue
 		}
 

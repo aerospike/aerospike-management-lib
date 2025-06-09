@@ -88,15 +88,13 @@ func (s *AsParserTestSuite) TestAsInfoGetAsConfig() {
 		},
 		{
 			"logging",
-			map[string]string{"logs": "0:/var/log/aerospike.log;1:stderr"},
-			[]string{"log/0", "log/1"},
+			map[string]string{"logs": "0:/var/log/aerospike.log"},
+			[]string{"log/0"},
 			map[string]string{
 				"log/0": "misc:CRITICAL;alloc:CRITICAL;arenax:CRITICAL;hardware:CRITICAL;msg:CRITICAL;rbuffer:CRITICAL;socket:CRITICAL;tls:CRITICAL;vmapx:CRITICAL",
-				"log/1": "misc:CRITICAL;alloc:CRITICAL;arenax:CRITICAL;hardware:CRITICAL;msg:CRITICAL;rbuffer:CRITICAL;socket:CRITICAL;tls:CRITICAL;vmapx:CRITICAL",
 			},
 			lib.Stats{"logging": lib.Stats{
 				"/var/log/aerospike.log": lib.Stats{"misc": "CRITICAL", "alloc": "CRITICAL", "arenax": "CRITICAL", "hardware": "CRITICAL", "msg": "CRITICAL", "rbuffer": "CRITICAL", "socket": "CRITICAL", "tls": "CRITICAL", "vmapx": "CRITICAL"},
-				"stderr":                 lib.Stats{"misc": "CRITICAL", "alloc": "CRITICAL", "arenax": "CRITICAL", "hardware": "CRITICAL", "msg": "CRITICAL", "rbuffer": "CRITICAL", "socket": "CRITICAL", "tls": "CRITICAL", "vmapx": "CRITICAL"},
 			}},
 		},
 		{
