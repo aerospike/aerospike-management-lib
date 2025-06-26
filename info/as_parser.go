@@ -547,12 +547,11 @@ func (info *AsInfo) createConfigCmdList(
 	if len(contextList) == 0 {
 		contextList = []string{
 			ConfigServiceContext, ConfigNetworkContext, ConfigNamespaceContext,
-			ConfigSetContext, ConfigXDRContext, ConfigDCContext,
-			ConfigSecurityContext, ConfigLoggingContext, ConfigDCNames,
-			ConfigNamespaceNames, ConfigLogIDs,
+			ConfigSetContext, ConfigXDRContext,
+			ConfigSecurityContext, ConfigLoggingContext,
 		}
 
-		if strings.Contains(m[cmdMetaEdition], "Enterprise") || strings.Contains(m[cmdMetaEdition], "Federal") {
+		if !strings.Contains(m[cmdMetaEdition], "Community") {
 			contextList = append(contextList, ConfigRacksContext)
 		}
 	}
@@ -1142,20 +1141,6 @@ func parseAllXDRConfig(rawMap map[string]string, cmd string) lib.Stats {
 	}
 
 	return xdrConfigMap
-}
-
-func parseAllDcConfig(rawMap map[string]string, cmd string) lib.Stats {
-	dcConfigMap := make(lib.Stats)
-	dcNames := getNames(rawMap[constStatDCNames])
-
-	for _, dc := range dcNames {
-		m := parseIntoDcMap(rawMap[cmd+dc], ":", "=")
-		if len(m) > 0 {
-			dcConfigMap[dc] = m
-		}
-	}
-
-	return dcConfigMap
 }
 
 func parseBasicConfigInfo(res, sep string) lib.Stats {
