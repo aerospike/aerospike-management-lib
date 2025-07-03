@@ -383,9 +383,50 @@ func sortKeys(config Conf) []string {
 		idx++
 	}
 
-	sort.Strings(keys)
+	// Custom sort to handle numeric indices correctly and ensure device keys are processed before their shadow counterparts
+	sort.Slice(keys, func(i, j int) bool {
+		keyA, keyB := keys[i], keys[j]
+
+		// Extract base key and index for comparison
+		baseA, indexA, suffixA := extractKeyParts(keyA)
+		baseB, indexB, suffixB := extractKeyParts(keyB)
+
+		// If both keys are indexed and have the same base, sort by index first, then by suffix
+		if baseA != "" && baseB != "" && baseA == baseB {
+			if indexA != indexB {
+				return indexA < indexB
+			}
+			// Same base and index, sort by suffix (device before shadow)
+			return suffixA < suffixB
+		}
+
+		// Default to lexicographical sorting for all other cases
+		return keyA < keyB
+	})
 
 	return keys
+}
+
+// extractKeyParts extracts the base key, numeric index, and suffix from a key
+// Returns empty base if the key doesn't contain an indexed pattern
+func extractKeyParts(key string) (base string, index int, suffix string) {
+	// Match pattern like "prefix[123]suffix"
+	matches := indexedRe.FindStringSubmatch(key)
+	if matches == nil {
+		return "", 0, key
+	}
+
+	base = matches[1]
+	indexStr := matches[2]
+	suffix = matches[3]
+
+	// Parse the index
+	parsedIndex, err := strconv.Atoi(indexStr)
+	if err != nil {
+		return "", 0, key
+	}
+
+	return base, parsedIndex, suffix
 }
 
 // convertDictToList converts a dictionary configuration to a list configuration.
