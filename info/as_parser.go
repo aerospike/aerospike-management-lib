@@ -592,12 +592,16 @@ func (info *AsInfo) createConfigCmdList(
 
 		case ConfigLoggingContext:
 			logs := ParseIntoMap(m[constStatLogIDs], ";", ":")
+
 			// Sort log IDs to ensure deterministic order
 			logIDs := make([]string, 0, len(logs))
+
 			for id := range logs {
 				logIDs = append(logIDs, id)
 			}
+
 			sort.Strings(logIDs)
+
 			for _, id := range logIDs {
 				cmdList = append(cmdList, cmdConfigLogging+id)
 			}
