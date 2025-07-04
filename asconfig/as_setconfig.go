@@ -5,10 +5,11 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/go-logr/logr"
+
 	aero "github.com/aerospike/aerospike-client-go/v8"
 	"github.com/aerospike/aerospike-management-lib/deployment"
 	"github.com/aerospike/aerospike-management-lib/info"
-	"github.com/go-logr/logr"
 )
 
 const (
@@ -22,8 +23,8 @@ const (
 
 // convertValueToString converts the value of a config to a string.
 // only string type can be used to populate set-config commands with values.
-func convertValueToString(v1 map[Operation]interface{}) (map[Operation][]string, error) {
-	valueMap := make(map[Operation][]string)
+func convertValueToString(v1 map[OpType]interface{}) (map[OpType][]string, error) {
+	valueMap := make(map[OpType][]string)
 
 	for k, v := range v1 {
 		values := make([]string, 0)
@@ -54,7 +55,7 @@ func convertValueToString(v1 map[Operation]interface{}) (map[Operation][]string,
 }
 
 // createSetConfigServiceCmdList creates set-config commands for service context.
-func createSetConfigServiceCmdList(tokens []string, operationValueMap map[Operation][]string) []string {
+func createSetConfigServiceCmdList(tokens []string, operationValueMap map[OpType][]string) []string {
 	val := operationValueMap[Update]
 	cmdList := make([]string, 0, len(val))
 	cmd := cmdSetConfigService
@@ -74,7 +75,7 @@ func createSetConfigServiceCmdList(tokens []string, operationValueMap map[Operat
 }
 
 // createSetConfigNetworkCmdList creates set-config commands for network context.
-func createSetConfigNetworkCmdList(tokens []string, operationValueMap map[Operation][]string) []string {
+func createSetConfigNetworkCmdList(tokens []string, operationValueMap map[OpType][]string) []string {
 	val := operationValueMap[Update]
 	cmdList := make([]string, 0, len(val))
 	cmd := cmdSetConfigNetwork
@@ -94,7 +95,7 @@ func createSetConfigNetworkCmdList(tokens []string, operationValueMap map[Operat
 }
 
 // createSetConfigSecurityCmdList creates set-config commands for security context.
-func createSetConfigSecurityCmdList(tokens []string, operationValueMap map[Operation][]string) []string {
+func createSetConfigSecurityCmdList(tokens []string, operationValueMap map[OpType][]string) []string {
 	cmdList := make([]string, 0, len(operationValueMap))
 	cmd := cmdSetConfigSecurity
 
@@ -178,7 +179,7 @@ func createSetConfigSecurityCmdList(tokens []string, operationValueMap map[Opera
 }
 
 // createSetConfigNamespaceCmdList creates set-config commands for namespace context.
-func createSetConfigNamespaceCmdList(tokens []string, operationValueMap map[Operation][]string) []string {
+func createSetConfigNamespaceCmdList(tokens []string, operationValueMap map[OpType][]string) []string {
 	val := operationValueMap[Update]
 	cmdList := make([]string, 0, len(val))
 	cmd := cmdSetConfigNamespace
@@ -221,7 +222,7 @@ func createSetConfigNamespaceCmdList(tokens []string, operationValueMap map[Oper
 }
 
 // createLogSetCmdList creates log-set commands for logging context.
-func createLogSetCmdList(tokens []string, operationValueMap map[Operation][]string,
+func createLogSetCmdList(tokens []string, operationValueMap map[OpType][]string,
 	conn deployment.ASConnInterface, aerospikePolicy *aero.ClientPolicy) ([]string, error) {
 	val := operationValueMap[Update]
 	cmdList := make([]string, 0, len(val))
@@ -254,7 +255,7 @@ func createLogSetCmdList(tokens []string, operationValueMap map[Operation][]stri
 }
 
 // createSetConfigXDRCmdList creates set-config commands for XDR context.
-func createSetConfigXDRCmdList(tokens []string, operationValueMap map[Operation][]string) []string {
+func createSetConfigXDRCmdList(tokens []string, operationValueMap map[OpType][]string) []string {
 	cmdList := make([]string, 0, len(operationValueMap))
 	cmd := cmdSetConfigXDR
 	prevToken := ""
@@ -463,4 +464,105 @@ func rearrangeConfigMap(log logr.Logger, configMap DynamicConfigMap) []string {
 	}
 
 	return finalList
+}
+
+func ValidConfigOperations() []OpType {
+	return []OpType{Add, Update, Remove}
+}
+
+func (o OpType) Validate() error {
+	switch o {
+	case Add, Update, Remove:
+		return nil
+	}
+
+	return fmt.Errorf("invalid operation type: %s, Valid operations: %v", o, ValidConfigOperations())
+}
+
+type ConfigOperation struct {
+	Operation OpType `json:"op"`
+	Context   string `json:"context"`
+	Config    string `json:"config"`
+	Value     string `json:"value,omitempty"`
+}
+
+func (p ConfigOperation) Validate() error {
+	return p.Operation.Validate()
+}
+
+func CreateConfigSetCmdsUsingPatch(
+	configMap map[string]interface{}, conn *deployment.ASConn, aerospikePolicy *aero.ClientPolicy, version string,
+) ([]string, error) {
+	conf, err := NewMapAsConfig(conn.Log, configMap)
+	if err != nil {
+		return nil, err
+	}
+
+	flatConf := conf.GetFlatMap()
+	asConfChange := make(DynamicConfigMap)
+
+	for k, v := range *flatConf {
+		if strings.HasSuffix(k, sep+KeyName) || strings.HasSuffix(k, sep+keyIndex) {
+			// skip namespace, dc, etc names
+			continue
+		}
+
+		if ok, _ := isListField(k); ok {
+			// Ignore these fields as these operations are not update operations
+			//TODO: Should we throw an error if these fields are present in the configMap patch?
+			continue
+		}
+
+		valueMap := make(map[OpType]interface{})
+		valueMap[Update] = v
+		asConfChange[k] = valueMap
+	}
+
+	isDynamic, err := IsAllDynamicConfig(conn.Log, asConfChange, version)
+	if err != nil {
+		return nil, err
+	}
+
+	if !isDynamic {
+		return nil, fmt.Errorf("static field has been changed, cannot change config dynamically")
+	}
+
+	return CreateSetConfigCmdList(logr.Logger{}, asConfChange, conn, aerospikePolicy)
+}
+
+func CreateConfigSetCmdsUsingOperation(
+	confOp ConfigOperation, conn *deployment.ASConn, aerospikePolicy *aero.ClientPolicy, version string,
+) ([]string, error) {
+	if err := confOp.Validate(); err != nil {
+		return nil, err
+	}
+	// Context: security.log, Config:report-data-op, Value:test set
+	// Map: security.log.report-data-op:map[remove:"test set"]
+	path := confOp.Context + sep + confOp.Config
+	value := confOp.Value
+
+	if confOp.Config == KeyName {
+		if confOp.Operation == Update {
+			return nil, fmt.Errorf("cannot update name field")
+		}
+		// Context: namespaces, Config: name, value: ns1
+		// Map: namespaces.{testMem}.name:map[remove:testMem]
+		path = confOp.Context + sep + string(SectionNameStartChar) + value + string(SectionNameEndChar) + sep + KeyName
+	}
+
+	asConfChange := make(DynamicConfigMap)
+	valueMap := make(map[OpType]interface{})
+	valueMap[confOp.Operation] = value
+	asConfChange[path] = valueMap
+
+	isDynamic, err := IsAllDynamicConfig(conn.Log, asConfChange, version)
+	if err != nil {
+		return nil, err
+	}
+
+	if !isDynamic {
+		return nil, fmt.Errorf("static field has been changed, cannot change config dynamically")
+	}
+
+	return CreateSetConfigCmdList(logr.Logger{}, asConfChange, conn, aerospikePolicy)
 }
