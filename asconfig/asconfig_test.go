@@ -67,26 +67,6 @@ func (s *AsConfigTestSuite) TestAsConfigGetFlatMap() {
 				"namespaces.{bar}.storage-engine.type":  "memory",
 			},
 		},
-		{
-			"xdr 4.9 context",
-			map[string]interface{}{
-				"xdr": map[string]interface{}{
-					"datacenters": []map[string]interface{}{
-						{
-							"name":                 "DC1",
-							"dc-node-address-port": "1.1.1.1:3000",
-							"dc-int-ext-ipmap":     []string{"1.1.1.1 2.2.2.2", "3.3.3.3 4.4.4.4"},
-						},
-					},
-				},
-			},
-			&Conf{
-				"xdr.datacenters.{DC1}.<index>":              0,
-				"xdr.datacenters.{DC1}.name":                 "DC1",
-				"xdr.datacenters.{DC1}.dc-node-address-port": []string{"1.1.1.1:3000"},
-				"xdr.datacenters.{DC1}.dc-int-ext-ipmap":     []string{"1.1.1.1 2.2.2.2", "3.3.3.3 4.4.4.4"},
-			},
-		},
 	}
 
 	for _, tc := range testCases {

@@ -79,6 +79,7 @@ func (s *GenerateUnitTestSuite) TestGenerate() {
 		security57DefaultsTC,
 		security57AllDefaultsTC,
 		xdr5DefaultsTC,
+		shadowDeviceIssueTC,
 	}
 
 	for _, tc := range testCases {
@@ -2162,6 +2163,94 @@ var xdr5DefaultsTC = GenerateTC{
 				},
 			},
 			"src-id": 1,
+		},
+	},
+}
+
+var shadowDeviceIssueTC = GenerateTC{
+	"Shadow Device Issue",
+	false, // removeDefaults
+	Conf{ // allConfigs
+		"namespaces": Conf{
+			"wi-pzn": Conf{
+				"replication-factor":                        2,
+				"stop-writes-sys-memory-pct":                90,
+				"default-ttl":                               0,
+				"nsup-period":                               120,
+				"rack-id":                                   1,
+				"storage-engine":                            "device",
+				"storage-engine.flush-size":                 524288,    // 512K
+				"storage-engine.max-write-cache":            536870912, // 512M
+				"storage-engine.sindex-startup-device-scan": true,
+				"storage-engine.file[0]":                    "/dev/DATA1PART1",
+				"storage-engine.file[0].shadow":             "/dev/DATA2PART1",
+				"storage-engine.file[1]":                    "/dev/DATA1PART2",
+				"storage-engine.file[1].shadow":             "/dev/DATA2PART2",
+				"storage-engine.file[2]":                    "/dev/DATA1PART3",
+				"storage-engine.file[2].shadow":             "/dev/DATA2PART3",
+				"storage-engine.file[3]":                    "/dev/DATA1PART4",
+				"storage-engine.file[3].shadow":             "/dev/DATA2PART4",
+				"storage-engine.file[4]":                    "/dev/DATA1PART5",
+				"storage-engine.file[4].shadow":             "/dev/DATA2PART5",
+				"storage-engine.file[5]":                    "/dev/DATA1PART6",
+				"storage-engine.file[5].shadow":             "/dev/DATA2PART6",
+				"storage-engine.file[6]":                    "/dev/DATA1PART7",
+				"storage-engine.file[6].shadow":             "/dev/DATA2PART7",
+				"storage-engine.file[7]":                    "/dev/DATA1PART8",
+				"storage-engine.file[7].shadow":             "/dev/DATA2PART8",
+				"storage-engine.file[8]":                    "/dev/DATA1PART23",
+				"storage-engine.file[8].shadow":             "/dev/DATA2PART23",
+				"storage-engine.file[9]":                    "/dev/DATA1PART24",
+				"storage-engine.file[9].shadow":             "/dev/DATA2PART24",
+				"storage-engine.file[10]":                   "/dev/DATA1PART25",
+				"storage-engine.file[10].shadow":            "/dev/DATA2PART25",
+				"storage-engine.file[11]":                   "/dev/DATA1PART32",
+				"storage-engine.file[11].shadow":            "/dev/DATA2PART32",
+				"sets": Conf{
+					"pzn-audience-metadata": Conf{
+						"enable-index": true,
+					},
+				},
+			},
+		},
+	},
+	Conf{"metadata": Conf{"asd_build": "8.0.0.0", "node_id": "BB9030011AC4202"}}, // metadata
+	Conf{ // expected
+		"namespaces": []Conf{
+			{
+				"name":                       "wi-pzn",
+				"replication-factor":         2,
+				"stop-writes-sys-memory-pct": 90,
+				"default-ttl":                0,
+				"nsup-period":                120,
+				"rack-id":                    1,
+				"storage-engine": Conf{
+					"type":                       "device",
+					"flush-size":                 524288,
+					"max-write-cache":            536870912,
+					"sindex-startup-device-scan": true,
+					"files": []string{
+						"/dev/DATA1PART1 /dev/DATA2PART1",
+						"/dev/DATA1PART2 /dev/DATA2PART2",
+						"/dev/DATA1PART3 /dev/DATA2PART3",
+						"/dev/DATA1PART4 /dev/DATA2PART4",
+						"/dev/DATA1PART5 /dev/DATA2PART5",
+						"/dev/DATA1PART6 /dev/DATA2PART6",
+						"/dev/DATA1PART7 /dev/DATA2PART7",
+						"/dev/DATA1PART8 /dev/DATA2PART8",
+						"/dev/DATA1PART23 /dev/DATA2PART23",
+						"/dev/DATA1PART24 /dev/DATA2PART24",
+						"/dev/DATA1PART25 /dev/DATA2PART25",
+						"/dev/DATA1PART32 /dev/DATA2PART32",
+					},
+				},
+				"sets": []Conf{
+					{
+						"name":         "pzn-audience-metadata",
+						"enable-index": true,
+					},
+				},
+			},
 		},
 	},
 }

@@ -7,6 +7,7 @@ import (
 	"math"
 	"reflect"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -42,38 +43,30 @@ const (
 )
 
 const (
-	DefaultTimeout = 2 * time.Second
-
 	// Explicit constants are defined with `const` prefix when
 	// 1. string values which are not commands
 	// 2. string values which are used to generate other commands
 	// 3. string values which are both command and constant
-	constStatXDRPre50 = "statistics/xdr" // StatXdr
-	constStatXDR      = "get-stats:context=xdr"
-	constStatNS       = "namespace/" // StatNamespace
-	constStatDCpre50  = "dc/"        // statDC
-	constStatDC       = "get-stats:context=xdr;dc="
-	constStatSet      = "sets/"      // StatSets
-	constStatBin      = "bins/"      // StatBins
-	constStatSIndex   = "sindex/"    // StatSindex
-	constStatNSNames  = "namespaces" // StatNamespaces
-	constStatDCNames  = "dcs"        // StatDcs need dc names
-	constStatLogIDs   = "logs"       // StatLogs need logging id
+	constStatNS      = "namespace/" // StatNamespace
+	constStatDC      = "get-stats:context=xdr;dc="
+	constStatSet     = "sets/"      // StatSets
+	constStatBin     = "bins/"      // StatBins
+	constStatSIndex  = "sindex/"    // StatSindex
+	constStatNSNames = "namespaces" // StatNamespaces
+	constStatDCNames = "dcs"        // StatDcs need dc names
+	constStatLogIDs  = "logs"       // StatLogs need logging id
 
 	cmdConfigNetwork   = "get-config:context=network"       // ConfigNetwork
 	cmdConfigService   = "get-config:context=service"       // ConfigService
 	cmdConfigNamespace = "get-config:context=namespace;id=" // ConfigNamespace
 	cmdConfigXDR       = "get-config:context=xdr"           // ConfigXDR
 	cmdConfigSecurity  = "get-config:context=security"      // ConfigSecurity
-	cmdConfigDCPre50   = "get-dc-config:context=dc;dc="     // ConfigDC
 	cmdConfigDC        = "get-config:context=xdr;dc="       // ConfigDC
 	cmdConfigMESH      = "mesh"                             // ConfigMesh
 	cmdConfigRacks     = "racks:"                           // configRacks
 	cmdConfigLogging   = "log/"                             // ConfigLog
 
-	cmdLatency      = "latency:"
-	constThroughput = "throughput"
-	cmdThroughput   = "throughput:"
+	cmdLatency = "latency:"
 
 	cmdMetaBuild             = "build"              // Build
 	cmdMetaVersion           = "version"            // Version
@@ -127,7 +120,7 @@ const (
 )
 
 var asCmds = []string{
-	ConstStat, ConstConfigs, ConstMetadata, ConstLatency, constThroughput,
+	ConstStat, ConstConfigs, ConstMetadata, ConstLatency,
 }
 
 var networkTLSNameRe = regexp.MustCompile(`^tls\[(\d+)].name$`)
@@ -315,7 +308,7 @@ func (info *AsInfo) Close() error {
 // *******************************************************************************************
 
 // GetAsInfo function fetch and parse data for given commands from given host
-// Input: cmdList - Options [statistics, configs, metadata, latency, throughput]
+// Input: cmdList - Options [statistics, configs, metadata, latency]
 func (info *AsInfo) GetAsInfo(cmdList ...string) (NodeAsStats, error) {
 	// These info will be used for creating other info commands
 	//  statNSNames, statDCNames, statSIndex, statLogIDS
@@ -418,7 +411,19 @@ func ParseNamespaceNames(m map[string]string) []string {
 
 // ParseDCNames parses all DC names
 func ParseDCNames(m map[string]string) []string {
-	return getNames(m[constStatDCNames])
+	rawXDRConfig, exists := m[cmdConfigXDR]
+	if !exists || rawXDRConfig == "" {
+		return []string{}
+	}
+
+	xdrConfig := ParseIntoMap(rawXDRConfig, ";", "=")
+
+	rawNames, ok := xdrConfig[constStatDCNames].(string)
+	if !ok || rawNames == "" {
+		return []string{}
+	}
+
+	return strings.Split(rawNames, ",")
 }
 
 // ParseTLSNames parses all TLS names
@@ -468,7 +473,7 @@ func ParseSetNames(m map[string]string, ns string) []string {
 
 func (info *AsInfo) getCoreInfo() (map[string]string, error) {
 	m, err := info.RequestInfo(
-		constStatNSNames, constStatDCNames, constStatSIndex, constStatLogIDs, cmdMetaBuild,
+		constStatNSNames, cmdConfigXDR, constStatSIndex, constStatLogIDs, cmdMetaBuild, cmdMetaEdition,
 	)
 	if err != nil {
 		return nil, err
@@ -499,8 +504,6 @@ func (info *AsInfo) createCmdList(
 			rawCmdList = append(rawCmdList, cmds...)
 		case ConstLatency:
 			rawCmdList = append(rawCmdList, cmdLatency)
-		case constThroughput:
-			rawCmdList = append(rawCmdList, cmdThroughput)
 
 		default:
 			info.log.V(1).Info("Invalid cmd to parse asinfo", "command", cmd)
@@ -511,14 +514,18 @@ func (info *AsInfo) createCmdList(
 }
 
 func (info *AsInfo) createStatCmdList(m map[string]string) []string {
-	cmdList := []string{ConstStat, constStatXDRPre50, constStatNSNames, constStatDCNames}
+	cmdList := []string{ConstStat, cmdConfigXDR, constStatNSNames}
 
 	nsNames := getNames(m[constStatNSNames])
 	for _, ns := range nsNames {
 		// namespace, sets, bins, sindex
 		cmdList = append(
-			cmdList, constStatNS+ns, constStatSet+ns, constStatBin+ns, constStatSIndex+ns,
+			cmdList, constStatNS+ns, constStatSet+ns, constStatSIndex+ns,
 		)
+
+		if r, _ := lib.CompareVersions(m[cmdMetaBuild], "7.0"); r == -1 {
+			cmdList = append(cmdList, constStatBin+ns)
+		}
 
 		indexNames := sindexNames(m[constStatSIndex], ns)
 		for _, index := range indexNames {
@@ -541,9 +548,12 @@ func (info *AsInfo) createConfigCmdList(
 	if len(contextList) == 0 {
 		contextList = []string{
 			ConfigServiceContext, ConfigNetworkContext, ConfigNamespaceContext,
-			ConfigSetContext, ConfigXDRContext, ConfigDCContext,
-			ConfigSecurityContext, ConfigLoggingContext, ConfigDCNames,
-			ConfigNamespaceNames, ConfigLogIDs, ConfigRacksContext,
+			ConfigSetContext, ConfigXDRContext,
+			ConfigSecurityContext, ConfigLoggingContext,
+		}
+
+		if !strings.Contains(m[cmdMetaEdition], "Community") {
+			contextList = append(contextList, ConfigRacksContext)
 		}
 	}
 
@@ -570,8 +580,7 @@ func (info *AsInfo) createConfigCmdList(
 			)
 
 		case ConfigXDRContext:
-			xdrCmdList, err := info.createXDRConfigCmdList(m[cmdMetaBuild], m)
-
+			xdrCmdList, err := info.createXDRConfigCmdList(m)
 			if err != nil {
 				// TODO: log?
 				return nil, err
@@ -579,22 +588,29 @@ func (info *AsInfo) createConfigCmdList(
 
 			cmdList = append(cmdList, xdrCmdList...)
 
-		// Pre 4.9 Only. Post 4.9 all DC configs are in xdr context.
-		case ConfigDCContext:
-			cmdList = append(
-				cmdList,
-				info.createDCConfigCmdListPre49(m[cmdMetaBuild], ParseDCNames(m)...)...,
-			)
-
 		case ConfigSecurityContext:
 			cmdList = append(cmdList, cmdConfigSecurity)
 
 		case ConfigLoggingContext:
 			logs := ParseIntoMap(m[constStatLogIDs], ";", ":")
+
+			// Sort log IDs to ensure deterministic order
+			logIDs := make([]string, 0, len(logs))
+
 			for id := range logs {
+				logIDs = append(logIDs, id)
+			}
+
+			sort.Strings(logIDs)
+
+			for _, id := range logIDs {
 				cmdList = append(cmdList, cmdConfigLogging+id)
 			}
 		case ConfigRacksContext:
+			if strings.Contains(m[cmdMetaEdition], "Community") {
+				return cmdList, fmt.Errorf("racks config not supported in community edition")
+			}
+
 			cmdList = append(cmdList, cmdConfigRacks)
 
 		default:
@@ -630,35 +646,16 @@ func (info *AsInfo) createSetConfigCmdList(nsNames ...string) []string {
 	return cmdList
 }
 
-func (info *AsInfo) createXDRConfigCmdList(build string, m map[string]string) ([]string, error) {
-	if r, _ := lib.CompareVersions(build, "5.0"); r == -1 {
-		return []string{cmdConfigXDR}, nil
-	}
-
+func (info *AsInfo) createXDRConfigCmdList(m map[string]string) ([]string, error) {
 	cmdList := make([]string, 0, 1)
-	resp, err := info.doInfo(cmdConfigXDR)
 
+	resp, err := info.doInfo(cmdConfigXDR)
 	if err != nil {
 		return nil, err
 	}
 
-	var dcNames []string
-
 	m = mergeDicts(m, resp)
-	rawXDRConfig := resp[cmdConfigXDR]
-	xdrConfig := ParseIntoMap(rawXDRConfig, ";", "=")
-	rawNames, ok := xdrConfig[constStatDCNames].(string)
-
-	if ok {
-		if rawNames == "" {
-			dcNames = []string{}
-		} else {
-			dcNames = strings.Split(rawNames, ",")
-		}
-	} else {
-		dcNames = []string{}
-	}
-
+	dcNames := ParseDCNames(m)
 	results := make(chan error, len(dcNames))
 
 	var (
@@ -723,21 +720,6 @@ func (info *AsInfo) createDCNamespaceConfigCmdList(dc string, namespaces ...stri
 
 	for _, ns := range namespaces {
 		cmdList = append(cmdList, cmdConfigDC+dc+";namespace="+ns)
-	}
-
-	return cmdList
-}
-
-// createDCConfigCmdList creates get-config command for DC
-func (info *AsInfo) createDCConfigCmdListPre49(build string, dcNames ...string) []string {
-	if r, _ := lib.CompareVersions(build, "5.0"); r != -1 {
-		return nil
-	}
-
-	cmdList := make([]string, 0, len(dcNames))
-
-	for _, dc := range dcNames {
-		cmdList = append(cmdList, cmdConfigDCPre50+dc)
 	}
 
 	return cmdList
@@ -858,8 +840,6 @@ func parseCmdResults(
 			asMap[cmd] = parseMetadataInfo(rawMap)
 		case ConstLatency:
 			asMap[cmd] = parseLatencyInfo(log, rawMap[cmdLatency])
-		case constThroughput:
-			asMap[cmd] = parseThroughputInfo(rawMap[cmdThroughput])
 
 		default:
 			log.V(1).Info("Invalid cmd to parse asinfo", "command", cmd)
@@ -920,7 +900,6 @@ func parseStatInfo(rawMap map[string]string) lib.Stats {
 	statMap := make(lib.Stats)
 
 	statMap["service"] = parseBasicInfo(rawMap[ConstStat])
-	statMap["xdr"] = parseBasicInfo(rawMap[constStatXDR])
 	statMap["dc"] = parseAllDcStats(rawMap)
 	statMap["namespace"] = parseAllNsStats(rawMap)
 
@@ -930,10 +909,10 @@ func parseStatInfo(rawMap map[string]string) lib.Stats {
 // AllDCStats returns statistics of all dc's on the host.
 func parseAllDcStats(rawMap map[string]string) lib.Stats {
 	dcStats := make(lib.Stats)
-	dcNames := getNames(rawMap[constStatDCNames])
+	dcNames := ParseDCNames(rawMap)
 
 	for _, dc := range dcNames {
-		newCmd := constStatDC + "/" + dc
+		newCmd := constStatDC + dc
 		s := parseBasicInfo(rawMap[newCmd])
 		dcStats[dc] = s
 	}
@@ -949,8 +928,11 @@ func parseAllNsStats(rawMap map[string]string) lib.Stats {
 		m := make(lib.Stats)
 		m["service"] = parseStatNsInfo(rawMap[constStatNS+ns])
 		m["set"] = parseStatSetsInfo(rawMap[constStatSet+ns])
-		m["bin"] = parseStatBinsInfo(rawMap[constStatBin+ns])
 		m["sindex"] = parseStatSindexsInfo(rawMap, ns)
+
+		if r, _ := lib.CompareVersions(rawMap[cmdMetaBuild], "7.0"); r == -1 {
+			m["bin"] = parseStatBinsInfo(rawMap[constStatBin+ns])
+		}
 
 		nsStatMap[ns] = m
 	}
@@ -1032,23 +1014,9 @@ func parseConfigInfo(rawMap map[string]string) lib.Stats {
 		configMap[ConfigNamespaceContext] = nsc
 	}
 
-	var xc lib.Stats
-	if r, _ := lib.CompareVersions(rawMap[cmdMetaBuild], "5.0"); r == -1 {
-		xc = parseBasicConfigInfo(rawMap[cmdConfigXDR], "=")
-	} else {
-		xc = parseAllXDRConfig(rawMap, cmdConfigXDR)
-	}
-
+	xc := parseAllXDRConfig(rawMap, cmdConfigXDR)
 	if len(xc) > 0 {
 		configMap[ConfigXDRContext] = xc
-	}
-
-	if r, _ := lib.CompareVersions(rawMap[cmdMetaBuild], "5.0"); r == -1 {
-		// Pre 5.0 Only. 5.0 and later all DC configs are nested in xdr context.
-		dcc := parseAllDcConfig(rawMap, cmdConfigDCPre50)
-		if len(dcc) > 0 {
-			configMap[ConfigDCContext] = dcc
-		}
 	}
 
 	sec := parseBasicConfigInfo(rawMap[cmdConfigSecurity], "=")
@@ -1186,20 +1154,6 @@ func parseAllXDRConfig(rawMap map[string]string, cmd string) lib.Stats {
 	return xdrConfigMap
 }
 
-func parseAllDcConfig(rawMap map[string]string, cmd string) lib.Stats {
-	dcConfigMap := make(lib.Stats)
-	dcNames := getNames(rawMap[constStatDCNames])
-
-	for _, dc := range dcNames {
-		m := parseIntoDcMap(rawMap[cmd+dc], ":", "=")
-		if len(m) > 0 {
-			dcConfigMap[dc] = m
-		}
-	}
-
-	return dcConfigMap
-}
-
 func parseBasicConfigInfo(res, sep string) lib.Stats {
 	// Parse
 	conf := ParseIntoMap(res, ";", sep)
@@ -1260,93 +1214,7 @@ func parseListTypeMetaInfo(rawMap map[string]string, cmd string) []string {
 }
 
 // ***************************************************************************
-// parse latency and throughput
-func parseThroughputInfo(rawStr string) lib.Stats {
-	ip := lib.NewInfoParser(rawStr)
-
-	// typical format is {test}-read:15:43:18-GMT,ops/sec;15:43:28,0.0;
-	nodeStats := lib.Stats{}
-	res := map[string]lib.Stats{}
-
-	for {
-		if err := ip.Expect("{"); err != nil {
-			// it's an error string, read to next section
-			if _, err := ip.ReadUntil(';'); err != nil {
-				break
-			}
-
-			continue
-		}
-
-		ns, err := ip.ReadUntil('}')
-		if err != nil {
-			break
-		}
-
-		if err = ip.Expect("-"); err != nil {
-			break
-		}
-
-		op, err := ip.ReadUntil(':')
-		if err != nil {
-			break
-		}
-		// first timestamp
-		if _, err = ip.ReadUntil(','); err != nil {
-			break
-		}
-		// ops/sec
-		if _, err = ip.ReadUntil(';'); err != nil {
-			break
-		}
-		// second timestamp
-		if _, err = ip.ReadUntil(','); err != nil {
-			break
-		}
-
-		opsCount, err := ip.ReadFloat(';')
-		if err != nil {
-			break
-		}
-
-		if res[ns] == nil {
-			res[ns] = lib.Stats{
-				op: opsCount,
-			}
-		} else {
-			res[ns][op] = opsCount
-		}
-	}
-	// TODO Cross-check with khosrow, was it double accounting. for latency also
-	// calc totals
-	for _, mp := range res {
-		for op, tps := range mp {
-			// nodeStats[op] is interface{} type, so will be nil at start.
-			if nodeStats[op] == nil {
-				nodeStats[op] = float64(0)
-			}
-
-			nodeStats[op] = nodeStats[op].(float64) + tps.(float64)
-		}
-	}
-
-	throughputMap := make(lib.Stats)
-	newNodeStats := make(lib.Stats)
-	newRes := make(lib.Stats)
-
-	for k, v := range nodeStats {
-		newNodeStats[k] = v
-	}
-
-	for k, v := range res {
-		newRes[k] = v
-	}
-
-	throughputMap["namespace"] = newRes
-	throughputMap["total"] = newNodeStats
-
-	return throughputMap
-}
+// parse latency
 
 // TODO: check diff lat bucket in agg
 // typical format is {test}-read:10:17:37-GMT,ops/sec,>1ms,>8ms,>64ms;10:17:47,29648.2,3.44,0.08,0.00;
@@ -1595,14 +1463,18 @@ func ParseIntoMap(str, del, sep string) lib.Stats {
 	}
 
 	m := make(lib.Stats)
-	items := strings.Split(str, del)
 
+	items := strings.Split(str, del)
 	for _, item := range items {
 		if item == "" {
 			continue
 		}
 
 		kv := strings.Split(item, sep)
+		if len(kv) < 2 {
+			return m
+		}
+
 		if m[kv[0]] != nil {
 			// If key already exists assume it is a list of strings.
 			// This was chosen rather than turning the value into []string to
@@ -1696,18 +1568,4 @@ func parseIntoDcMap(str, del, sep string) lib.Stats {
 	}
 
 	return m.ToParsedValues()
-}
-
-func contains(list []string, str string) bool {
-	if len(list) == 0 {
-		return false
-	}
-
-	for _, s := range list {
-		if s == str {
-			return true
-		}
-	}
-
-	return false
 }

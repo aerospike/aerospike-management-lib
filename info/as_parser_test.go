@@ -5,11 +5,12 @@ import (
 	"testing"
 	"time"
 
-	aero "github.com/aerospike/aerospike-client-go/v8"
-	lib "github.com/aerospike/aerospike-management-lib"
 	"github.com/go-logr/logr"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
+
+	aero "github.com/aerospike/aerospike-client-go/v8"
+	lib "github.com/aerospike/aerospike-management-lib"
 )
 
 type AsParserTestSuite struct {
@@ -70,26 +71,6 @@ func (s *AsParserTestSuite) TestAsInfoGetAsConfig() {
 			lib.Stats{"namespaces": lib.Stats{"test": lib.Stats{"sets": lib.Stats{"testset": lib.Stats{"disable-eviction": false, "enable-index": false, "stop-writes-count": int64(1), "stop-writes-size": int64(1)}}}, "bar": lib.Stats{"sets": lib.Stats{"testset": lib.Stats{"disable-eviction": false, "enable-index": false, "stop-writes-count": int64(2), "stop-writes-size": int64(2)}}}}},
 		},
 		{
-			"xdr",
-			map[string]string{"build": "4.9.0.35"}, // xdr5 test is below
-			[]string{"get-config:context=xdr"},
-			map[string]string{"get-config:context=xdr": "enable-xdr=false;enable-change-notification=false;forward-xdr-writes=false;xdr-delete-shipping-enabled=true;xdr-nsup-deletes-enabled=false"},
-			lib.Stats{"xdr": lib.Stats{"enable-xdr": false, "enable-change-notification": false, "forward-xdr-writes": false, "xdr-delete-shipping-enabled": true, "xdr-nsup-deletes-enabled": false}},
-		},
-		{
-			"dcs",
-			map[string]string{"build": "4.9.0.35", "dcs": "DC1;DC2"},
-			[]string{"get-dc-config:context=dc;dc=DC1", "get-dc-config:context=dc;dc=DC2"},
-			map[string]string{
-				"get-dc-config:context=dc;dc=DC1": "dc-name=DC1:dc-type=aerospike:tls-name=:dc-security-config-file=:dc-ship-bins=true:nodes=1.1.1.1+3000:auth-mode=internal:int-ext-ipmap=:dc-connections=64:dc-connections-idle-ms=55000:dc-use-alternate-services=false:namespaces=",
-				"get-dc-config:context=dc;dc=DC2": "dc-name=DC2:dc-type=aerospike:tls-name=:dc-security-config-file=:dc-ship-bins=true:nodes=1.1.1.1+3000:auth-mode=internal:int-ext-ipmap=:dc-connections=64:dc-connections-idle-ms=55000:dc-use-alternate-services=false:namespaces=",
-			},
-			lib.Stats{"dcs": lib.Stats{
-				"DC1": lib.Stats{"dc-name": "DC1", "dc-type": "aerospike", "tls-name": "", "dc-security-config-file": "", "dc-ship-bins": true, "nodes": "1.1.1.1+3000", "auth-mode": "internal", "int-ext-ipmap": "", "dc-connections": int64(64), "dc-connections-idle-ms": int64(55000), "dc-use-alternate-services": false, "namespaces": ""},
-				"DC2": lib.Stats{"dc-name": "DC2", "dc-type": "aerospike", "tls-name": "", "dc-security-config-file": "", "dc-ship-bins": true, "nodes": "1.1.1.1+3000", "auth-mode": "internal", "int-ext-ipmap": "", "dc-connections": int64(64), "dc-connections-idle-ms": int64(55000), "dc-use-alternate-services": false, "namespaces": ""},
-			}},
-		},
-		{
 			"dcs",
 			map[string]string{"build": "5.0.0.0", "dcs": "DC1;DC2"},
 			nil,
@@ -107,20 +88,18 @@ func (s *AsParserTestSuite) TestAsInfoGetAsConfig() {
 		},
 		{
 			"logging",
-			map[string]string{"logs": "0:/var/log/aerospike.log;1:stderr"},
-			[]string{"log/0", "log/1"},
+			map[string]string{"logs": "0:/var/log/aerospike.log"},
+			[]string{"log/0"},
 			map[string]string{
 				"log/0": "misc:CRITICAL;alloc:CRITICAL;arenax:CRITICAL;hardware:CRITICAL;msg:CRITICAL;rbuffer:CRITICAL;socket:CRITICAL;tls:CRITICAL;vmapx:CRITICAL",
-				"log/1": "misc:CRITICAL;alloc:CRITICAL;arenax:CRITICAL;hardware:CRITICAL;msg:CRITICAL;rbuffer:CRITICAL;socket:CRITICAL;tls:CRITICAL;vmapx:CRITICAL",
 			},
 			lib.Stats{"logging": lib.Stats{
 				"/var/log/aerospike.log": lib.Stats{"misc": "CRITICAL", "alloc": "CRITICAL", "arenax": "CRITICAL", "hardware": "CRITICAL", "msg": "CRITICAL", "rbuffer": "CRITICAL", "socket": "CRITICAL", "tls": "CRITICAL", "vmapx": "CRITICAL"},
-				"stderr":                 lib.Stats{"misc": "CRITICAL", "alloc": "CRITICAL", "arenax": "CRITICAL", "hardware": "CRITICAL", "msg": "CRITICAL", "rbuffer": "CRITICAL", "socket": "CRITICAL", "tls": "CRITICAL", "vmapx": "CRITICAL"},
 			}},
 		},
 		{
 			"racks",
-			nil,
+			map[string]string{cmdMetaEdition: "Aerospike Enterprise Edition"},
 			[]string{"racks:"},
 			map[string]string{
 				"racks:": "ns=test:rack_0=1B;ns=bar:rack_0=2B;",
@@ -136,7 +115,7 @@ func (s *AsParserTestSuite) TestAsInfoGetAsConfig() {
 	for _, tc := range testCases {
 		s.Run(tc.context, func() {
 			// Call GetAsInfo with the input from the test case
-			s.mockConn.EXPECT().RequestInfo([]string{"namespaces", "dcs", "sindex/", "logs", "build"}).Return(tc.coreInfoResp, nil)
+			s.mockConn.EXPECT().RequestInfo([]string{"namespaces", "get-config:context=xdr", "sindex/", "logs", "build", "edition"}).Return(tc.coreInfoResp, nil)
 
 			if tc.req != nil {
 				s.mockConn.EXPECT().RequestInfo(tc.req).Return(tc.resp, nil)
@@ -155,7 +134,7 @@ func (s *AsParserTestSuite) TestAsInfoGetAsConfigXDR5Enabled() {
 	coreInfoResp := map[string]string{"build": "5.0.0.0"}
 
 	// Call GetAsInfo with the input from the test case
-	s.mockConn.EXPECT().RequestInfo([]string{"namespaces", "dcs", "sindex/", "logs", "build"}).Return(coreInfoResp, nil)
+	s.mockConn.EXPECT().RequestInfo([]string{"namespaces", "get-config:context=xdr", "sindex/", "logs", "build", "edition"}).Return(coreInfoResp, nil)
 	s.mockConn.EXPECT().RequestInfo([]string{"get-config:context=xdr"}).Return(map[string]string{"get-config:context=xdr": "dcs=DC1,DC2;src-id=0;trace-sample=0"}, nil)
 	s.mockConn.EXPECT().RequestInfo([]string{"get-config:context=xdr;dc=DC1"}).Return(map[string]string{"get-config:context=xdr;dc=DC1": "auth-mode=none;auth-password-file=null;auth-user=null;connector=false;max-recoveries-interleaved=0;node-address-port=;period-ms=100;tls-name=null;use-alternate-access-address=false;namespaces=test"}, nil)
 	s.mockConn.EXPECT().RequestInfo([]string{"get-config:context=xdr;dc=DC2"}).Return(map[string]string{"get-config:context=xdr;dc=DC2": "auth-mode=none;auth-password-file=null;auth-user=null;connector=false;max-recoveries-interleaved=0;node-address-port=;period-ms=100;tls-name=null;use-alternate-access-address=false;namespaces=bar"}, nil)
@@ -185,7 +164,7 @@ func (s *AsParserTestSuite) TestAsInfoGetAsConfigXDR5Disabled() {
 	coreInfoResp := map[string]string{"build": "5.0.0.0"}
 
 	// Call GetAsInfo with the input from the test case
-	s.mockConn.EXPECT().RequestInfo([]string{"namespaces", "dcs", "sindex/", "logs", "build"}).Return(coreInfoResp, nil)
+	s.mockConn.EXPECT().RequestInfo([]string{"namespaces", "get-config:context=xdr", "sindex/", "logs", "build", "edition"}).Return(coreInfoResp, nil)
 	s.mockConn.EXPECT().RequestInfo([]string{"get-config:context=xdr"}).Return(map[string]string{"get-config:context=xdr": "dcs=;src-id=0;trace-sample=0"}, nil)
 
 	expected := lib.Stats{"xdr": lib.Stats{

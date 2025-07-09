@@ -751,7 +751,7 @@ func isSizeOrTime(key string) (bool, humanize) {
 		"mounts-budget", "data-size",
 		"quarantine-allocations", "flush-size",
 		"post-write-cache", "indexes-memory-budget",
-		"sindex-stage-size":
+		"sindex-stage-size", "max-record-size":
 		return true, deHumanizeSize
 
 	default:
@@ -932,6 +932,8 @@ func handleLoggingConfig(log logr.Logger, result Conf) {
 			switch val := v.(type) {
 			case []string:
 				loggings[i][k] = val[0]
+			case string:
+				// If the value is a string, we keep it as is.
 			default:
 				log.V(1).Info(
 					"Unexpected value",
@@ -1171,4 +1173,4 @@ var ReCurlyBraces = regexp.MustCompile(`^\{.*\}$`)
 
 // DynamicConfigMap is a map of config flatten keys and their operations and values
 // for eg: "xdr.dcs.{DC3}.node-address-ports": {Remove: []string{"1.1.2.1 3000"}}
-type DynamicConfigMap map[string]map[Operation]interface{}
+type DynamicConfigMap map[string]map[OpType]interface{}
