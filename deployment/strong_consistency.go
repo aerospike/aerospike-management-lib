@@ -21,7 +21,7 @@ const (
 )
 
 func GetAndSetRoster(log logr.Logger, hostConns []*HostConn, policy *as.ClientPolicy, rosterNodeBlockList []string,
-	ignorableNamespaces sets.Set[string]) error {
+	ignorableNamespaces sets.Set[string], skipSanityCheck bool) error {
 	log.Info("Check if we need to Get and Set roster for SC namespaces")
 
 	clHosts, err := getHostsFromHostConns(hostConns, policy)
@@ -41,8 +41,10 @@ func GetAndSetRoster(log logr.Logger, hostConns []*HostConn, policy *as.ClientPo
 
 	// Removed namespaces should not be validated, as it will fail when namespace will be available in nodes
 	// fewer than replication-factor
-	if err := validateSCClusterNsState(scNamespacesPerHost, ignorableNamespaces); err != nil {
-		return fmt.Errorf("cluster namespace state not good, can not set roster: %v", err)
+	if !skipSanityCheck {
+		if err := validateSCClusterNsState(scNamespacesPerHost, ignorableNamespaces); err != nil {
+			return fmt.Errorf("cluster namespace state not good, can not set roster: %v", err)
+		}
 	}
 
 	var runReclusterFlag bool
@@ -190,7 +192,7 @@ func validateSCClusterNsState(scNamespacesPerHost map[*host][]string, ignorableN
 				return err
 			}
 
-			// https://docs.aerospike.com/reference/metrics#unavailable_partitions
+			// https://aerospike.com/docs/database/reference/metrics#namespace__unavailable_partitions
 			// This is the number of partitions that are unavailable when roster nodes are missing.
 			// Will turn into dead_partitions if still unavailable when all roster nodes are present.
 			// Some partitions would typically be unavailable under some cluster split situations or
@@ -200,7 +202,7 @@ func validateSCClusterNsState(scNamespacesPerHost map[*host][]string, ignorableN
 					kvMap[nsKeyUnavailablePartitions])
 			}
 
-			// https://docs.aerospike.com/reference/metrics#dead_partitions
+			// https://aerospike.com/docs/database/reference/metrics#namespace__dead_partitions
 			if kvMap[nsKeyDeadPartitions] != "0" {
 				return fmt.Errorf("cluster namespace %s has non-zero dead_partitions %v", ns, kvMap[nsKeyDeadPartitions])
 			}

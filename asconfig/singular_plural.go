@@ -35,7 +35,6 @@ var singularToPlural = map[string]string{
 	"tls-alternate-access-address": "tls-alternate-access-addresses",
 	"tls-mesh-seed-address-port":   "tls-mesh-seed-address-ports",
 	"tls-node":                     "tls-nodes",
-	"xdr-remote-datacenter":        "xdr-remote-datacenters",
 	"tls-authenticate-client":      "tls-authenticate-client",
 }
 
