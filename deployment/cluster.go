@@ -176,7 +176,7 @@ func (c *cluster) IsClusterAndStable(hostIDs []string) (bool, error) {
 		if remaining > 0 {
 			c.log.V(1).Info(
 				"Cluster not stable, migrate partitions remaining",
-				"remaining", remaining,
+				"remaining", remaining, "node id", id,
 			)
 
 			return false, nil
