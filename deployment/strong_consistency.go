@@ -20,7 +20,7 @@ const (
 	nsKeyStrongConsistency     = "strong-consistency"
 )
 
-func GetAndSetRoster(log logr.Logger, hostConns []*HostConn, policy *as.ClientPolicy, rosterNodeBlockList []string,
+func ManageRoster(log logr.Logger, hostConns []*HostConn, policy *as.ClientPolicy, rosterNodeBlockList []string,
 	ignorableNamespaces sets.Set[string], skipSanityCheck bool) error {
 	log.Info("Check if we need to Get and Set roster for SC namespaces")
 
@@ -82,11 +82,24 @@ func GetAndSetRoster(log logr.Logger, hostConns []*HostConn, policy *as.ClientPo
 	return nil
 }
 
+func GetAndSetRoster(log logr.Logger, hostConns []*HostConn, policy *as.ClientPolicy, rosterNodeBlockList []string,
+	ignorableNamespaces sets.Set[string]) error {
+	return ManageRoster(log, hostConns, policy, rosterNodeBlockList, ignorableNamespaces, false)
+}
+
 // setFilteredRosterNodes removes the rosterNodeBlockList from observed nodes and sets the roster if needed.
 // It also returns true if roster is being set and returns false if roster is already set.
 func setFilteredRosterNodes(clHost *host, scNs string, rosterNodes map[string]string,
 	rosterNodeBlockList []string) (bool, error) {
 	observedNodes := rosterNodes[rosterKeyObservedNodes]
+	// In active-rack mode,
+	// observedNodes: "M" + activeRackID + "|" + nodeID + "@" + rackID + "," + nodeID + "@" + rackID
+	activeRackPrefix := ""
+	if idx := strings.IndexRune(observedNodes, '|'); idx != -1 {
+		activeRackPrefix = observedNodes[:idx+1]
+		observedNodes = observedNodes[idx+1:]
+	}
+
 	// Remove blocked node from observed_nodes
 	observedNodesList := strings.Split(observedNodes, ",")
 
@@ -101,6 +114,7 @@ func setFilteredRosterNodes(clHost *host, scNs string, rosterNodes map[string]st
 	}
 
 	newObservedNodes := strings.Join(newObservedNodesList, ",")
+	newObservedNodes = activeRackPrefix + newObservedNodes
 
 	clHost.log.Info("Remove rosterNodeBlockList from observedNodes", "observedNodes", observedNodes,
 		"rosterNodeBlockList", rosterNodeBlockList)
