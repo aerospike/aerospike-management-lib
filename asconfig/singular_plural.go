@@ -8,13 +8,10 @@ var singularToPlural = map[string]string{
 	"alternate-access-address":     "alternate-access-addresses",
 	"datacenter":                   "datacenters",
 	"dc":                           "dcs",
-	"dc-int-ext-ipmap":             "dc-int-ext-ipmap",
-	"dc-node-address-port":         "dc-node-address-ports",
 	"device":                       "devices",
 	"file":                         "files",
 	"feature-key-file":             "feature-key-files",
 	"mount":                        "mounts",
-	"http-url":                     "http-urls",
 	"ignore-bin":                   "ignore-bins",
 	"ignore-set":                   "ignore-sets",
 	"logging":                      "logging",
@@ -34,7 +31,6 @@ var singularToPlural = map[string]string{
 	"tls-address":                  "tls-addresses",
 	"tls-alternate-access-address": "tls-alternate-access-addresses",
 	"tls-mesh-seed-address-port":   "tls-mesh-seed-address-ports",
-	"tls-node":                     "tls-nodes",
 	"tls-authenticate-client":      "tls-authenticate-client",
 }
 

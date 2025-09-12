@@ -557,9 +557,6 @@ func isListField(key string) (exists bool, separator string) {
 	bKey = SingularOf(bKey)
 
 	switch bKey {
-	case "dc-node-address-port", "tls-node", "dc-int-ext-ipmap":
-		return true, "+"
-
 	// TODO: Device with shadow device is not reported by server
 	// yet in runtime making it colon separated for now.
 	case "mesh-seed-address-port", "tls-mesh-seed-address-port",
@@ -567,10 +564,9 @@ func isListField(key string) (exists bool, separator string) {
 		return true, colon
 
 	case keyFile, keyAddress, keyTLSAddress, keyAccessAddress, "mount",
-		keyTLSAccessAddress, keyAlternateAccessAddress,
-		keyTLSAlternateAccessAddress, "role-query-pattern", "multicast-group",
-		keyTLSAuthenticateClient, "http-url", "report-data-op-user",
-		"report-data-op-role":
+		keyTLSAccessAddress, keyAlternateAccessAddress, keyTLSAlternateAccessAddress,
+		"role-query-pattern", "multicast-group", keyTLSAuthenticateClient,
+		"report-data-op-user", "report-data-op-role":
 		return true, ""
 
 	default:
@@ -614,7 +610,7 @@ func isListSection(section string) bool {
 	section = SingularOf(section)
 
 	switch section {
-	case keyNamespace, "datacenter", "dc", keySet, "tls", keyFile:
+	case keyNamespace, "dc", keySet, "tls", keyFile:
 		return true
 
 	default:
@@ -715,11 +711,9 @@ func isNodeSpecificField(key string) bool {
 	switch key {
 	case keyFile, keyDevice, "pidfile",
 		keyNodeID, keyAddress, "port", keyAccessAddress, "access-port",
-		"external-address", "interface-address", keyAlternateAccessAddress,
-		keyTLSAddress, "tls-port", keyTLSAccessAddress, "tls-access-port",
-		keyTLSAlternateAccessAddress, "tls-alternate-access-port", "alternate-access-port",
-		"xdr-info-port", "service-threads", "batch-index-threads",
-		"mesh-seed-address-port", "tls-mesh-seed-address-port", "mtu":
+		keyAlternateAccessAddress, keyTLSAddress, "tls-port", keyTLSAccessAddress,
+		"tls-access-port", keyTLSAlternateAccessAddress, "tls-alternate-access-port",
+		"alternate-access-port", "mesh-seed-address-port", "tls-mesh-seed-address-port":
 		return true
 	}
 
@@ -738,7 +732,7 @@ func isNodeSpecificContext(key string) bool {
 
 func isSizeOrTime(key string) (bool, humanize) {
 	switch key {
-	case "default-ttl", "max-ttl", "tomb-raider-eligible-age",
+	case "default-ttl", "tomb-raider-eligible-age",
 		"tomb-raider-period", "nsup-period", "migrate-fill-delay",
 		"tls-refresh-period", "ship-versions-interval", "mrt-duration":
 		return true, deHumanizeTime

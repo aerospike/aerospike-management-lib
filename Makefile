@@ -10,14 +10,14 @@ LOCALBIN ?= $(shell pwd)/bin
 $(LOCALBIN):
 	mkdir -p $(LOCALBIN)
 
-MOCKGEN ?= $(GOBIN)/mockgen
+MOCKGEN ?= $(LOCALBIN)/mockgen
 MOCKGEN_VERSION ?= v0.3.0
 GOLANGCI_LINT ?= $(LOCALBIN)/golangci-lint
 GOLANGCI_LINT_VERSION ?= v1.63.4
 
 .PHONY: golanci-lint
 golanci-lint: $(GOLANGCI_LINT) ## Download golangci-lint locally if necessary.
-$(GOLANGCI_LINT): $(GOBIN)
+$(GOLANGCI_LINT): $(LOCALBIN)
 	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(LOCALBIN) $(GOLANGCI_LINT_VERSION)
 
 go-lint: golanci-lint ## Run golangci-lint against code.
@@ -25,8 +25,8 @@ go-lint: golanci-lint ## Run golangci-lint against code.
 
 .PHONY: get-mockgen
 get-mockgen: $(MOCKGEN) ## Download mockgen locally if necessary.
-$(MOCKGEN): $(GOBIN)
-	go install go.uber.org/mock/mockgen@$(MOCKGEN_VERSION)
+$(MOCKGEN): $(LOCALBIN)
+	GOBIN=$(LOCALBIN) go install go.uber.org/mock/mockgen@$(MOCKGEN_VERSION)
 
 .PHONY: mocks
 mocks: get-mockgen
