@@ -21,7 +21,7 @@ const (
 )
 
 func ManageRoster(log logr.Logger, hostConns []*HostConn, policy *as.ClientPolicy, rosterNodeBlockList []string,
-	ignorableNamespaces sets.Set[string], skipSanityCheck bool) error {
+	ignorableNamespaces sets.Set[string], ignorePartitionErrors bool) error {
 	log.Info("Check if we need to Get and Set roster for SC namespaces")
 
 	clHosts, err := getHostsFromHostConns(hostConns, policy)
@@ -41,9 +41,12 @@ func ManageRoster(log logr.Logger, hostConns []*HostConn, policy *as.ClientPolic
 
 	// Removed namespaces should not be validated, as it will fail when namespace will be available in nodes
 	// fewer than replication-factor
-	if !skipSanityCheck {
-		if err := validateSCClusterNsState(scNamespacesPerHost, ignorableNamespaces); err != nil {
-			return fmt.Errorf("cluster namespace state not good, can not set roster: %v", err)
+	vErr := validateSCClusterNsState(scNamespacesPerHost, ignorableNamespaces)
+	if vErr != nil {
+		if ignorePartitionErrors && isPartitionError(vErr) {
+			log.Info("Ignoring partition errors", "error", vErr)
+		} else {
+			return vErr
 		}
 	}
 
@@ -196,7 +199,7 @@ func validateSCClusterNsState(scNamespacesPerHost map[*host][]string, ignorableN
 			"namespaces", nsList)
 
 		for _, ns := range nsList {
-			// NS is getting removed from nodes. This may lead to unavailable partitions. Therefor skip the check for this NS
+			// NS is getting removed from nodes. This may lead to unavailable partitions. Therefore, skip the check for this NS
 			if ignorableNamespaces.Contains(ns) {
 				continue
 			}
@@ -401,4 +404,11 @@ func ParseInfoIntoMap(str, del, sep string) (map[string]string, error) {
 	}
 
 	return m, nil
+}
+
+// Helper function to check if error is a partition-related error
+func isPartitionError(err error) bool {
+	errStr := err.Error()
+	return strings.Contains(errStr, "non-zero unavailable_partitions") ||
+		strings.Contains(errStr, "non-zero dead_partitions")
 }
