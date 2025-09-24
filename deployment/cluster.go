@@ -669,17 +669,25 @@ func (c *cluster) getClusterNamespaces(hostIDs []string) (
 }
 
 // InfoQuiesceUndo revert the effects of the quiesce command on the next recluster event.
-func (c *cluster) InfoQuiesceUndo(hostIDs []string) error {
-	lg := c.log.WithValues("nodes", hostIDs)
+func (c *cluster) InfoQuiesceUndo(hostIDs []string, rackHostIDs []string, onlyRackHosts bool) error {
+	// Decide which hosts to check for quiesced state
+	var quiesceCheckIDs []string
+	if onlyRackHosts {
+		quiesceCheckIDs = rackHostIDs
+	} else {
+		quiesceCheckIDs = hostIDs
+	}
+
+	lg := c.log.WithValues("nodes", quiesceCheckIDs)
 
 	lg.V(1).Info("Running InfoQuiesceUndo")
 
-	if len(hostIDs) == 0 {
+	if len(quiesceCheckIDs) == 0 {
 		return nil
 	}
 
 	// Fetching quiesced Nodes
-	quiescedNodes, err := c.getQuiescedNodes(hostIDs)
+	quiescedNodes, err := c.getQuiescedNodes(quiesceCheckIDs)
 	if err != nil {
 		return err
 	}
@@ -719,59 +727,6 @@ func (c *cluster) InfoQuiesceUndo(hostIDs []string) error {
 	}
 
 	return c.InfoRecluster(hostIDs)
-}
-
-// InfoQuiesceUndoRack revert the effects of the quiesce command on the next recluster event.
-func (c *cluster) InfoQuiesceUndoRack(rackHostIDs []string, allHostIDs []string) error {
-	lg := c.log.WithValues("nodes", rackHostIDs)
-
-	lg.V(1).Info("Running InfoQuiesceUndo")
-
-	if len(rackHostIDs) == 0 {
-		return nil
-	}
-
-	// Fetching quiesced Nodes
-	quiescedNodes, err := c.getQuiescedNodes(rackHostIDs)
-	if err != nil {
-		return err
-	}
-
-	// No Node to undo quiesce
-	if len(quiescedNodes) == 0 {
-		return nil
-	}
-
-	lg.V(-1).Info(
-		"Found few nodes in quiesced state. Running `quiesce-undo:` for them",
-		"nodes", quiescedNodes,
-	)
-
-	for _, hostID := range quiescedNodes {
-		nodeLg := c.log.WithValues("node", hostID)
-
-		n, err := c.findHost(hostID)
-		if err != nil {
-			return err
-		}
-
-		nodeLg.V(-1).Info("Running undo quiesce command `quiesce-undo:`")
-
-		res, err := n.asConnInfo.asInfo.RequestInfo("quiesce-undo:")
-		if err != nil {
-			return err
-		}
-
-		// TODO: Do we need to check any stats to verify undo?
-		if strings.Contains(strings.ToLower(res["quiesce-undo:"]), "error") {
-			return fmt.Errorf(
-				"running quiesce command failed: %v",
-				res["quiesce-undo:"],
-			)
-		}
-	}
-
-	return c.InfoRecluster(allHostIDs)
 }
 
 func (c *cluster) InfoRecluster(hostIDs []string) error {

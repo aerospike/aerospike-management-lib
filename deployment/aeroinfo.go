@@ -36,17 +36,17 @@ func InfoQuiesceUndo(log logr.Logger, policy *aero.ClientPolicy, allHosts []*Hos
 		return fmt.Errorf("unable to create a cluster copy for running aeroinfo: %v", err)
 	}
 
-	return c.InfoQuiesceUndo(getHostIDsFromHostConns(allHosts))
+	return c.InfoQuiesceUndo(getHostIDsFromHostConns(allHosts), nil, false)
 }
 
 // InfoQuiesceUndoRack revert the effects of quiesce on the next recluster event
-func InfoQuiesceUndoRack(log logr.Logger, policy *aero.ClientPolicy, rackHosts []*HostConn, allHosts []*HostConn) error {
+func InfoQuiesceUndoRack(log logr.Logger, policy *aero.ClientPolicy, allHosts []*HostConn, rackHosts []*HostConn) error {
 	c, err := newCluster(log, policy, allHosts, allHosts)
 	if err != nil {
 		return fmt.Errorf("unable to create a cluster copy for running aeroinfo: %v", err)
 	}
 
-	return c.InfoQuiesceUndoRack(getHostIDsFromHostConns(rackHosts), getHostIDsFromHostConns(allHosts))
+	return c.InfoQuiesceUndo(getHostIDsFromHostConns(allHosts), getHostIDsFromHostConns(rackHosts), true)
 }
 
 // InfoRecluster recluster hosts.
