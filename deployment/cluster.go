@@ -669,7 +669,12 @@ func (c *cluster) getClusterNamespaces(hostIDs []string) (
 }
 
 // InfoQuiesceUndo revert the effects of the quiesce command on the next recluster event.
-func (c *cluster) InfoQuiesceUndo(hostIDs []string, rackHostIDs []string, onlyRackHosts bool) error {
+func (c *cluster) InfoQuiesceUndo(hostIDs []string) error {
+	return c.InfoQuiesceUndoRack(hostIDs, nil, false)
+}
+
+// InfoQuiesceUndoRack revert the effects of the quiesce command on the next recluster event.
+func (c *cluster) InfoQuiesceUndoRack(hostIDs []string, rackHostIDs []string, onlyRackHosts bool) error {
 	// Decide which hosts to check for quiesced state
 	var quiesceCheckIDs []string
 	if onlyRackHosts {
