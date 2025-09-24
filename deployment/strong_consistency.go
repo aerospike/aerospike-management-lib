@@ -58,16 +58,18 @@ func ManageRoster(log logr.Logger, hostConns []*HostConn, policy *as.ClientPolic
 
 			ignorePartitionErrors := false
 
-			rosterNodesList, _ := splitRosterNodes(rosterNodes[rosterKeyRosterNodes])
-			for _, rosterNode := range rosterNodesList {
-				splitNode := strings.Split(rosterNode, "@")
-				if len(splitNode) != 2 {
-					return fmt.Errorf("invalid roster node format: %s", rosterNode)
-				}
-				// splitNode[0] = nodeID, splitNode[1] = rackID
-				if racksBlockFromRoster.Contains(splitNode[1]) {
-					ignorePartitionErrors = true
-					break
+			if rosterNodes[rosterKeyRosterNodes] != "null" {
+				rosterNodesList, _ := splitRosterNodes(rosterNodes[rosterKeyRosterNodes])
+				for _, rosterNode := range rosterNodesList {
+					splitNode := strings.Split(rosterNode, "@")
+					if len(splitNode) != 2 {
+						return fmt.Errorf("invalid roster node format: %s", rosterNode)
+					}
+					// splitNode[0] = nodeID, splitNode[1] = rackID
+					if racksBlockFromRoster.Contains(splitNode[1]) {
+						ignorePartitionErrors = true
+						break
+					}
 				}
 			}
 
