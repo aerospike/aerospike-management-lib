@@ -94,20 +94,28 @@ func setFilteredRosterNodes(clHost *host, scNs string, rosterNodes map[string]st
 
 	observedNodesList, activeRackPrefix := splitRosterNodes(observedNodes)
 
-	var newObservedNodesList []string
+	newObservedNodesList := make([]string, 0, len(observedNodesList))
 
 	for _, obn := range observedNodesList {
 		splitNode := strings.Split(obn, "@")
-		if len(splitNode) != 2 {
-			return false, fmt.Errorf("invalid observed node format: %s", obn)
-		}
-		// nodeRoster: nodeID + "@" + rackID
 		obnNodeID := splitNode[0]
-		obnRackID := splitNode[1]
 
-		if !lib.ContainsString(rosterNodeBlockList, obnNodeID) && !racksBlockedFromRoster.Contains(obnRackID) {
-			newObservedNodesList = append(newObservedNodesList, obn)
+		// Skip if node ID is in the block list
+		if lib.ContainsString(rosterNodeBlockList, obnNodeID) {
+			continue
 		}
+
+		// For nodes with rack information (nodeID@rackID format)
+		if len(splitNode) == 2 {
+			obnRackID := splitNode[1]
+			// Skip if rack is blocked from roster
+			if racksBlockedFromRoster.Contains(obnRackID) {
+				continue
+			}
+		}
+
+		// Node passes all filters, add to new list
+		newObservedNodesList = append(newObservedNodesList, obn)
 	}
 
 	newObservedNodes := strings.Join(newObservedNodesList, ",")
@@ -257,8 +265,7 @@ func shouldIgnorePartitions(clHost *host, ns string, racksBlockedFromRoster sets
 	for _, node := range nodes {
 		parts := strings.Split(node, "@")
 		if len(parts) != 2 {
-			// treat malformed input as fatal
-			return false, fmt.Errorf("invalid roster node format: %s", node)
+			return false, nil
 		}
 		// parts[0] = nodeID, parts[1] = rackID
 		if racksBlockedFromRoster.Contains(parts[1]) {
