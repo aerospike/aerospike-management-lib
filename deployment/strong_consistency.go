@@ -248,7 +248,7 @@ func validateSCClusterNsState(log logr.Logger, scNamespacesPerHost map[*host][]s
 }
 
 func shouldIgnorePartitions(clHost *host, ns string, racksBlockedFromRoster sets.Set[string]) (bool, error) {
-	if racksBlockedFromRoster.Cardinality() == 0 {
+	if racksBlockedFromRoster == nil || racksBlockedFromRoster.Cardinality() == 0 {
 		return false, nil
 	}
 
