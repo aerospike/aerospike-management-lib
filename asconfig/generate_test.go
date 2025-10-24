@@ -71,14 +71,14 @@ func (s *GenerateUnitTestSuite) TestGenerate() {
 		securityDisabled57TC,
 		securityEnabled56TC,
 		securityDisabled56TC,
-		xdr5TC,
+		xdrTC,
 		loggingDefaultsTC,
 		namespacesDefaultsTC,
 		networkDefaultsTC,
 		serviceDefaultsTC,
 		security57DefaultsTC,
 		security57AllDefaultsTC,
-		xdr5DefaultsTC,
+		xdrDefaultsTC,
 		shadowDeviceIssueTC,
 	}
 
@@ -1235,8 +1235,8 @@ var serviceTC = GenerateTC{
 	},
 }
 
-var xdr5TC = GenerateTC{
-	"xdr5",
+var xdrTC = GenerateTC{
+	"xdr post 6",
 	false,
 	Conf{
 		"xdr": Conf{
@@ -2053,8 +2053,8 @@ var serviceDefaultsTC = GenerateTC{
 	},
 }
 
-var xdr5DefaultsTC = GenerateTC{
-	"xdr5 with remove defaults",
+var xdrDefaultsTC = GenerateTC{
+	"xdr post 6 with remove defaults",
 	true,
 	Conf{
 		"xdr": Conf{
