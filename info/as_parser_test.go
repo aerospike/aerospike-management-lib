@@ -129,9 +129,9 @@ func (s *AsParserTestSuite) TestAsInfoGetAsConfig() {
 	}
 }
 
-func (s *AsParserTestSuite) TestAsInfoGetAsConfigXDR5Enabled() {
+func (s *AsParserTestSuite) TestAsInfoGetAsConfigXDREnabled() {
 	context := "xdr"
-	coreInfoResp := map[string]string{"build": "5.0.0.0"}
+	coreInfoResp := map[string]string{"build": "6.4.0.0"}
 
 	// Call GetAsInfo with the input from the test case
 	s.mockConn.EXPECT().RequestInfo([]string{"namespaces", "get-config:context=xdr", "sindex/", "logs", "build", "edition"}).Return(coreInfoResp, nil)
@@ -159,9 +159,9 @@ func (s *AsParserTestSuite) TestAsInfoGetAsConfigXDR5Enabled() {
 	s.Assert().Equal(expected, result)
 }
 
-func (s *AsParserTestSuite) TestAsInfoGetAsConfigXDR5Disabled() {
+func (s *AsParserTestSuite) TestAsInfoGetAsConfigXDRDisabled() {
 	context := "xdr"
-	coreInfoResp := map[string]string{"build": "5.0.0.0"}
+	coreInfoResp := map[string]string{"build": "6.4.0.0"}
 
 	// Call GetAsInfo with the input from the test case
 	s.mockConn.EXPECT().RequestInfo([]string{"namespaces", "get-config:context=xdr", "sindex/", "logs", "build", "edition"}).Return(coreInfoResp, nil)
