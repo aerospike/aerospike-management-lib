@@ -488,6 +488,7 @@ func (c *cluster) skipInfoQuiesceCheck(host *host, ns string, removedNamespaceMa
 		if !isNodeInRoster {
 			lg.V(1).Info("Skip quiesce verification for given node and " +
 				"namespace. Node is not in roster and namespace is sc enabled")
+
 			return true, nil
 		}
 	}

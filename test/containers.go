@@ -105,16 +105,16 @@ func Start(size int) error {
 	ctx := context.Background()
 	containers.dockerCLI = cli
 	containers.workDir, _ = filepath.Abs(WordDirAbs)
-	reader, err := cli.ImagePull(ctx, Image, image.PullOptions{})
 
+	reader, err := cli.ImagePull(ctx, Image, image.PullOptions{})
 	if err != nil {
 		log.Printf("Unable to pull aerospike image: %s", err)
 		return err
 	}
 
 	defer reader.Close()
-	_, err = io.Copy(os.Stdout, reader)
 
+	_, err = io.Copy(os.Stdout, reader)
 	if err != nil {
 		log.Printf("Unable to pull aerospike image: %s", err)
 		return err
@@ -131,7 +131,6 @@ func Start(size int) error {
 		RmAerospikeContainer(name) //nolint:errcheck // Removing containers just in case they were left over from a previous run
 
 		asContainer, err := RunAerospikeContainer(i, name, IP, PortStart+(i*4), peerConnection)
-
 		if err != nil {
 			log.Printf("Unable to start testing containers")
 			return err
@@ -148,7 +147,6 @@ func Stop() error {
 
 	for name := range containers.namesToContainers {
 		err := RmAerospikeContainer(name)
-
 		if err != nil {
 			log.Printf("Unable to remove container %s: %s", name, err)
 			return err
@@ -156,8 +154,8 @@ func Stop() error {
 	}
 
 	abs, _ := filepath.Abs(containers.workDir)
-	err := os.RemoveAll(abs)
 
+	err := os.RemoveAll(abs)
 	if err != nil {
 		log.Printf("Unable to remove work directory: %s", err)
 		return err
@@ -195,14 +193,12 @@ func createConfigFile(portBase int, accessAddress, peerConnection string) (strin
 	tmpl, _ := template.New("config").Parse(configTemplate)
 
 	err := os.MkdirAll(containers.workDir, 0o755)
-
 	if err != nil {
 		log.Printf("Unable to create work directory: %s", err)
 		return "", err
 	}
 
 	file, err := os.CreateTemp(containers.workDir, "aerospike_*.conf")
-
 	if err != nil {
 		log.Printf("Unable to create config file: %s", err)
 		return "", err
@@ -211,7 +207,6 @@ func createConfigFile(portBase int, accessAddress, peerConnection string) (strin
 	defer file.Close()
 
 	err = tmpl.Execute(file, templateInput)
-
 	if err != nil {
 		log.Printf("Unable to create config file using template: %s", err)
 		return "", err
@@ -230,7 +225,6 @@ func waitForASDToStart(name string) error {
 	for {
 		asClient, err := aerospike.NewClientWithPolicy(
 			policy, IP, PortStart)
-
 		if err == nil {
 			if asClient.IsConnected() {
 				break
@@ -265,7 +259,6 @@ func RunAerospikeContainer(
 	log.Printf("Starting container %s", name)
 
 	confFile, err := createConfigFile(portBase, ip, peerConnection)
-
 	if err != nil {
 		log.Printf("Unable to create config file for container %s: %s", name, err)
 		return nil, err
@@ -341,7 +334,6 @@ func RunAerospikeContainer(
 	}
 
 	err = cli.ContainerStart(ctx, name, container.StartOptions{})
-
 	if err != nil {
 		log.Printf("Unable to start container %s: %s", name, err)
 		return nil, err
@@ -367,15 +359,14 @@ func RestartAerospikeContainer(name, confFileContents string) error {
 
 	if confFileContents != "" {
 		confPath := containers.namesToContainers[name].configPath
-		file, err := os.OpenFile(confPath, os.O_TRUNC|os.O_WRONLY, 0o644)
 
+		file, err := os.OpenFile(confPath, os.O_TRUNC|os.O_WRONLY, 0o644)
 		if err != nil {
 			log.Printf("Unable to open config file %s: %s", confPath, err)
 			return err
 		}
 
 		_, err = file.WriteString(confFileContents)
-
 		if err != nil {
 			log.Printf("Unable to write to config file %s: %s", confPath, err)
 			return err
@@ -383,7 +374,6 @@ func RestartAerospikeContainer(name, confFileContents string) error {
 	}
 
 	err := cli.ContainerRestart(ctx, name, container.StopOptions{})
-
 	if err != nil {
 		log.Printf("Unable to restart container %s: %s", name, err)
 		return err

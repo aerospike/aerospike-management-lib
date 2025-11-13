@@ -354,8 +354,8 @@ func (info *AsInfo) GetAsConfig(contextList ...string) (lib.Stats, error) {
 	}
 
 	key := ConstConfigs
-	configs, err := info.execute(info.log, rawCmdList, m, key)
 
+	configs, err := info.execute(info.log, rawCmdList, m, key)
 	if err != nil {
 		return nil, fmt.Errorf(
 			"failed to get config info from aerospike server: %w", err,
@@ -670,14 +670,15 @@ func (info *AsInfo) createXDRConfigCmdList(m map[string]string) ([]string, error
 			defer wg.Done()
 
 			resp, err := info.doInfo(cmdConfigDC + dc)
-
 			if err != nil {
 				results <- err
 				return
 			}
 
 			lock.Lock()
+
 			m = mergeDicts(m, resp)
+
 			lock.Unlock()
 
 			var nsNames []string
@@ -693,6 +694,7 @@ func (info *AsInfo) createXDRConfigCmdList(m map[string]string) ([]string, error
 			}
 
 			cmdList = append(cmdList, info.createDCNamespaceConfigCmdList(dc, nsNames...)...)
+
 			results <- nil
 		}(dc)
 	}

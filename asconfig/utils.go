@@ -294,9 +294,10 @@ func SplitKey(log logr.Logger, key, sep string) []string {
 			return true
 		}
 
-		if c == SectionNameStartChar {
+		switch c {
+		case SectionNameStartChar:
 			openBracket++
-		} else if c == SectionNameEndChar {
+		case SectionNameEndChar:
 			openBracket--
 		}
 

@@ -94,7 +94,6 @@ func versionFormat(filename string) string {
 // isSupportedVersion returns true if server version supported by ACC
 func isSupportedVersion(ver string) (bool, error) {
 	baseVersion, err := baseVersion(ver)
-
 	if err != nil {
 		return false, err
 	}

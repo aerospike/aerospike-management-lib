@@ -1,81 +1,92 @@
-
-linters-settings:
-  goconst:
-    min-len: 2
-    min-occurrences: 3
-  gocritic:
-    enabled-tags:
-      - diagnostic
-      - experimental
-      - opinionated
-      - performance
-      - style
-  govet:
-    enable:
-      - fieldalignment
-      - shadow
-  nolintlint:
-    require-explanation: true
-    require-specific: true
-
+version: "2"
+run:
+  go: "1.24"
+  issues-exit-code: 1
 linters:
-  disable-all: true
+  default: none
   enable:
     - bodyclose
-#    - unused # intentionally commented to avoid unused func warning as this repo is library
+    - copyloopvar
     - dogsled
     - dupl
     - errcheck
-    - copyloopvar
     - exhaustive
     - goconst
     - gocritic
-    - gofmt
-    - goimports
     - gocyclo
     - gosec
-    - gosimple
     - govet
     - ineffassign
+    - lll
     - misspell
-    - nolintlint
     - nakedret
-    - prealloc # pre-allocate slices with define size if the slice size is known in advance
+    - nolintlint
+    - prealloc
     - predeclared
     - revive
     - staticcheck
-    - stylecheck
     - thelper
     - tparallel
-    - typecheck
     - unconvert
     - unparam
     - whitespace
-    - lll
-    - wsl # While space linter
-
-run:
-  issues-exit-code: 1
-  go: '1.23'
-#  skip-dirs:
-#    - sample
-#  skip-files:
-#    - sample
-
-issues:
-  exclude-rules:
-    - path: info/as_parser_test\.go
-      linters:
-      - lll # Test code is allowed to have long lines
-    - path: asconfig/generate_test\.go
-      linters:
-      - dupl # Test code is allowed to have duplicate code
-    - path: asconfig/asconfig_test\.go
-      linters:
-      - dupl # Test code is allowed to have duplicate code
-    - path: '(.+)test\.go'
-      linters:
-      - govet # Test code field alignment for sake of space is not a concern
-    - linters:
-        - lll
-      source: "// "
+    - wsl_v5
+  settings:
+    goconst:
+      min-len: 2
+      min-occurrences: 3
+    gocritic:
+      enabled-tags:
+        - diagnostic
+        - experimental
+        - opinionated
+        - performance
+        - style
+    govet:
+      enable:
+        - fieldalignment
+        - shadow
+    nolintlint:
+      require-explanation: true
+      require-specific: true
+    wsl_v5:
+      allow-first-in-block: true
+      allow-whole-block: false
+      branch-max-lines: 2
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    rules:
+      - linters:
+          - lll
+        path: info/as_parser_test\.go
+      - linters:
+          - dupl
+        path: asconfig/generate_test\.go
+      - linters:
+          - dupl
+        path: asconfig/asconfig_test\.go
+      - linters:
+          - govet
+        path: (.+)test\.go
+      - linters:
+          - lll
+        source: '// '
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
