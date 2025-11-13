@@ -14,12 +14,12 @@ jobs:
     name: lint
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
       - name: Setup-go
         uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-      - name: Checkout sources
-        uses: actions/checkout@v4
       - name: Generate Mocks
         run: |
           make mocks
