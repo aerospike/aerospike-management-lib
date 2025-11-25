@@ -1,4 +1,4 @@
-package utils
+package utils //nolint:revive // utils is an acceptable package name for utility functions
 
 // TODO derive these from the schema file
 func IsStringField(key string) bool {
@@ -16,7 +16,7 @@ func IsStringField(key string) bool {
 		"auth-password-file", "feature-key-file", "read-consistency-level-override",
 		"cert-file", "user-query-pattern", "key-file-password", "protocol", "vault-path",
 		"user-dn-pattern", "scheduler-mode", "token-hash-method",
-		"remote-namespace", "tls-ca-file", "role-query-base-dn", "set-enable-xdr",
+		"remote-namespace", "tls-ca-file", "role-query-base-dn",
 		"secrets-tls-context", "secrets-uds-path", "secrets-address-port",
 		"default-password-file", "ship-versions-policy":
 		return true

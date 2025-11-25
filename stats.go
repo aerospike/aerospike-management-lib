@@ -438,6 +438,7 @@ func (s *SyncStats) GetMulti(names ...string) Stats {
 func (s *SyncStats) Del(names ...string) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
+
 	s._Stats.Del(names...)
 }
 

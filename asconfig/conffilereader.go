@@ -9,7 +9,6 @@ package asconfig
 
 import (
 	"bufio"
-	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
@@ -189,15 +188,6 @@ func writeConf(log logr.Logger, tok []string, conf Conf) error {
 	switch cfgName {
 	case "context":
 		conf[tok[1]] = tok[2]
-
-	case "xdr-digestlog-path":
-		size, err := deHumanizeSize(tok[2])
-		if err != nil {
-			log.Error(err, "Found invalid xdr-digestlog-size value, while creating acc config struct")
-			break
-		}
-
-		conf[cfgName] = fmt.Sprintf("%s %d", tok[1], size)
 
 	default:
 		if len(tok) > 2 {

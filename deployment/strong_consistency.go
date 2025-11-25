@@ -129,6 +129,7 @@ func setFilteredRosterNodes(clHost *host, scNs string, rosterNodes map[string]st
 		// Setting roster is skipped if roster is already set
 		clHost.log.Info("Roster is already set for the node. Skipping", "observedNodes", newObservedNodes,
 			"roster", currentRoster)
+
 		return false, nil
 	}
 

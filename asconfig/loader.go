@@ -67,7 +67,6 @@ func loadYAML(log logr.Logger, src []byte) (*AsConfig, error) {
 		log,
 		data,
 	)
-
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize asconfig from yaml: %w", err)
 	}
@@ -103,11 +102,11 @@ func loadAsConf(log logr.Logger, src []byte) (*AsConfig, error) {
 	}
 
 	cmap[info.ConfigLoggingContext] = lib.DeepCopy(logging)
+
 	c, err = NewMapAsConfig(
 		log,
 		cmap,
 	)
-
 	if err != nil {
 		return nil, err
 	}

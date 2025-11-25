@@ -18,7 +18,6 @@ type GenerateE2eTestSuite struct {
 
 func (s *GenerateE2eTestSuite) SetupSuite() {
 	err := Start(1)
-
 	if err != nil {
 		s.T().Fatal(err)
 	}
@@ -38,7 +37,6 @@ func (s *GenerateE2eTestSuite) SetupSuite() {
 // Uncomment this function to check server logs after failure
 func (s *GenerateE2eTestSuite) TearDownSuite() {
 	err := Stop()
-
 	if err != nil {
 		s.T().Fatal(err)
 	}

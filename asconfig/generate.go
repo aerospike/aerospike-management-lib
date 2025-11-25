@@ -87,7 +87,6 @@ func GenerateConf(log logr.Logger, confGetter ConfGetter, removeDefaults bool) (
 // isSupportedGenerateVersion checks if the provided version is supported for generating the config.
 func isSupportedGenerateVersion(version string) (bool, error) {
 	s, err := IsSupportedVersion(version)
-
 	if err != nil {
 		return false, err
 	}
@@ -151,8 +150,8 @@ func (s *GetFlatSchemaStep) execute(conf Conf) error {
 	s.log.V(1).Info("Getting flat schema")
 
 	build := conf[info.ConstMetadata].(Conf)[info.MetaBuild].(string)
-	flatSchema, err := getFlatSchema(build)
 
+	flatSchema, err := getFlatSchema(build)
 	if err != nil {
 		s.log.V(-1).Error(err, "Error getting flat schema")
 		return err
@@ -226,8 +225,8 @@ func (s *ServerVersionCheckStep) execute(conf Conf) error {
 	s.log.V(1).Info("Checking server version")
 
 	build := conf[info.ConstMetadata].(Conf)[info.MetaBuild].(string)
-	isSupported, err := s.checkFunc(build)
 
+	isSupported, err := s.checkFunc(build)
 	if err != nil {
 		s.log.V(-1).Error(err, "Error checking for supported server version")
 		return err
@@ -291,7 +290,6 @@ func (s *copyEffectiveRackIDStep) execute(conf Conf) error {
 			}
 
 			rackID, err := strconv.ParseInt(rackIDStr, 10, 64) // Matches what is found in info/as_parser.go
-
 			if err != nil {
 				err := fmt.Errorf("unable to convert rack id %s to int", rackIDStr)
 				s.log.V(-1).Error(err, "Error copying effective rack-id to rack-id")
@@ -581,7 +579,6 @@ func convertIndexedToStringList(key string, value interface{}) (newKey, strVal s
 func parseIndexField(key string) (newKey string, index int, extra string, err error) {
 	if match := indexedRe.FindStringSubmatch(key); match != nil {
 		index, err = strconv.Atoi(match[2])
-
 		if err != nil {
 			return "", 0, "", err
 		}
@@ -932,8 +929,8 @@ func (s *removeDefaultsStep) execute(conf Conf) error {
 
 	if securityFound {
 		build := conf[info.ConstMetadata].(Conf)[info.MetaBuild].(string)
-		cmp, err := lib.CompareVersions(build, "5.7.0")
 
+		cmp, err := lib.CompareVersions(build, "5.7.0")
 		if err != nil {
 			s.log.V(-1).Error(err, "Error removing default values")
 			return err

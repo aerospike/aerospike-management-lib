@@ -294,9 +294,10 @@ func SplitKey(log logr.Logger, key, sep string) []string {
 			return true
 		}
 
-		if c == SectionNameStartChar {
+		switch c {
+		case SectionNameStartChar:
 			openBracket++
-		} else if c == SectionNameEndChar {
+		case SectionNameEndChar:
 			openBracket--
 		}
 
@@ -435,7 +436,6 @@ func ContextKey(k string) string {
 
 var nsRe = regexp.MustCompile(`namespace\.({[^.]+})\.(.+)`)
 var setRe = regexp.MustCompile(`namespace\.({[^.]+})\.set\.({[^.]+})\.([^.]+)`)
-var dcRe = regexp.MustCompile(`xdr\.datacenter\.({[^.]+})\.(.+)`)
 var tlsRe = regexp.MustCompile(`network\.tls\.([^.]+)\.(.+)`)
 var logRe = regexp.MustCompile(`logging\.({.+})\.(.+)`)
 
@@ -446,7 +446,6 @@ func changeKey(key string) string {
 		key = nsRe.ReplaceAllString(key, "namespace._.${2}")
 	}
 
-	key = dcRe.ReplaceAllString(key, "xdr.datacenter._.${2}")
 	key = tlsRe.ReplaceAllString(key, "network.tls._.${2}")
 	key = logRe.ReplaceAllString(key, "logging._.${2}")
 
@@ -507,10 +506,6 @@ func getSystemProperty(log logr.Logger, c Conf, key string) (
 		}
 
 		return NONE, value
-
-	case "xdr-digestlog-path":
-		value = append(value, strings.Split(c[key].(string), " ")[0])
-		return FSPATH, value
 
 	case keyAddress, keyTLSAddress, keyAccessAddress,
 		keyTLSAccessAddress, keyAlternateAccessAddress,
@@ -586,7 +581,7 @@ func isListField(key string) (exists bool, separator string) {
 func isIncompleteSetSectionFields(key string) bool {
 	key = BaseKey(key)
 	switch key {
-	case "disable-eviction", "enable-xdr", "stop-writes-count":
+	case "disable-eviction", "stop-writes-count":
 		return true
 
 	default:
