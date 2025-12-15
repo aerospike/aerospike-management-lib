@@ -559,10 +559,9 @@ func isListField(key string) (exists bool, separator string) {
 		return true, colon
 
 	case keyFile, keyAddress, keyTLSAddress, keyAccessAddress, "mount",
-		keyTLSAccessAddress, keyAlternateAccessAddress,
-		keyTLSAlternateAccessAddress, "role-query-pattern", "multicast-group",
-		keyTLSAuthenticateClient, "report-data-op-user",
-		"report-data-op-role":
+		keyTLSAccessAddress, keyAlternateAccessAddress, keyTLSAlternateAccessAddress,
+		"role-query-pattern", "multicast-group", keyTLSAuthenticateClient,
+		"report-data-op-user", "report-data-op-role":
 		return true, ""
 
 	default:

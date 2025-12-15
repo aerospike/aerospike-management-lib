@@ -20,8 +20,8 @@ const (
 	nsKeyStrongConsistency     = "strong-consistency"
 )
 
-func GetAndSetRoster(log logr.Logger, hostConns []*HostConn, policy *as.ClientPolicy, rosterNodeBlockList []string,
-	ignorableNamespaces sets.Set[string]) error {
+func ManageRoster(log logr.Logger, hostConns []*HostConn, policy *as.ClientPolicy, rosterNodeBlockList []string,
+	ignorableNamespaces, racksBlockedFromRoster sets.Set[string]) error {
 	log.Info("Check if we need to Get and Set roster for SC namespaces")
 
 	clHosts, err := getHostsFromHostConns(hostConns, policy)
@@ -41,7 +41,7 @@ func GetAndSetRoster(log logr.Logger, hostConns []*HostConn, policy *as.ClientPo
 
 	// Removed namespaces should not be validated, as it will fail when namespace will be available in nodes
 	// fewer than replication-factor
-	if err := validateSCClusterNsState(scNamespacesPerHost, ignorableNamespaces); err != nil {
+	if err := validateSCClusterNsState(log, scNamespacesPerHost, ignorableNamespaces, racksBlockedFromRoster); err != nil {
 		return fmt.Errorf("cluster namespace state not good, can not set roster: %v", err)
 	}
 
@@ -62,7 +62,8 @@ func GetAndSetRoster(log logr.Logger, hostConns []*HostConn, policy *as.ClientPo
 				return err
 			}
 
-			isSettingRoster, err := setFilteredRosterNodes(clHost, scNs, rosterNodes, rosterNodeBlockList)
+			isSettingRoster, err := setFilteredRosterNodes(clHost, scNs, rosterNodes,
+				rosterNodeBlockList, racksBlockedFromRoster)
 			if err != nil {
 				return err
 			}
@@ -80,25 +81,45 @@ func GetAndSetRoster(log logr.Logger, hostConns []*HostConn, policy *as.ClientPo
 	return nil
 }
 
+func GetAndSetRoster(log logr.Logger, hostConns []*HostConn, policy *as.ClientPolicy, rosterNodeBlockList []string,
+	ignorableNamespaces sets.Set[string]) error {
+	return ManageRoster(log, hostConns, policy, rosterNodeBlockList, ignorableNamespaces, nil)
+}
+
 // setFilteredRosterNodes removes the rosterNodeBlockList from observed nodes and sets the roster if needed.
 // It also returns true if roster is being set and returns false if roster is already set.
 func setFilteredRosterNodes(clHost *host, scNs string, rosterNodes map[string]string,
-	rosterNodeBlockList []string) (bool, error) {
+	rosterNodeBlockList []string, racksBlockedFromRoster sets.Set[string]) (bool, error) {
 	observedNodes := rosterNodes[rosterKeyObservedNodes]
-	// Remove blocked node from observed_nodes
-	observedNodesList := strings.Split(observedNodes, ",")
 
-	var newObservedNodesList []string
+	observedNodesList, activeRackPrefix := splitRosterNodes(observedNodes)
+
+	newObservedNodesList := make([]string, 0, len(observedNodesList))
 
 	for _, obn := range observedNodesList {
-		// nodeRoster: nodeID + "@" + rackID
-		obnNodeID := strings.Split(obn, "@")[0]
-		if !lib.ContainsString(rosterNodeBlockList, obnNodeID) {
-			newObservedNodesList = append(newObservedNodesList, obn)
+		splitNode := strings.Split(obn, "@")
+		obnNodeID := splitNode[0]
+
+		// Skip if node ID is in the block list
+		if lib.ContainsString(rosterNodeBlockList, obnNodeID) {
+			continue
 		}
+
+		// For nodes with rack information (nodeID@rackID format)
+		if len(splitNode) == 2 {
+			obnRackID := splitNode[1]
+			// Skip if rack is blocked from roster
+			if racksBlockedFromRoster.Contains(obnRackID) {
+				continue
+			}
+		}
+
+		// Node passes all filters, add to new list
+		newObservedNodesList = append(newObservedNodesList, obn)
 	}
 
 	newObservedNodes := strings.Join(newObservedNodesList, ",")
+	newObservedNodes = activeRackPrefix + newObservedNodes
 
 	clHost.log.Info("Remove rosterNodeBlockList from observedNodes", "observedNodes", observedNodes,
 		"rosterNodeBlockList", rosterNodeBlockList)
@@ -132,7 +153,7 @@ func ValidateSCClusterState(log logr.Logger, hostConns []*HostConn, policy *as.C
 		return nil
 	}
 
-	return validateSCClusterNsState(scNamespacesPerHost, ignorableNamespaces)
+	return validateSCClusterNsState(log, scNamespacesPerHost, ignorableNamespaces, nil)
 }
 
 func getSCNamespaces(clHosts []*host) (scNamespacesPerHost map[*host][]string, isClusterSCEnabled bool, err error) {
@@ -175,15 +196,26 @@ func runRecluster(clHosts []*host) error {
 	return nil
 }
 
-func validateSCClusterNsState(scNamespacesPerHost map[*host][]string, ignorableNamespaces sets.Set[string]) error {
+func validateSCClusterNsState(log logr.Logger, scNamespacesPerHost map[*host][]string,
+	ignorableNamespaces, racksBlockedFromRoster sets.Set[string]) error {
+	var errMsgs = sets.NewSet[string]()
+
 	for clHost, nsList := range scNamespacesPerHost {
 		clHost.log.Info("Validate SC enabled Cluster namespace State. Looking for unavailable or dead partitions",
 			"namespaces", nsList)
 
 		for _, ns := range nsList {
-			// NS is getting removed from nodes. This may lead to unavailable partitions. Therefor skip the check for this NS
+			// NS is getting removed from nodes. This may lead to unavailable partitions. Therefore, skip the check for this NS
 			if ignorableNamespaces.Contains(ns) {
 				continue
+			}
+
+			// If rack that needs to be blocked is part of roster, then ignore partition errors
+			// as some partitions would be unavailable until all nodes in the blocked rack are removed from roster
+			// and recluster is run.
+			ignorePartitionErrors, err := shouldIgnorePartitions(clHost, ns, racksBlockedFromRoster)
+			if err != nil {
+				return err
 			}
 
 			kvMap, err := getNamespaceStats(clHost, ns)
@@ -191,24 +223,87 @@ func validateSCClusterNsState(scNamespacesPerHost map[*host][]string, ignorableN
 				return err
 			}
 
-			// https://docs.aerospike.com/reference/metrics#unavailable_partitions
+			// https://aerospike.com/docs/database/reference/metrics#namespace__unavailable_partitions
 			// This is the number of partitions that are unavailable when roster nodes are missing.
 			// Will turn into dead_partitions if still unavailable when all roster nodes are present.
 			// Some partitions would typically be unavailable under some cluster split situations or
 			// when removing more than replication-factor number of nodes from a strong-consistency enabled namespace
-			if kvMap[nsKeyUnavailablePartitions] != "0" {
-				return fmt.Errorf("cluster namespace %s has non-zero unavailable_partitions %v", ns,
-					kvMap[nsKeyUnavailablePartitions])
-			}
+			// Partition validation
+			if errMsg := validateNamespacePartitions(ns, kvMap); errMsg != "" {
+				if !ignorePartitionErrors {
+					return fmt.Errorf("%s", errMsg)
+				}
 
-			// https://docs.aerospike.com/reference/metrics#dead_partitions
-			if kvMap[nsKeyDeadPartitions] != "0" {
-				return fmt.Errorf("cluster namespace %s has non-zero dead_partitions %v", ns, kvMap[nsKeyDeadPartitions])
+				errMsgs.Add(errMsg)
 			}
 		}
 	}
 
+	if errMsgs.Cardinality() > 0 {
+		allErrMsgs := strings.Join(errMsgs.ToSlice(), "\n- ")
+
+		log.Info("Ignoring partition error for namespace as some racks are blocked from roster", "errors", allErrMsgs)
+	}
+
 	return nil
+}
+
+func shouldIgnorePartitions(clHost *host, ns string, racksBlockedFromRoster sets.Set[string]) (bool, error) {
+	if racksBlockedFromRoster == nil || racksBlockedFromRoster.Cardinality() == 0 {
+		return false, nil
+	}
+
+	rosterNodes, err := getRoster(clHost, ns)
+	if err != nil {
+		return false, err
+	}
+
+	if rosterNodes[rosterKeyRosterNodes] == "null" {
+		return false, nil
+	}
+
+	nodes, _ := splitRosterNodes(rosterNodes[rosterKeyRosterNodes])
+	for _, node := range nodes {
+		parts := strings.Split(node, "@")
+		if len(parts) != 2 {
+			return false, nil
+		}
+		// parts[0] = nodeID, parts[1] = rackID
+		if racksBlockedFromRoster.Contains(parts[1]) {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
+func validateNamespacePartitions(ns string, stats map[string]string) string {
+	if stats[nsKeyUnavailablePartitions] != "0" {
+		return fmt.Sprintf(
+			"namespace %q has non-zero unavailable_partitions: %v",
+			ns, stats[nsKeyUnavailablePartitions],
+		)
+	}
+
+	if stats[nsKeyDeadPartitions] != "0" {
+		return fmt.Sprintf(
+			"namespace %q has non-zero dead_partitions: %v",
+			ns, stats[nsKeyDeadPartitions],
+		)
+	}
+
+	return ""
+}
+
+func splitRosterNodes(rosterNodes string) (nodeIDs []string, activeRackPrefix string) {
+	// In active-rack mode,
+	// observedNodes: "M" + activeRackID + "|" + nodeID + "@" + rackID + "," + nodeID + "@" + rackID
+	if idx := strings.IndexRune(rosterNodes, '|'); idx != -1 {
+		activeRackPrefix = rosterNodes[:idx+1]
+		rosterNodes = rosterNodes[idx+1:]
+	}
+
+	return strings.Split(rosterNodes, ","), activeRackPrefix
 }
 
 func isNamespaceSCEnabled(clHost *host, ns string) (bool, error) {
