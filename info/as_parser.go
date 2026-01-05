@@ -161,15 +161,12 @@ var aeroConnFactory = &aerospikeConnFactory{}
 
 // AsInfo provides info calls on an aerospike cluster.
 type AsInfo struct {
-	policy    *aero.ClientPolicy
-	host      *aero.Host
-	conn      Connection
-	connFact  ConnectionFactory
-	log       logr.Logger
-	mutex     sync.Mutex
-	buildOnce sync.Once
-	build     string
-	buildErr  error
+	policy   *aero.ClientPolicy
+	host     *aero.Host
+	conn     Connection
+	connFact ConnectionFactory
+	log      logr.Logger
+	mutex    sync.Mutex
 }
 
 func NewAsInfo(log logr.Logger, h *aero.Host, cp *aero.ClientPolicy) *AsInfo {
@@ -218,6 +215,7 @@ func (info *AsInfo) Build() (string, error) {
 	if err != nil {
 		return "", err
 	}
+
 	return m[cmdMetaBuild], nil
 }
 
@@ -1608,5 +1606,6 @@ func namespaceConfigCmd(ns, build string) string {
 	if cmp, err := lib.CompareVersions(build, cmdNamespaceVersionPivot); err == nil && cmp >= 0 {
 		return cmdConfigNamespaceName + ns
 	}
+
 	return cmdConfigNamespaceID + ns
 }
