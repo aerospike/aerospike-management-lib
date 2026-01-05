@@ -10,6 +10,7 @@ import (
 
 	as "github.com/aerospike/aerospike-client-go/v8"
 	lib "github.com/aerospike/aerospike-management-lib"
+	info "github.com/aerospike/aerospike-management-lib/info"
 )
 
 const (
@@ -307,7 +308,12 @@ func splitRosterNodes(rosterNodes string) (nodeIDs []string, activeRackPrefix st
 }
 
 func isNamespaceSCEnabled(clHost *host, ns string) (bool, error) {
-	cmd := fmt.Sprintf("get-config:context=namespace;id=%s", ns)
+	build, err := clHost.asConnInfo.asInfo.Build()
+	if err != nil {
+		return false, err
+	}
+
+	cmd := info.NamespaceConfigCmd(ns, build)
 
 	res, err := clHost.asConnInfo.asInfo.RequestInfo(cmd)
 	if err != nil {
