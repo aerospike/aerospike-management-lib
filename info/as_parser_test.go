@@ -178,6 +178,87 @@ func (s *AsParserTestSuite) TestAsInfoGetAsConfigXDRDisabled() {
 	s.Assert().Equal(expected, result)
 }
 
+func (s *AsParserTestSuite) TestBuildValidation() {
+	testCases := []struct {
+		name    string
+		resp    map[string]string
+		want    string
+		wantErr bool
+	}{
+		{
+			name:    "valid build",
+			resp:    map[string]string{"build": "7.1.0.0"},
+			want:    "7.1.0.0",
+			wantErr: false,
+		},
+		{
+			name:    "empty build",
+			resp:    map[string]string{"build": ""},
+			wantErr: true,
+		},
+		{
+			name:    "error prefix lower",
+			resp:    map[string]string{"build": "error: something bad"},
+			wantErr: true,
+		},
+		{
+			name:    "error prefix upper",
+			resp:    map[string]string{"build": "ERROR: something bad"},
+			wantErr: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		s.Run(tc.name, func() {
+			s.mockConn.EXPECT().RequestInfo("build").Return(tc.resp, nil)
+
+			got, err := s.asinfo.Build()
+			if tc.wantErr {
+				s.Error(err)
+				return
+			}
+
+			s.NoError(err)
+			s.Equal(tc.want, got)
+		})
+	}
+}
+
+func (s *AsParserTestSuite) TestNamespaceConfigCmd() {
+	testCases := []struct {
+		name  string
+		build string
+		ns    string
+		want  string
+	}{
+		{
+			name:  "pre-7.2 uses id",
+			build: "7.1.0.0",
+			ns:    "test",
+			want:  "get-config:context=namespace;id=test",
+		},
+		{
+			name:  "7.2 and above uses namespace",
+			build: "7.2.0.0",
+			ns:    "test",
+			want:  "get-config:context=namespace;namespace=test",
+		},
+		{
+			name:  "invalid build falls back to id",
+			build: "not-a-version",
+			ns:    "test",
+			want:  "get-config:context=namespace;id=test",
+		},
+	}
+
+	for _, tc := range testCases {
+		s.Run(tc.name, func() {
+			got := NamespaceConfigCmd(tc.ns, tc.build)
+			s.Equal(tc.want, got)
+		})
+	}
+}
+
 func TestAsParserTestSuite(t *testing.T) {
 	suite.Run(t, new(AsParserTestSuite))
 }

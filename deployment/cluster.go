@@ -476,7 +476,12 @@ func (c *cluster) InfoQuiesce(hostsToBeQuiesced, hostIDs, removedNamespaces []st
 	return nil
 }
 
-func (c *cluster) skipInfoQuiesceCheck(host *host, ns string, removedNamespaceMap map[string]bool, build string) (bool, error) {
+func (c *cluster) skipInfoQuiesceCheck(
+	host *host,
+	ns string,
+	removedNamespaceMap map[string]bool,
+	build string,
+) (bool, error) {
 	lg := c.log.WithValues("node", host.id, "namespace", ns)
 
 	if removedNamespaceMap[ns] {
