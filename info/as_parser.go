@@ -216,6 +216,11 @@ func (info *AsInfo) Build() (string, error) {
 		return "", err
 	}
 
+	build := m[cmdMetaBuild]
+	if build == "" || (len(build) >= 5 && strings.EqualFold(build[:5], "error")) {
+		return "", fmt.Errorf("failed to get build info from node: %s", m[cmdMetaBuild])
+	}
+
 	return m[cmdMetaBuild], nil
 }
 

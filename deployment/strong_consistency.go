@@ -166,10 +166,15 @@ func getSCNamespaces(clHosts []*host) (scNamespacesPerHost map[*host][]string, i
 			return nil, isClusterSCEnabled, err
 		}
 
+		build, err := clHosts[i].asConnInfo.asInfo.Build()
+		if err != nil {
+			return nil, isClusterSCEnabled, err
+		}
+
 		var nsList []string
 
 		for _, ns := range namespaces {
-			isSC, err := isNamespaceSCEnabled(clHosts[i], ns)
+			isSC, err := isNamespaceSCEnabled(clHosts[i], ns, build)
 			if err != nil {
 				return nil, isClusterSCEnabled, err
 			}
@@ -307,12 +312,7 @@ func splitRosterNodes(rosterNodes string) (nodeIDs []string, activeRackPrefix st
 	return strings.Split(rosterNodes, ","), activeRackPrefix
 }
 
-func isNamespaceSCEnabled(clHost *host, ns string) (bool, error) {
-	build, err := clHost.asConnInfo.asInfo.Build()
-	if err != nil {
-		return false, err
-	}
-
+func isNamespaceSCEnabled(clHost *host, ns, build string) (bool, error) {
 	cmd := info.NamespaceConfigCmd(ns, build)
 
 	res, err := clHost.asConnInfo.asInfo.RequestInfo(cmd)

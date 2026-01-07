@@ -247,10 +247,15 @@ func (c *cluster) InfoQuiesce(hostsToBeQuiesced, hostIDs, removedNamespaces []st
 
 		namespaces := nodesNamespaces[hostID]
 
+		build, err := n.asConnInfo.asInfo.Build()
+		if err != nil {
+			return err
+		}
+
 		for index := range namespaces {
 			var passed bool
 
-			skipInfoQuiesceCheck, err := c.skipInfoQuiesceCheck(n, namespaces[index], removedNamespaceMap)
+			skipInfoQuiesceCheck, err := c.skipInfoQuiesceCheck(n, namespaces[index], removedNamespaceMap, build)
 			if err != nil {
 				return err
 			}
@@ -323,10 +328,15 @@ func (c *cluster) InfoQuiesce(hostsToBeQuiesced, hostIDs, removedNamespaces []st
 
 		namespaces := nodesNamespaces[hostID]
 
+		build, err := n.asConnInfo.asInfo.Build()
+		if err != nil {
+			return err
+		}
+
 		for index := range namespaces {
 			var passed bool
 
-			skipInfoQuiesceCheck, err := c.skipInfoQuiesceCheck(n, namespaces[index], removedNamespaceMap)
+			skipInfoQuiesceCheck, err := c.skipInfoQuiesceCheck(n, namespaces[index], removedNamespaceMap, build)
 			if err != nil {
 				return err
 			}
@@ -466,7 +476,7 @@ func (c *cluster) InfoQuiesce(hostsToBeQuiesced, hostIDs, removedNamespaces []st
 	return nil
 }
 
-func (c *cluster) skipInfoQuiesceCheck(host *host, ns string, removedNamespaceMap map[string]bool) (bool, error) {
+func (c *cluster) skipInfoQuiesceCheck(host *host, ns string, removedNamespaceMap map[string]bool, build string) (bool, error) {
 	lg := c.log.WithValues("node", host.id, "namespace", ns)
 
 	if removedNamespaceMap[ns] {
@@ -474,7 +484,7 @@ func (c *cluster) skipInfoQuiesceCheck(host *host, ns string, removedNamespaceMa
 		return true, nil
 	}
 
-	isNamespaceSCEnabled, err := isNamespaceSCEnabled(host, ns)
+	isNamespaceSCEnabled, err := isNamespaceSCEnabled(host, ns, build)
 	if err != nil {
 		return false, err
 	}
