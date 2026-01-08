@@ -351,8 +351,9 @@ func processKey(log logr.Logger, k string, keys []string, m Conf) Conf {
 // flattenConfList flatten list and save index for expandConf
 func flattenConfList(log logr.Logger, input []Conf, sep string) Conf {
 	res := make(Conf, len(input))
+	keyIdx := 0
 
-	for i, v := range input {
+	for _, v := range input {
 		if len(v) == 0 {
 			continue
 		}
@@ -383,7 +384,8 @@ func flattenConfList(log logr.Logger, input []Conf, sep string) Conf {
 			res[name+sep+k2] = v2
 		}
 		// store index for expanding in correct order
-		res[name+sep+keyIndex] = i
+		res[name+sep+keyIndex] = keyIdx
+		keyIdx++
 	}
 
 	return res
