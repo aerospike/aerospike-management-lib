@@ -56,27 +56,34 @@ const (
 	constStatDCNames = "dcs"        // StatDcs need dc names
 	constStatLogIDs  = "logs"       // StatLogs need logging id
 
-	cmdConfigNetwork   = "get-config:context=network"       // ConfigNetwork
-	cmdConfigService   = "get-config:context=service"       // ConfigService
-	cmdConfigNamespace = "get-config:context=namespace;id=" // ConfigNamespace
-	cmdConfigXDR       = "get-config:context=xdr"           // ConfigXDR
-	cmdConfigSecurity  = "get-config:context=security"      // ConfigSecurity
-	cmdConfigDC        = "get-config:context=xdr;dc="       // ConfigDC
-	cmdConfigMESH      = "mesh"                             // ConfigMesh
-	cmdConfigRacks     = "racks:"                           // configRacks
-	cmdConfigLogging   = "log/"                             // ConfigLog
+	cmdConfigNetwork         = "get-config:context=network"              // ConfigNetwork
+	cmdConfigService         = "get-config:context=service"              // ConfigService
+	cmdConfigNamespaceID     = "get-config:context=namespace;id="        // ConfigNamespace (pre-7.2)
+	cmdConfigNamespaceName   = "get-config:context=namespace;namespace=" // ConfigNamespace (7.2+)
+	cmdConfigXDR             = "get-config:context=xdr"                  // ConfigXDR
+	cmdConfigSecurity        = "get-config:context=security"             // ConfigSecurity
+	cmdConfigDC              = "get-config:context=xdr;dc="              // ConfigDC
+	cmdConfigMESH            = "mesh"                                    // ConfigMesh
+	cmdConfigRacks           = "racks:"                                  // configRacks
+	cmdConfigLogging         = "log/"                                    // ConfigLog
+	cmdNamespaceVersionPivot = "7.2"
 
 	cmdLatency = "latency:"
 
 	cmdMetaBuild             = "build"              // Build
-	cmdMetaVersion           = "version"            // Version
 	cmdMetaBuildOS           = "build_os"           // BUILD OS
 	cmdMetaNodeID            = "node"               // NodeID
 	cmdMetaClusterName       = "cluster-name"       // Cluster Name
 	cmdMetaService           = "service"            // Service
+	cmdMetaVersion           = "version"            // Version (deprecated in newer servers, kept for backward compatibility)
+	cmdMetaRelease           = "release"            // Release
 	cmdMetaServices          = "services"           // Services
 	cmdMetaServicesAlumni    = "services-alumni"    // ServicesAlumni
 	cmdMetaServicesAlternate = "services-alternate" // ServiceAlternate
+	cmdMetaServiceClearStd   = "service-clear-std"  // ServiceClearStd
+	cmdMetaServiceClearAlt   = "service-clear-alt"  // ServiceClearAlt
+	cmdMetaServiceTLSStd     = "service-tls-std"    // ServiceTLSStd
+	cmdMetaServiceTLSAlt     = "service-tls-alt"    // ServiceTLSAlt
 	cmdMetaFeatures          = "features"           // Features
 	cmdMetaEdition           = "edition"            // Edition
 )
@@ -101,14 +108,19 @@ const (
 // Aerospike Metadata Context
 const (
 	MetaBuild             = "asd_build"
-	MetaVersion           = cmdMetaVersion
 	MetaBuildOS           = cmdMetaBuildOS
 	MetaNodeID            = cmdMetaNodeID
 	MetaClusterName       = cmdMetaClusterName
 	MetaService           = cmdMetaService
+	MetaRelease           = cmdMetaRelease
+	MetaVersion           = cmdMetaVersion
 	MetaServices          = cmdMetaServices
 	MetaServicesAlumni    = cmdMetaServicesAlumni
 	MetaServicesAlternate = cmdMetaServicesAlternate
+	MetaServiceClearStd   = cmdMetaServiceClearStd
+	MetaServiceClearAlt   = cmdMetaServiceClearAlt
+	MetaServiceTLSStd     = cmdMetaServiceTLSStd
+	MetaServiceTLSAlt     = cmdMetaServiceTLSAlt
 	MetaFeatures          = cmdMetaFeatures
 	MetaEdition           = cmdMetaEdition
 )
@@ -195,6 +207,21 @@ func (info *AsInfo) RequestInfo(cmd ...string) (
 	}
 
 	return result, err
+}
+
+// Build returns the Aerospike build string. No caching to avoid stale values during upgrades.
+func (info *AsInfo) Build() (string, error) {
+	m, err := info.RequestInfo(cmdMetaBuild)
+	if err != nil {
+		return "", err
+	}
+
+	build := m[cmdMetaBuild]
+	if build == "" || (len(build) >= 5 && strings.EqualFold(build[:5], "error")) {
+		return "", fmt.Errorf("failed to get build info from node: %s", m[cmdMetaBuild])
+	}
+
+	return m[cmdMetaBuild], nil
 }
 
 // AllConfigs returns all the dynamic configurations of the node.
@@ -467,6 +494,11 @@ func ParseSetNames(m map[string]string, ns string) []string {
 	return setNames(m[constStatSet], ns)
 }
 
+// NamespaceConfigCmd returns the correct namespace config command for the given build.
+func NamespaceConfigCmd(ns, build string) string {
+	return namespaceConfigCmd(ns, build)
+}
+
 // *******************************************************************************************
 // create raw cmd list
 // *******************************************************************************************
@@ -570,7 +602,7 @@ func (info *AsInfo) createConfigCmdList(
 		case ConfigNamespaceContext:
 			cmdList = append(
 				cmdList,
-				info.createNamespaceConfigCmdList(ParseNamespaceNames(m)...)...,
+				info.createNamespaceConfigCmdList(m[cmdMetaBuild], ParseNamespaceNames(m)...)...,
 			)
 
 		case ConfigSetContext:
@@ -625,11 +657,11 @@ func (info *AsInfo) createConfigCmdList(
 }
 
 // createNamespaceConfigCmdList creates get-config command for namespace
-func (info *AsInfo) createNamespaceConfigCmdList(nsNames ...string) []string {
+func (info *AsInfo) createNamespaceConfigCmdList(build string, nsNames ...string) []string {
 	cmdList := make([]string, 0, len(nsNames))
 
 	for _, ns := range nsNames {
-		cmdList = append(cmdList, cmdConfigNamespace+ns)
+		cmdList = append(cmdList, namespaceConfigCmd(ns, build))
 	}
 
 	return cmdList
@@ -729,9 +761,9 @@ func (info *AsInfo) createDCNamespaceConfigCmdList(dc string, namespaces ...stri
 
 func (info *AsInfo) createMetaCmdList() []string {
 	cmdList := []string{
-		cmdMetaNodeID, cmdMetaBuild, cmdMetaService,
+		cmdMetaNodeID, cmdMetaBuild, cmdMetaService, cmdMetaRelease, cmdMetaVersion,
 		cmdMetaServices, cmdMetaServicesAlumni, cmdMetaServicesAlternate,
-		cmdMetaVersion,
+		cmdMetaServiceClearStd, cmdMetaServiceClearAlt, cmdMetaServiceTLSStd, cmdMetaServiceTLSAlt,
 		cmdMetaBuildOS, cmdMetaClusterName, cmdMetaFeatures, cmdMetaEdition,
 	}
 
@@ -1011,7 +1043,7 @@ func parseConfigInfo(rawMap map[string]string) lib.Stats {
 		configMap[ConfigNetworkContext] = nc
 	}
 
-	nsc := parseAllNsConfig(rawMap, cmdConfigNamespace)
+	nsc := parseAllNsConfig(rawMap, rawMap[cmdMetaBuild])
 	if len(nsc) > 0 {
 		configMap[ConfigNamespaceContext] = nsc
 	}
@@ -1054,12 +1086,13 @@ func parseAllLoggingConfig(rawMap map[string]string, cmd string) lib.Stats {
 }
 
 // {test}-configname -> configname
-func parseAllNsConfig(rawMap map[string]string, cmd string) lib.Stats {
+func parseAllNsConfig(rawMap map[string]string, build string) lib.Stats {
 	nsConfigMap := make(lib.Stats)
 	nsNames := getNames(rawMap[constStatNSNames])
 
 	for _, ns := range nsNames {
-		m := parseBasicConfigInfo(rawMap[cmd+ns], "=")
+		key := namespaceConfigCmd(ns, build)
+		m := parseBasicConfigInfo(rawMap[key], "=")
 		setM := parseConfigSetsInfo(rawMap[constStatSet+ns])
 
 		if len(setM) > 0 {
@@ -1188,16 +1221,17 @@ func parseMetadataInfo(rawMap map[string]string) lib.Stats {
 	metaMap["node_id"] = rawMap[cmdMetaNodeID]
 	metaMap["asd_build"] = rawMap[cmdMetaBuild]
 	metaMap["service"] = parseListTypeMetaInfo(rawMap, cmdMetaService)
+	metaMap["release"] = parseBasicInfo(rawMap[cmdMetaRelease])
+	metaMap["version"] = rawMap[cmdMetaVersion]
 	metaMap["services"] = parseListTypeMetaInfo(rawMap, cmdMetaServices)
-	metaMap["services-alumni"] = parseListTypeMetaInfo(
-		rawMap, cmdMetaServicesAlumni,
-	)
-	metaMap["services-alternate"] = parseListTypeMetaInfo(
-		rawMap, cmdMetaServicesAlternate,
-	)
+	metaMap["services-alumni"] = parseListTypeMetaInfo(rawMap, cmdMetaServicesAlumni)
+	metaMap["services-alternate"] = parseListTypeMetaInfo(rawMap, cmdMetaServicesAlternate)
+	metaMap["service-clear-std"] = parseListTypeMetaInfo(rawMap, cmdMetaServiceClearStd)
+	metaMap["service-clear-alt"] = parseListTypeMetaInfo(rawMap, cmdMetaServiceClearAlt)
+	metaMap["service-tls-std"] = parseListTypeMetaInfo(rawMap, cmdMetaServiceTLSStd)
+	metaMap["service-tls-alt"] = parseListTypeMetaInfo(rawMap, cmdMetaServiceTLSAlt)
 	metaMap["features"] = parseListTypeMetaInfo(rawMap, cmdMetaFeatures)
 	metaMap["edition"] = rawMap[cmdMetaEdition]
-	metaMap["version"] = rawMap[cmdMetaVersion]
 	metaMap["build_os"] = rawMap[cmdMetaBuildOS]
 
 	return metaMap
@@ -1570,4 +1604,13 @@ func parseIntoDcMap(str, del, sep string) lib.Stats {
 	}
 
 	return m.ToParsedValues()
+}
+
+// based aerospike build version, returns the correct namespace get-config command
+func namespaceConfigCmd(ns, build string) string {
+	if cmp, err := lib.CompareVersions(build, cmdNamespaceVersionPivot); err == nil && cmp >= 0 {
+		return cmdConfigNamespaceName + ns
+	}
+
+	return cmdConfigNamespaceID + ns
 }

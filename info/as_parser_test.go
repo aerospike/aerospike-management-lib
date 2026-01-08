@@ -138,7 +138,20 @@ func (s *AsParserTestSuite) TestAsInfoGetAsConfigXDREnabled() {
 	s.mockConn.EXPECT().RequestInfo([]string{"get-config:context=xdr"}).Return(map[string]string{"get-config:context=xdr": "dcs=DC1,DC2;src-id=0;trace-sample=0"}, nil)
 	s.mockConn.EXPECT().RequestInfo([]string{"get-config:context=xdr;dc=DC1"}).Return(map[string]string{"get-config:context=xdr;dc=DC1": "auth-mode=none;auth-password-file=null;auth-user=null;connector=false;max-recoveries-interleaved=0;node-address-port=;period-ms=100;tls-name=null;use-alternate-access-address=false;namespaces=test"}, nil)
 	s.mockConn.EXPECT().RequestInfo([]string{"get-config:context=xdr;dc=DC2"}).Return(map[string]string{"get-config:context=xdr;dc=DC2": "auth-mode=none;auth-password-file=null;auth-user=null;connector=false;max-recoveries-interleaved=0;node-address-port=;period-ms=100;tls-name=null;use-alternate-access-address=false;namespaces=bar"}, nil)
-	s.mockConn.EXPECT().RequestInfo([]string{"get-config:context=xdr;dc=DC2;namespace=bar", "get-config:context=xdr;dc=DC1;namespace=test"}).Return(map[string]string{"get-config:context=xdr;dc=DC1;namespace=test": "enabled=true;bin-policy=all;compression-level=1;compression-threshold=128;delay-ms=0;enable-compression=false;forward=false;hot-key-ms=100;ignored-bins=", "get-config:context=xdr;dc=DC2;namespace=bar": "enabled=true;bin-policy=all;compression-level=1;compression-threshold=128;delay-ms=0;enable-compression=false;forward=false;hot-key-ms=100;ignored-bins="}, nil)
+	s.mockConn.EXPECT().RequestInfo(gomock.Any()).DoAndReturn(
+		func(cmds ...string) (map[string]string, aero.Error) {
+			expectedCmds := []string{
+				"get-config:context=xdr;dc=DC1;namespace=test",
+				"get-config:context=xdr;dc=DC2;namespace=bar",
+			}
+			s.ElementsMatch(expectedCmds, cmds)
+
+			return map[string]string{
+				"get-config:context=xdr;dc=DC1;namespace=test": "enabled=true;bin-policy=all;compression-level=1;compression-threshold=128;delay-ms=0;enable-compression=false;forward=false;hot-key-ms=100;ignored-bins=",
+				"get-config:context=xdr;dc=DC2;namespace=bar":  "enabled=true;bin-policy=all;compression-level=1;compression-threshold=128;delay-ms=0;enable-compression=false;forward=false;hot-key-ms=100;ignored-bins=",
+			}, nil
+		},
+	)
 
 	expected := lib.Stats{"xdr": lib.Stats{
 		"src-id":       int64(0),
@@ -176,6 +189,87 @@ func (s *AsParserTestSuite) TestAsInfoGetAsConfigXDRDisabled() {
 
 	s.Assert().Nil(err)
 	s.Assert().Equal(expected, result)
+}
+
+func (s *AsParserTestSuite) TestBuildValidation() {
+	testCases := []struct {
+		name    string
+		resp    map[string]string
+		want    string
+		wantErr bool
+	}{
+		{
+			name:    "valid build",
+			resp:    map[string]string{"build": "7.1.0.0"},
+			want:    "7.1.0.0",
+			wantErr: false,
+		},
+		{
+			name:    "empty build",
+			resp:    map[string]string{"build": ""},
+			wantErr: true,
+		},
+		{
+			name:    "error prefix lower",
+			resp:    map[string]string{"build": "error: something bad"},
+			wantErr: true,
+		},
+		{
+			name:    "error prefix upper",
+			resp:    map[string]string{"build": "ERROR: something bad"},
+			wantErr: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		s.Run(tc.name, func() {
+			s.mockConn.EXPECT().RequestInfo("build").Return(tc.resp, nil)
+
+			got, err := s.asinfo.Build()
+			if tc.wantErr {
+				s.Error(err)
+				return
+			}
+
+			s.NoError(err)
+			s.Equal(tc.want, got)
+		})
+	}
+}
+
+func (s *AsParserTestSuite) TestNamespaceConfigCmd() {
+	testCases := []struct {
+		name  string
+		build string
+		ns    string
+		want  string
+	}{
+		{
+			name:  "pre-7.2 uses id",
+			build: "7.1.0.0",
+			ns:    "test",
+			want:  "get-config:context=namespace;id=test",
+		},
+		{
+			name:  "7.2 and above uses namespace",
+			build: "7.2.0.0",
+			ns:    "test",
+			want:  "get-config:context=namespace;namespace=test",
+		},
+		{
+			name:  "invalid build falls back to id",
+			build: "not-a-version",
+			ns:    "test",
+			want:  "get-config:context=namespace;id=test",
+		},
+	}
+
+	for _, tc := range testCases {
+		s.Run(tc.name, func() {
+			got := NamespaceConfigCmd(tc.ns, tc.build)
+			s.Equal(tc.want, got)
+		})
+	}
 }
 
 func TestAsParserTestSuite(t *testing.T) {
