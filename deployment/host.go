@@ -13,13 +13,12 @@ import (
 // host is a system on which the aerospike server is running. It provides aerospike
 // specific capabilities on the system.
 type host struct {
-	log        logr.Logger
 	asConnInfo *asConnInfo
-	id         string // host UUID string
-
 	// build provides cached, thread-safe access to the Aerospike build version.
 	// Initialized via sync.OnceValues to ensure the network call happens only once.
 	build func() (string, error)
+	log   logr.Logger
+	id    string // host UUID string
 }
 
 type asConnInfo struct {

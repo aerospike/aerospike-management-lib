@@ -54,24 +54,22 @@ func (s *StrongConsistencyTestSuite) SetupTest() {
 	}
 }
 
-// newTestHostWithBuild creates a test host with a pre-cached build value.
+// newTestHost creates a test host with build version pre-cached to testBuild710.
 // This avoids the need to mock the build call in tests that don't care about it.
-func (s *StrongConsistencyTestSuite) newTestHostWithBuild(build string) *host {
-	h := &host{
+func (s *StrongConsistencyTestSuite) newTestHost() *host {
+	return &host{
 		log: logr.Discard(),
+		id:  "h1",
 		asConnInfo: &asConnInfo{
 			aerospikePolicy: &aero.ClientPolicy{},
 			asInfo:          s.asinfo,
 		},
-		id:    "h1",
-		build: sync.OnceValues(func() (string, error) { return build, nil }),
+		build: sync.OnceValues(func() (string, error) { return testBuild710, nil }),
 	}
-
-	return h
 }
 
 func (s *StrongConsistencyTestSuite) TestIsNamespaceSCEnabledTrue() {
-	h := s.newTestHostWithBuild(testBuild710)
+	h := s.newTestHost()
 	cmd := info.NamespaceConfigCmd(testNS, testBuild710)
 
 	s.mockConn.EXPECT().RequestInfo(cmd).Return(map[string]string{cmd: "strong-consistency=true"}, nil)
@@ -82,7 +80,7 @@ func (s *StrongConsistencyTestSuite) TestIsNamespaceSCEnabledTrue() {
 }
 
 func (s *StrongConsistencyTestSuite) TestIsNamespaceSCEnabledFalse() {
-	h := s.newTestHostWithBuild(testBuild710)
+	h := s.newTestHost()
 	cmd := info.NamespaceConfigCmd(testNS, testBuild710)
 
 	s.mockConn.EXPECT().RequestInfo(cmd).Return(map[string]string{cmd: "strong-consistency=false"}, nil)
@@ -93,7 +91,7 @@ func (s *StrongConsistencyTestSuite) TestIsNamespaceSCEnabledFalse() {
 }
 
 func (s *StrongConsistencyTestSuite) TestIsNamespaceSCEnabledMissingKey() {
-	h := s.newTestHostWithBuild(testBuild710)
+	h := s.newTestHost()
 	cmd := info.NamespaceConfigCmd(testNS, testBuild710)
 
 	s.mockConn.EXPECT().RequestInfo(cmd).Return(map[string]string{cmd: "some-key=value"}, nil)
@@ -103,7 +101,7 @@ func (s *StrongConsistencyTestSuite) TestIsNamespaceSCEnabledMissingKey() {
 }
 
 func (s *StrongConsistencyTestSuite) TestIsNamespaceSCEnabledParseError() {
-	h := s.newTestHostWithBuild(testBuild710)
+	h := s.newTestHost()
 	cmd := info.NamespaceConfigCmd(testNS, testBuild710)
 
 	s.mockConn.EXPECT().RequestInfo(cmd).Return(map[string]string{cmd: "strong-consistency=notabool"}, nil)
@@ -113,7 +111,7 @@ func (s *StrongConsistencyTestSuite) TestIsNamespaceSCEnabledParseError() {
 }
 
 func (s *StrongConsistencyTestSuite) TestGetSCNamespacesCachesBuild() {
-	h := s.newTestHostWithBuild(testBuild710)
+	h := s.newTestHost()
 	nsCmd := "namespaces"
 	cmdTest := info.NamespaceConfigCmd(testNS, testBuild710)
 	cmdBar := info.NamespaceConfigCmd("bar", testBuild710)
@@ -154,7 +152,7 @@ func (s *StrongConsistencyTestSuite) TestGetSCNamespacesBuildError() {
 }
 
 func (s *StrongConsistencyTestSuite) TestSkipInfoQuiesceCheck_RemovedNamespace() {
-	h := s.newTestHostWithBuild(testBuild710)
+	h := s.newTestHost()
 	removed := map[string]bool{testNS: true}
 
 	skip, err := (&cluster{log: logr.Discard()}).skipInfoQuiesceCheck(h, testNS, removed)
@@ -163,7 +161,7 @@ func (s *StrongConsistencyTestSuite) TestSkipInfoQuiesceCheck_RemovedNamespace()
 }
 
 func (s *StrongConsistencyTestSuite) TestSkipInfoQuiesceCheck_SCEnabledNotInRoster() {
-	h := s.newTestHostWithBuild(testBuild710)
+	h := s.newTestHost()
 	nsCmd := info.NamespaceConfigCmd(testNS, testBuild710)
 	rosterCmd := "roster:namespace=test"
 
@@ -182,7 +180,7 @@ func (s *StrongConsistencyTestSuite) TestSkipInfoQuiesceCheck_SCEnabledNotInRost
 }
 
 func (s *StrongConsistencyTestSuite) TestSkipInfoQuiesceCheck_SCEnabledInRoster() {
-	h := s.newTestHostWithBuild(testBuild710)
+	h := s.newTestHost()
 	nsCmd := info.NamespaceConfigCmd(testNS, testBuild710)
 	rosterCmd := "roster:namespace=test"
 
@@ -201,7 +199,7 @@ func (s *StrongConsistencyTestSuite) TestSkipInfoQuiesceCheck_SCEnabledInRoster(
 }
 
 func (s *StrongConsistencyTestSuite) TestSkipInfoQuiesceCheck_SCDisabled() {
-	h := s.newTestHostWithBuild(testBuild710)
+	h := s.newTestHost()
 	nsCmd := info.NamespaceConfigCmd(testNS, testBuild710)
 
 	s.mockConn.EXPECT().RequestInfo(nsCmd).Return(map[string]string{nsCmd: "strong-consistency=false"}, nil)
