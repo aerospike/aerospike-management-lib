@@ -1,6 +1,7 @@
 package deployment
 
 import (
+	"sync"
 	"testing"
 	"time"
 
@@ -23,6 +24,7 @@ type StrongConsistencyTestSuite struct {
 	ctrl     *gomock.Controller
 	mockConn *info.MockConnection
 	host     *host
+	asinfo   *info.AsInfo
 }
 
 func (s *StrongConsistencyTestSuite) SetupTest() {
@@ -40,100 +42,129 @@ func (s *StrongConsistencyTestSuite) SetupTest() {
 	s.mockConn.EXPECT().SetTimeout(gomock.Any(), time.Second*100).AnyTimes()
 	s.mockConn.EXPECT().Close().Return().AnyTimes()
 
-	asinfo := info.NewAsInfoWithConnFactory(logr.Discard(), aHost, policy, mockConnFact)
+	s.asinfo = info.NewAsInfoWithConnFactory(logr.Discard(), aHost, policy, mockConnFact)
 
 	s.host = &host{
 		log: logr.Discard(),
 		asConnInfo: &asConnInfo{
 			aerospikePolicy: policy,
-			asInfo:          asinfo,
+			asInfo:          s.asinfo,
 		},
 		id: "h1",
 	}
 }
 
-func (s *StrongConsistencyTestSuite) TestIsNamespaceSCEnabledTrue() {
-	build := testBuild710
-	cmd := info.NamespaceConfigCmd(testNS, build)
-	gomock.InOrder(
-		s.mockConn.EXPECT().RequestInfo(cmd).Return(map[string]string{cmd: "strong-consistency=true"}, nil),
-	)
+// newTestHostWithBuild creates a test host with a pre-cached build value.
+// This avoids the need to mock the build call in tests that don't care about it.
+func (s *StrongConsistencyTestSuite) newTestHostWithBuild(build string) *host {
+	h := &host{
+		log: logr.Discard(),
+		asConnInfo: &asConnInfo{
+			aerospikePolicy: &aero.ClientPolicy{},
+			asInfo:          s.asinfo,
+		},
+		id:    "h1",
+		build: sync.OnceValues(func() (string, error) { return build, nil }),
+	}
 
-	isSC, err := isNamespaceSCEnabled(s.host, testNS, build)
+	return h
+}
+
+func (s *StrongConsistencyTestSuite) TestIsNamespaceSCEnabledTrue() {
+	h := s.newTestHostWithBuild(testBuild710)
+	cmd := info.NamespaceConfigCmd(testNS, testBuild710)
+
+	s.mockConn.EXPECT().RequestInfo(cmd).Return(map[string]string{cmd: "strong-consistency=true"}, nil)
+
+	isSC, err := isNamespaceSCEnabled(h, testNS)
 	s.NoError(err)
 	s.True(isSC)
 }
 
 func (s *StrongConsistencyTestSuite) TestIsNamespaceSCEnabledFalse() {
-	build := testBuild710
-	cmd := info.NamespaceConfigCmd(testNS, build)
+	h := s.newTestHostWithBuild(testBuild710)
+	cmd := info.NamespaceConfigCmd(testNS, testBuild710)
+
 	s.mockConn.EXPECT().RequestInfo(cmd).Return(map[string]string{cmd: "strong-consistency=false"}, nil)
 
-	isSC, err := isNamespaceSCEnabled(s.host, testNS, build)
+	isSC, err := isNamespaceSCEnabled(h, testNS)
 	s.NoError(err)
 	s.False(isSC)
 }
 
 func (s *StrongConsistencyTestSuite) TestIsNamespaceSCEnabledMissingKey() {
-	build := testBuild710
-	cmd := info.NamespaceConfigCmd(testNS, build)
+	h := s.newTestHostWithBuild(testBuild710)
+	cmd := info.NamespaceConfigCmd(testNS, testBuild710)
+
 	s.mockConn.EXPECT().RequestInfo(cmd).Return(map[string]string{cmd: "some-key=value"}, nil)
 
-	_, err := isNamespaceSCEnabled(s.host, testNS, build)
+	_, err := isNamespaceSCEnabled(h, testNS)
 	s.Error(err)
 }
 
 func (s *StrongConsistencyTestSuite) TestIsNamespaceSCEnabledParseError() {
-	build := testBuild710
-	cmd := info.NamespaceConfigCmd(testNS, build)
+	h := s.newTestHostWithBuild(testBuild710)
+	cmd := info.NamespaceConfigCmd(testNS, testBuild710)
+
 	s.mockConn.EXPECT().RequestInfo(cmd).Return(map[string]string{cmd: "strong-consistency=notabool"}, nil)
 
-	_, err := isNamespaceSCEnabled(s.host, testNS, build)
+	_, err := isNamespaceSCEnabled(h, testNS)
 	s.Error(err)
 }
 
-func (s *StrongConsistencyTestSuite) TestGetSCNamespacesReusesBuild() {
+func (s *StrongConsistencyTestSuite) TestGetSCNamespacesCachesBuild() {
+	h := s.newTestHostWithBuild(testBuild710)
 	nsCmd := "namespaces"
-	buildCmd := "build"
-	build := testBuild710
-	cmdTest := info.NamespaceConfigCmd(testNS, build)
-	cmdBar := info.NamespaceConfigCmd("bar", build)
+	cmdTest := info.NamespaceConfigCmd(testNS, testBuild710)
+	cmdBar := info.NamespaceConfigCmd("bar", testBuild710)
 
+	// Build is cached via sync.OnceValues, so no "build" command expected here
 	gomock.InOrder(
 		s.mockConn.EXPECT().RequestInfo(nsCmd).Return(map[string]string{nsCmd: "test;bar"}, nil),
-		s.mockConn.EXPECT().RequestInfo(buildCmd).Return(map[string]string{buildCmd: build}, nil),
 		s.mockConn.EXPECT().RequestInfo(cmdTest).Return(map[string]string{cmdTest: "strong-consistency=true"}, nil),
 		s.mockConn.EXPECT().RequestInfo(cmdBar).Return(map[string]string{cmdBar: "strong-consistency=false"}, nil),
 	)
 
-	res, clusterSC, err := getSCNamespaces([]*host{s.host})
+	res, clusterSC, err := getSCNamespaces([]*host{h})
 	s.NoError(err)
 	s.True(clusterSC)
-	s.Equal([]string{"test"}, res[s.host])
+	s.Equal([]string{"test"}, res[h])
 }
 
 func (s *StrongConsistencyTestSuite) TestGetSCNamespacesBuildError() {
+	// Create host with build func that will actually call the mock
+	h := &host{
+		log: logr.Discard(),
+		asConnInfo: &asConnInfo{
+			aerospikePolicy: &aero.ClientPolicy{},
+			asInfo:          s.asinfo,
+		},
+		id:    "h1",
+		build: sync.OnceValues(func() (string, error) { return s.asinfo.Build() }),
+	}
+
 	nsCmd := "namespaces"
 	buildCmd := "build"
 
 	nsCall := s.mockConn.EXPECT().RequestInfo(nsCmd).Return(map[string]string{nsCmd: "test"}, nil)
 	s.mockConn.EXPECT().RequestInfo(buildCmd).Return(nil, aero.ErrTimeout).MinTimes(1).After(nsCall)
 
-	_, _, err := getSCNamespaces([]*host{s.host})
+	_, _, err := getSCNamespaces([]*host{h})
 	s.Error(err)
 }
 
 func (s *StrongConsistencyTestSuite) TestSkipInfoQuiesceCheck_RemovedNamespace() {
+	h := s.newTestHostWithBuild(testBuild710)
 	removed := map[string]bool{testNS: true}
 
-	skip, err := s.skipInfoQuiesceCheck(removed)
+	skip, err := (&cluster{log: logr.Discard()}).skipInfoQuiesceCheck(h, testNS, removed)
 	s.NoError(err)
 	s.True(skip)
 }
 
 func (s *StrongConsistencyTestSuite) TestSkipInfoQuiesceCheck_SCEnabledNotInRoster() {
-	build := testBuild710
-	nsCmd := info.NamespaceConfigCmd(testNS, build)
+	h := s.newTestHostWithBuild(testBuild710)
+	nsCmd := info.NamespaceConfigCmd(testNS, testBuild710)
 	rosterCmd := "roster:namespace=test"
 
 	gomock.InOrder(
@@ -145,14 +176,14 @@ func (s *StrongConsistencyTestSuite) TestSkipInfoQuiesceCheck_SCEnabledNotInRost
 		),
 	)
 
-	skip, err := s.skipInfoQuiesceCheck(map[string]bool{})
+	skip, err := (&cluster{log: logr.Discard()}).skipInfoQuiesceCheck(h, testNS, map[string]bool{})
 	s.NoError(err)
 	s.True(skip)
 }
 
 func (s *StrongConsistencyTestSuite) TestSkipInfoQuiesceCheck_SCEnabledInRoster() {
-	build := testBuild710
-	nsCmd := info.NamespaceConfigCmd(testNS, build)
+	h := s.newTestHostWithBuild(testBuild710)
+	nsCmd := info.NamespaceConfigCmd(testNS, testBuild710)
 	rosterCmd := "roster:namespace=test"
 
 	gomock.InOrder(
@@ -164,26 +195,20 @@ func (s *StrongConsistencyTestSuite) TestSkipInfoQuiesceCheck_SCEnabledInRoster(
 		),
 	)
 
-	skip, err := s.skipInfoQuiesceCheck(map[string]bool{})
+	skip, err := (&cluster{log: logr.Discard()}).skipInfoQuiesceCheck(h, testNS, map[string]bool{})
 	s.NoError(err)
 	s.False(skip)
 }
 
 func (s *StrongConsistencyTestSuite) TestSkipInfoQuiesceCheck_SCDisabled() {
-	build := testBuild710
-	nsCmd := info.NamespaceConfigCmd(testNS, build)
+	h := s.newTestHostWithBuild(testBuild710)
+	nsCmd := info.NamespaceConfigCmd(testNS, testBuild710)
 
 	s.mockConn.EXPECT().RequestInfo(nsCmd).Return(map[string]string{nsCmd: "strong-consistency=false"}, nil)
 
-	skip, err := s.skipInfoQuiesceCheck(map[string]bool{})
+	skip, err := (&cluster{log: logr.Discard()}).skipInfoQuiesceCheck(h, testNS, map[string]bool{})
 	s.NoError(err)
 	s.False(skip)
-}
-
-func (s *StrongConsistencyTestSuite) skipInfoQuiesceCheck(
-	removed map[string]bool,
-) (bool, error) {
-	return (&cluster{log: logr.Discard()}).skipInfoQuiesceCheck(s.host, testNS, removed, testBuild710)
 }
 
 func TestStrongConsistencyTestSuite(t *testing.T) {

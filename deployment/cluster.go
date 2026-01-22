@@ -228,22 +228,11 @@ func (c *cluster) InfoQuiesce(hostsToBeQuiesced, hostIDs, removedNamespaces []st
 		removedNamespaceMap[namespace] = true
 	}
 
-	// Cache build version per host to avoid duplicate network calls in later loops
-	hostBuilds := make(map[string]string)
-
 	for _, hostID := range hostsToBeQuiesced {
 		n, err := c.findHost(hostID)
 		if err != nil {
 			return err
 		}
-
-		// Fetch build version once and cache it for reuse
-		build, err := n.asConnInfo.asInfo.Build()
-		if err != nil {
-			return err
-		}
-
-		hostBuilds[hostID] = build
 
 		lg.V(1).Info("Running quiesce command `quiesce:`")
 
@@ -261,7 +250,7 @@ func (c *cluster) InfoQuiesce(hostsToBeQuiesced, hostIDs, removedNamespaces []st
 		for index := range namespaces {
 			var passed bool
 
-			skipInfoQuiesceCheck, err := c.skipInfoQuiesceCheck(n, namespaces[index], removedNamespaceMap, build)
+			skipInfoQuiesceCheck, err := c.skipInfoQuiesceCheck(n, namespaces[index], removedNamespaceMap)
 			if err != nil {
 				return err
 			}
@@ -333,12 +322,11 @@ func (c *cluster) InfoQuiesce(hostsToBeQuiesced, hostIDs, removedNamespaces []st
 		}
 
 		namespaces := nodesNamespaces[hostID]
-		build := hostBuilds[hostID]
 
 		for index := range namespaces {
 			var passed bool
 
-			skipInfoQuiesceCheck, err := c.skipInfoQuiesceCheck(n, namespaces[index], removedNamespaceMap, build)
+			skipInfoQuiesceCheck, err := c.skipInfoQuiesceCheck(n, namespaces[index], removedNamespaceMap)
 			if err != nil {
 				return err
 			}
@@ -479,25 +467,24 @@ func (c *cluster) InfoQuiesce(hostsToBeQuiesced, hostIDs, removedNamespaces []st
 }
 
 func (c *cluster) skipInfoQuiesceCheck(
-	host *host,
+	h *host,
 	ns string,
 	removedNamespaceMap map[string]bool,
-	build string,
 ) (bool, error) {
-	lg := c.log.WithValues("node", host.id, "namespace", ns)
+	lg := c.log.WithValues("node", h.id, "namespace", ns)
 
 	if removedNamespaceMap[ns] {
 		lg.V(1).Info("Skip quiesce verification for given node and namespace. Namespace is getting removed")
 		return true, nil
 	}
 
-	isNamespaceSCEnabled, err := isNamespaceSCEnabled(host, ns, build)
+	isSCEnabled, err := isNamespaceSCEnabled(h, ns)
 	if err != nil {
 		return false, err
 	}
 
-	if isNamespaceSCEnabled {
-		isNodeInRoster, err := isNodeInRoster(host, ns)
+	if isSCEnabled {
+		isNodeInRoster, err := isNodeInRoster(h, ns)
 		if err != nil {
 			return false, err
 		}

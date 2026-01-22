@@ -2,6 +2,7 @@ package deployment
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/go-logr/logr"
 
@@ -15,6 +16,10 @@ type host struct {
 	log        logr.Logger
 	asConnInfo *asConnInfo
 	id         string // host UUID string
+
+	// build provides cached, thread-safe access to the Aerospike build version.
+	// Initialized via sync.OnceValues to ensure the network call happens only once.
+	build func() (string, error)
 }
 
 type asConnInfo struct {
@@ -29,16 +34,20 @@ type asConnInfo struct {
 func newHost(
 	id string, aerospikePolicy *aero.ClientPolicy, asConn *ASConn,
 ) (*host, error) {
-	nd := host{
+	nd := &host{
 		id: id,
 	}
 
 	if asConn != nil {
 		nd.log = asConn.Log
 		nd.asConnInfo = newASConnInfo(aerospikePolicy, asConn)
+		// Initialize cached build getter - fetches once on first call, thread-safe
+		nd.build = sync.OnceValues(func() (string, error) {
+			return nd.asConnInfo.asInfo.Build()
+		})
 	}
 
-	return &nd, nil
+	return nd, nil
 }
 
 func newASConnInfo(aerospikePolicy *aero.ClientPolicy, asConn *ASConn) *asConnInfo {
@@ -59,6 +68,17 @@ func newASConnInfo(aerospikePolicy *aero.ClientPolicy, asConn *ASConn) *asConnIn
 
 func (n *host) String() string {
 	return n.id
+}
+
+// Build returns the Aerospike build version for this host.
+// The value is fetched once on first call and cached for the lifetime of the host connection.
+// This method is safe for concurrent use.
+func (n *host) Build() (string, error) {
+	if n.build == nil {
+		return "", fmt.Errorf("host connection not initialized")
+	}
+
+	return n.build()
 }
 
 // Close closes all the open connections of the host.

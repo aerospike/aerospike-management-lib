@@ -166,15 +166,10 @@ func getSCNamespaces(clHosts []*host) (scNamespacesPerHost map[*host][]string, i
 			return nil, isClusterSCEnabled, err
 		}
 
-		build, err := clHosts[i].asConnInfo.asInfo.Build()
-		if err != nil {
-			return nil, isClusterSCEnabled, err
-		}
-
 		var nsList []string
 
 		for _, ns := range namespaces {
-			isSC, err := isNamespaceSCEnabled(clHosts[i], ns, build)
+			isSC, err := isNamespaceSCEnabled(clHosts[i], ns)
 			if err != nil {
 				return nil, isClusterSCEnabled, err
 			}
@@ -312,10 +307,15 @@ func splitRosterNodes(rosterNodes string) (nodeIDs []string, activeRackPrefix st
 	return strings.Split(rosterNodes, ","), activeRackPrefix
 }
 
-func isNamespaceSCEnabled(clHost *host, ns, build string) (bool, error) {
+func isNamespaceSCEnabled(h *host, ns string) (bool, error) {
+	build, err := h.Build()
+	if err != nil {
+		return false, err
+	}
+
 	cmd := info.NamespaceConfigCmd(ns, build)
 
-	res, err := clHost.asConnInfo.asInfo.RequestInfo(cmd)
+	res, err := h.asConnInfo.asInfo.RequestInfo(cmd)
 	if err != nil {
 		return false, err
 	}
@@ -335,7 +335,7 @@ func isNamespaceSCEnabled(clHost *host, ns, build string) (bool, error) {
 		return false, err
 	}
 
-	clHost.log.Info("Check if namespace is SC enabled", "ns", ns, nsKeyStrongConsistency, scBool)
+	h.log.Info("Check if namespace is SC enabled", "ns", ns, nsKeyStrongConsistency, scBool)
 
 	return scBool, nil
 }
