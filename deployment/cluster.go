@@ -228,11 +228,22 @@ func (c *cluster) InfoQuiesce(hostsToBeQuiesced, hostIDs, removedNamespaces []st
 		removedNamespaceMap[namespace] = true
 	}
 
+	// Cache build version per host to avoid duplicate network calls in later loops
+	hostBuilds := make(map[string]string)
+
 	for _, hostID := range hostsToBeQuiesced {
 		n, err := c.findHost(hostID)
 		if err != nil {
 			return err
 		}
+
+		// Fetch build version once and cache it for reuse
+		build, err := n.asConnInfo.asInfo.Build()
+		if err != nil {
+			return err
+		}
+
+		hostBuilds[hostID] = build
 
 		lg.V(1).Info("Running quiesce command `quiesce:`")
 
@@ -246,11 +257,6 @@ func (c *cluster) InfoQuiesce(hostsToBeQuiesced, hostIDs, removedNamespaces []st
 		}
 
 		namespaces := nodesNamespaces[hostID]
-
-		build, err := n.asConnInfo.asInfo.Build()
-		if err != nil {
-			return err
-		}
 
 		for index := range namespaces {
 			var passed bool
@@ -327,11 +333,7 @@ func (c *cluster) InfoQuiesce(hostsToBeQuiesced, hostIDs, removedNamespaces []st
 		}
 
 		namespaces := nodesNamespaces[hostID]
-
-		build, err := n.asConnInfo.asInfo.Build()
-		if err != nil {
-			return err
-		}
+		build := hostBuilds[hostID]
 
 		for index := range namespaces {
 			var passed bool
