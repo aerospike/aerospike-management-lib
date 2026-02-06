@@ -467,24 +467,24 @@ func (c *cluster) InfoQuiesce(hostsToBeQuiesced, hostIDs, removedNamespaces []st
 }
 
 func (c *cluster) skipInfoQuiesceCheck(
-	h *host,
+	host *host,
 	ns string,
 	removedNamespaceMap map[string]bool,
 ) (bool, error) {
-	lg := c.log.WithValues("node", h.id, "namespace", ns)
+	lg := c.log.WithValues("node", host.id, "namespace", ns)
 
 	if removedNamespaceMap[ns] {
 		lg.V(1).Info("Skip quiesce verification for given node and namespace. Namespace is getting removed")
 		return true, nil
 	}
 
-	isSCEnabled, err := isNamespaceSCEnabled(h, ns)
+	isNamespaceSCEnabled, err := isNamespaceSCEnabled(host, ns)
 	if err != nil {
 		return false, err
 	}
 
-	if isSCEnabled {
-		isNodeInRoster, err := isNodeInRoster(h, ns)
+	if isNamespaceSCEnabled {
+		isNodeInRoster, err := isNodeInRoster(host, ns)
 		if err != nil {
 			return false, err
 		}
