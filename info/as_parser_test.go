@@ -46,6 +46,15 @@ func coreInfoCommandsAsAny() []any {
 	return out
 }
 
+// editionRespForCore is the second RequestInfo call after getCoreInfo (build < 8.1.1).
+var editionRespForCore = map[string]string{cmdMetaEdition: "Aerospike Enterprise Edition"}
+
+// releaseRespForCore811 is the second RequestInfo call after getCoreInfo (build >= 8.1.1).
+// Format: parseBasicInfo uses ";" and "=" so "edition=X;version=Y;os=Z".
+var releaseRespForCore811 = map[string]string{
+	cmdMetaRelease: "edition=Aerospike Enterprise Edition;version=8.1.1.0;os=ubuntu24.04",
+}
+
 func (s *AsParserTestSuite) TestAsInfoGetAsConfig() {
 	testCases := []struct {
 		context      string
@@ -56,28 +65,28 @@ func (s *AsParserTestSuite) TestAsInfoGetAsConfig() {
 	}{
 		{
 			"service",
-			nil,
+			map[string]string{"build": "6.4.0.0"},
 			[]string{"get-config:context=service"},
 			map[string]string{"get-config:context=service": "advertise-ipv6=false;auto-pin=none;batch-index-threads=8;batch-max-buffers-per-queue=255;batch-max-unused-buffers=256"},
 			lib.Stats{"service": lib.Stats{"advertise-ipv6": false, "auto-pin": "none", "batch-index-threads": int64(8), "batch-max-buffers-per-queue": int64(255), "batch-max-unused-buffers": int64(256)}},
 		},
 		{
 			"network",
-			nil,
+			map[string]string{"build": "6.4.0.0"},
 			[]string{"get-config:context=network"},
 			map[string]string{"get-config:context=network": "service.access-port=0;service.address=any;service.alternate-access-port=0;service.port=3000"},
 			lib.Stats{"network": lib.Stats{"service.access-port": int64(0), "service.address": "any", "service.alternate-access-port": int64(0), "service.port": int64(3000)}},
 		},
 		{
 			"namespaces",
-			map[string]string{"namespaces": "test;bar"},
+			map[string]string{"build": "6.4.0.0", "namespaces": "test;bar"},
 			[]string{"get-config:context=namespace;id=test", "get-config:context=namespace;id=bar"},
 			map[string]string{"get-config:context=namespace;id=test": "allow-ttl-without-nsup=false;background-query-max-rps=10000;conflict-resolution-policy=generation;conflict-resolve-writes=false", "get-config:context=namespace;id=bar": "allow-ttl-without-nsup=true;background-query-max-rps=10000;conflict-resolution-policy=generation;conflict-resolve-writes=false"},
 			lib.Stats{"namespaces": lib.Stats{"test": lib.Stats{"allow-ttl-without-nsup": false, "background-query-max-rps": int64(10000), "conflict-resolution-policy": "generation", "conflict-resolve-writes": false}, "bar": lib.Stats{"allow-ttl-without-nsup": true, "background-query-max-rps": int64(10000), "conflict-resolution-policy": "generation", "conflict-resolve-writes": false}}},
 		},
 		{
 			"sets",
-			map[string]string{"namespaces": "test;bar"},
+			map[string]string{"build": "6.4.0.0", "namespaces": "test;bar"},
 			[]string{"sets/test", "sets/bar"},
 			map[string]string{"sets/test": "ns=test:set=testset:objects=1:tombstones=0:memory_data_bytes=311142:device_data_bytes=0:truncate_lut=0:sindexes=0:index_populating=false:truncating=false:disable-eviction=false:enable-index=false:stop-writes-count=1:stop-writes-size=1;", "sets/bar": "ns=test:set=testset:objects=2:tombstones=0:memory_data_bytes=311142:device_data_bytes=0:truncate_lut=0:sindexes=0:index_populating=false:truncating=false:disable-eviction=false:enable-index=false:stop-writes-count=2:stop-writes-size=2;"},
 			lib.Stats{"namespaces": lib.Stats{"test": lib.Stats{"sets": lib.Stats{"testset": lib.Stats{"disable-eviction": false, "enable-index": false, "stop-writes-count": int64(1), "stop-writes-size": int64(1)}}}, "bar": lib.Stats{"sets": lib.Stats{"testset": lib.Stats{"disable-eviction": false, "enable-index": false, "stop-writes-count": int64(2), "stop-writes-size": int64(2)}}}}},
@@ -91,7 +100,7 @@ func (s *AsParserTestSuite) TestAsInfoGetAsConfig() {
 		},
 		{
 			"security",
-			nil,
+			map[string]string{"build": "6.4.0.0"},
 			[]string{"get-config:context=security"},
 			map[string]string{
 				"get-config:context=security": "enable-ldap=false;enable-security=true;ldap-login-threads=8;privilege-refresh-period=300;ldap.disable-tls=false;ldap.polling-period=300",
@@ -100,7 +109,7 @@ func (s *AsParserTestSuite) TestAsInfoGetAsConfig() {
 		},
 		{
 			"logging",
-			map[string]string{"logs": "0:/var/log/aerospike.log"},
+			map[string]string{"build": "6.4.0.0", "logs": "0:/var/log/aerospike.log"},
 			[]string{"log/0"},
 			map[string]string{
 				"log/0": "misc:CRITICAL;alloc:CRITICAL;arenax:CRITICAL;hardware:CRITICAL;msg:CRITICAL;rbuffer:CRITICAL;socket:CRITICAL;tls:CRITICAL;vmapx:CRITICAL",
@@ -111,7 +120,7 @@ func (s *AsParserTestSuite) TestAsInfoGetAsConfig() {
 		},
 		{
 			"racks",
-			map[string]string{cmdMetaEdition: "Aerospike Enterprise Edition"},
+			map[string]string{"build": "6.4.0.0"},
 			[]string{"racks:"},
 			map[string]string{
 				"racks:": "ns=test:rack_0=1B;ns=bar:rack_0=2B;",
@@ -126,8 +135,9 @@ func (s *AsParserTestSuite) TestAsInfoGetAsConfig() {
 
 	for _, tc := range testCases {
 		s.Run(tc.context, func() {
-			// Call GetAsInfo with the input from the test case
 			s.mockConn.EXPECT().RequestInfo(coreInfoCommandsAsAny()...).Return(tc.coreInfoResp, nil)
+			// getCoreInfo() then requests edition (build < 8.1.1 in these cases)
+			s.mockConn.EXPECT().RequestInfo(cmdMetaEdition).Return(editionRespForCore, nil)
 
 			if tc.req != nil {
 				s.mockConn.EXPECT().RequestInfo(tc.req).Return(tc.resp, nil)
@@ -135,8 +145,8 @@ func (s *AsParserTestSuite) TestAsInfoGetAsConfig() {
 
 			result, err := s.asinfo.GetAsConfig(tc.context)
 
-			s.Assert().Nil(err)
-			s.Assert().Equal(tc.expected, result)
+			s.Require().NoError(err)
+			s.Equal(tc.expected, result)
 		})
 	}
 }
@@ -145,8 +155,8 @@ func (s *AsParserTestSuite) TestAsInfoGetAsConfigXDREnabled() {
 	context := "xdr"
 	coreInfoResp := map[string]string{"build": "6.4.0.0"}
 
-	// Call GetAsInfo with the input from the test case
 	s.mockConn.EXPECT().RequestInfo(coreInfoCommandsAsAny()...).Return(coreInfoResp, nil)
+	s.mockConn.EXPECT().RequestInfo(cmdMetaEdition).Return(editionRespForCore, nil)
 	s.mockConn.EXPECT().RequestInfo([]string{"get-config:context=xdr"}).Return(map[string]string{"get-config:context=xdr": "dcs=DC1,DC2;src-id=0;trace-sample=0"}, nil)
 	s.mockConn.EXPECT().RequestInfo([]string{"get-config:context=xdr;dc=DC1"}).Return(map[string]string{"get-config:context=xdr;dc=DC1": "auth-mode=none;auth-password-file=null;auth-user=null;connector=false;max-recoveries-interleaved=0;node-address-port=;period-ms=100;tls-name=null;use-alternate-access-address=false;namespaces=test"}, nil)
 	s.mockConn.EXPECT().RequestInfo([]string{"get-config:context=xdr;dc=DC2"}).Return(map[string]string{"get-config:context=xdr;dc=DC2": "auth-mode=none;auth-password-file=null;auth-user=null;connector=false;max-recoveries-interleaved=0;node-address-port=;period-ms=100;tls-name=null;use-alternate-access-address=false;namespaces=bar"}, nil)
@@ -180,16 +190,16 @@ func (s *AsParserTestSuite) TestAsInfoGetAsConfigXDREnabled() {
 
 	result, err := s.asinfo.GetAsConfig(context)
 
-	s.Assert().Nil(err)
-	s.Assert().Equal(expected, result)
+	s.Require().NoError(err)
+	s.Equal(expected, result)
 }
 
 func (s *AsParserTestSuite) TestAsInfoGetAsConfigXDRDisabled() {
 	context := "xdr"
 	coreInfoResp := map[string]string{"build": "6.4.0.0"}
 
-	// Call GetAsInfo with the input from the test case
 	s.mockConn.EXPECT().RequestInfo(coreInfoCommandsAsAny()...).Return(coreInfoResp, nil)
+	s.mockConn.EXPECT().RequestInfo(cmdMetaEdition).Return(editionRespForCore, nil)
 	s.mockConn.EXPECT().RequestInfo([]string{"get-config:context=xdr"}).Return(map[string]string{"get-config:context=xdr": "dcs=;src-id=0;trace-sample=0"}, nil)
 
 	expected := lib.Stats{"xdr": lib.Stats{
@@ -199,8 +209,229 @@ func (s *AsParserTestSuite) TestAsInfoGetAsConfigXDRDisabled() {
 	}}
 	result, err := s.asinfo.GetAsConfig(context)
 
-	s.Assert().Nil(err)
-	s.Assert().Equal(expected, result)
+	s.Require().NoError(err)
+	s.Equal(expected, result)
+}
+
+// TestGetAsConfigBuild811OrAboveUsesRelease ensures that for build >= 8.1.1 we request
+// "release" (not "edition") in getCoreInfo and get edition from it.
+func (s *AsParserTestSuite) TestGetAsConfigBuild811OrAboveUsesRelease() {
+	coreInfoResp := map[string]string{"build": "8.1.1.0"}
+	serviceResp := map[string]string{"get-config:context=service": "advertise-ipv6=false;auto-pin=none;batch-index-threads=8;batch-max-buffers-per-queue=255;batch-max-unused-buffers=256"}
+
+	s.mockConn.EXPECT().RequestInfo(coreInfoCommandsAsAny()...).Return(coreInfoResp, nil)
+	s.mockConn.EXPECT().RequestInfo(cmdMetaRelease).Return(releaseRespForCore811, nil)
+	s.mockConn.EXPECT().RequestInfo([]string{"get-config:context=service"}).Return(serviceResp, nil)
+
+	result, err := s.asinfo.GetAsConfig("service")
+	s.Require().NoError(err)
+	s.Require().NotNil(result)
+	s.Equal(lib.Stats{"service": lib.Stats{"advertise-ipv6": false, "auto-pin": "none", "batch-index-threads": int64(8), "batch-max-buffers-per-queue": int64(255), "batch-max-unused-buffers": int64(256)}}, result)
+}
+
+// TestGetAsConfigRacksBuild811 verifies that racks config works for build >= 8.1.1
+// where edition is derived from the release command (not the deprecated edition command).
+func (s *AsParserTestSuite) TestGetAsConfigRacksBuild811() {
+	coreInfoResp := map[string]string{"build": "8.1.1.0"}
+
+	s.mockConn.EXPECT().RequestInfo(coreInfoCommandsAsAny()...).Return(coreInfoResp, nil)
+	s.mockConn.EXPECT().RequestInfo(cmdMetaRelease).Return(releaseRespForCore811, nil)
+	s.mockConn.EXPECT().RequestInfo([]string{"racks:"}).Return(map[string]string{
+		"racks:": "ns=test:rack_0=1B;ns=bar:rack_0=2B;",
+	}, nil)
+
+	result, err := s.asinfo.GetAsConfig("racks")
+	s.Require().NoError(err)
+	s.Require().NotNil(result)
+	s.Equal(lib.Stats{"racks": []lib.Stats{
+		{"ns": "test", "rack_0": "1B"},
+		{"ns": "bar", "rack_0": "2B"},
+	}}, result)
+}
+
+// TestGetAsConfigRacksCommunityEdition811 verifies that racks config fails for
+// community edition on build >= 8.1.1 (edition from release).
+func (s *AsParserTestSuite) TestGetAsConfigRacksCommunityEdition811() {
+	coreInfoResp := map[string]string{"build": "8.1.1.0"}
+	communityRelease := map[string]string{
+		cmdMetaRelease: "edition=Aerospike Community Edition;version=8.1.1.0;os=ubuntu24.04",
+	}
+
+	s.mockConn.EXPECT().RequestInfo(coreInfoCommandsAsAny()...).Return(coreInfoResp, nil)
+	s.mockConn.EXPECT().RequestInfo(cmdMetaRelease).Return(communityRelease, nil)
+
+	_, err := s.asinfo.GetAsConfig("racks")
+	s.Require().Error(err)
+	s.Contains(err.Error(), "community edition")
+}
+
+// TestGetAsInfoMetadataBuildBelow811 ensures metadata uses version, edition, build_os from
+// the deprecated info commands when build < 8.1.1 (we request them, not release).
+func (s *AsParserTestSuite) TestGetAsInfoMetadataBuildBelow811() {
+	coreInfoResp := map[string]string{"build": "6.4.0.0"}
+	// Metadata batch for build < 8.1.1 includes version, build_os, edition. execute() merges m into rawMap, so rawMap will have build + edition from getCoreInfo. The third call returns the metadata commands; we supply version, build_os, edition in that response (node_id, build come from m merge).
+	metadataRaw := map[string]string{
+		cmdMetaNodeID:      "NODE_123",
+		cmdMetaBuild:       "6.4.0.0",
+		cmdMetaVersion:     "Aerospike Enterprise Edition build 6.4.0.0",
+		cmdMetaEdition:     "Aerospike Enterprise Edition",
+		cmdMetaBuildOS:     "ubuntu20.04",
+		cmdMetaRelease:     "", // not requested for < 8.1.1
+		cmdMetaClusterName: "test-cluster",
+	}
+	// List-type commands can be empty; parser handles ""
+	for _, k := range []string{cmdMetaServiceClearStd, cmdMetaServiceClearAlt, cmdMetaServiceTLSStd, cmdMetaServiceTLSAlt, cmdMetaPeerClearStd, cmdMetaPeerClearAlt, cmdMetaPeerTLSStd, cmdMetaPeerTLSAlt, cmdMetaAlumniClearStd, cmdMetaAlumniClearAlt, cmdMetaAlumniTLSStd, cmdMetaAlumniTLSAlt} {
+		if _, ok := metadataRaw[k]; !ok {
+			metadataRaw[k] = ""
+		}
+	}
+
+	s.mockConn.EXPECT().RequestInfo(coreInfoCommandsAsAny()...).Return(coreInfoResp, nil)
+	s.mockConn.EXPECT().RequestInfo(cmdMetaEdition).Return(editionRespForCore, nil)
+	s.mockConn.EXPECT().RequestInfo(gomock.Any()).DoAndReturn(func(_ ...string) (map[string]string, aero.Error) {
+		return metadataRaw, nil
+	})
+
+	result, err := s.asinfo.GetAsInfo(ConstMetadata)
+	s.Require().NoError(err)
+	s.Require().NotNil(result)
+	meta, ok := result[ConstMetadata].(lib.Stats)
+	s.Require().True(ok, "metadata key present")
+	s.Equal("6.4.0.0", meta["asd_build"])
+	s.Equal("NODE_123", meta["node_id"])
+	s.Equal("Aerospike Enterprise Edition", meta["edition"])
+	s.Equal("Aerospike Enterprise Edition build 6.4.0.0", meta["version"])
+	s.Equal("ubuntu20.04", meta["build_os"])
+}
+
+// TestGetAsInfoMetadataBuild811OrAboveUsesRelease ensures metadata derives edition, version,
+// build_os from the "release" response when build >= 8.1.1 (we request release, not version/edition/build_os).
+func (s *AsParserTestSuite) TestGetAsInfoMetadataBuild811OrAboveUsesRelease() {
+	coreInfoResp := map[string]string{"build": "8.1.1.0"}
+	releaseStr := "edition=Aerospike Enterprise Edition;version=8.1.1.0;os=ubuntu24.04"
+
+	metadataRaw := map[string]string{
+		cmdMetaNodeID:      "NODE_456",
+		cmdMetaBuild:       "8.1.1.0",
+		cmdMetaRelease:     releaseStr,
+		cmdMetaClusterName: "prod-cluster",
+	}
+	for _, k := range []string{cmdMetaServiceClearStd, cmdMetaServiceClearAlt, cmdMetaServiceTLSStd, cmdMetaServiceTLSAlt, cmdMetaPeerClearStd, cmdMetaPeerClearAlt, cmdMetaPeerTLSStd, cmdMetaPeerTLSAlt, cmdMetaAlumniClearStd, cmdMetaAlumniClearAlt, cmdMetaAlumniTLSStd, cmdMetaAlumniTLSAlt} {
+		metadataRaw[k] = ""
+	}
+
+	s.mockConn.EXPECT().RequestInfo(coreInfoCommandsAsAny()...).Return(coreInfoResp, nil)
+	s.mockConn.EXPECT().RequestInfo(cmdMetaRelease).Return(releaseRespForCore811, nil)
+	s.mockConn.EXPECT().RequestInfo(gomock.Any()).DoAndReturn(func(_ ...string) (map[string]string, aero.Error) {
+		return metadataRaw, nil
+	})
+
+	result, err := s.asinfo.GetAsInfo(ConstMetadata)
+	s.Require().NoError(err)
+	s.Require().NotNil(result)
+	meta, ok := result[ConstMetadata].(lib.Stats)
+	s.Require().True(ok)
+	s.Equal("8.1.1.0", meta["asd_build"])
+	s.Equal("NODE_456", meta["node_id"])
+	s.Equal("Aerospike Enterprise Edition", meta["edition"])
+	s.Equal("Aerospike Enterprise Edition build 8.1.1.0", meta["version"])
+	s.Equal("ubuntu24.04", meta["build_os"])
+	// release should be parsed as map
+	rel, ok := meta["release"].(lib.Stats)
+	s.Require().True(ok)
+	s.Equal("Aerospike Enterprise Edition", rel.TryString("edition", ""))
+	s.Equal("8.1.1.0", rel.TryString("version", ""))
+	s.Equal("ubuntu24.04", rel.TryString("os", ""))
+}
+
+// TestGetAsConfigBuild811OrAboveReleaseEmpty ensures we don't panic when build >= 8.1.1
+// but release response is empty (e.g. old proxy); edition stays unset, config still works for contexts that don't need it.
+func (s *AsParserTestSuite) TestGetAsConfigBuild811OrAboveReleaseEmpty() {
+	coreInfoResp := map[string]string{"build": "8.1.1.0"}
+	releaseEmpty := map[string]string{cmdMetaRelease: ""}
+	serviceResp := map[string]string{"get-config:context=service": "advertise-ipv6=false;auto-pin=none;batch-index-threads=8;batch-max-buffers-per-queue=255;batch-max-unused-buffers=256"}
+
+	s.mockConn.EXPECT().RequestInfo(coreInfoCommandsAsAny()...).Return(coreInfoResp, nil)
+	s.mockConn.EXPECT().RequestInfo(cmdMetaRelease).Return(releaseEmpty, nil)
+	s.mockConn.EXPECT().RequestInfo([]string{"get-config:context=service"}).Return(serviceResp, nil)
+
+	result, err := s.asinfo.GetAsConfig("service")
+	s.Require().NoError(err)
+	s.Require().NotNil(result)
+	s.Contains(result, "service")
+}
+
+// TestGetAsConfigBuildInvalidRequestsEdition ensures that when build is invalid/empty,
+// we still request "edition" (else branch) and don't panic.
+func (s *AsParserTestSuite) TestGetAsConfigBuildInvalidRequestsEdition() {
+	coreInfoResp := map[string]string{"build": ""} // empty build
+	serviceResp := map[string]string{"get-config:context=service": "advertise-ipv6=false;auto-pin=none;batch-index-threads=8;batch-max-buffers-per-queue=255;batch-max-unused-buffers=256"}
+
+	s.mockConn.EXPECT().RequestInfo(coreInfoCommandsAsAny()...).Return(coreInfoResp, nil)
+	s.mockConn.EXPECT().RequestInfo(cmdMetaEdition).Return(editionRespForCore, nil)
+	s.mockConn.EXPECT().RequestInfo([]string{"get-config:context=service"}).Return(serviceResp, nil)
+
+	result, err := s.asinfo.GetAsConfig("service")
+	s.Require().NoError(err)
+	s.Require().NotNil(result)
+	s.Contains(result, "service")
+}
+
+// TestCreateMetaCmdList verifies that createMetaCmdList returns the correct command list
+// depending on build version: release for 8.1.1+, version/edition/build_os for older builds.
+func (s *AsParserTestSuite) TestCreateMetaCmdList() {
+	testCases := []struct {
+		name        string
+		build       string
+		wantPresent []string // commands that must be in the list
+		wantAbsent  []string // commands that must NOT be in the list
+	}{
+		{
+			name:        "build below 8.1.1 uses deprecated commands",
+			build:       "6.4.0.0",
+			wantPresent: []string{cmdMetaNodeID, cmdMetaBuild, cmdMetaVersion, cmdMetaBuildOS, cmdMetaEdition, cmdMetaClusterName},
+			wantAbsent:  []string{cmdMetaRelease},
+		},
+		{
+			name:        "build 8.1.1 uses release",
+			build:       "8.1.1.0",
+			wantPresent: []string{cmdMetaNodeID, cmdMetaBuild, cmdMetaRelease, cmdMetaClusterName},
+			wantAbsent:  []string{cmdMetaVersion, cmdMetaBuildOS, cmdMetaEdition},
+		},
+		{
+			name:        "build above 8.1.1 uses release",
+			build:       "9.0.0.0",
+			wantPresent: []string{cmdMetaNodeID, cmdMetaBuild, cmdMetaRelease, cmdMetaClusterName},
+			wantAbsent:  []string{cmdMetaVersion, cmdMetaBuildOS, cmdMetaEdition},
+		},
+		{
+			name:        "empty build falls back to deprecated commands",
+			build:       "",
+			wantPresent: []string{cmdMetaNodeID, cmdMetaBuild, cmdMetaVersion, cmdMetaBuildOS, cmdMetaEdition},
+			wantAbsent:  []string{cmdMetaRelease},
+		},
+		{
+			name:        "invalid build falls back to deprecated commands",
+			build:       "not-a-version",
+			wantPresent: []string{cmdMetaNodeID, cmdMetaBuild, cmdMetaVersion, cmdMetaBuildOS, cmdMetaEdition},
+			wantAbsent:  []string{cmdMetaRelease},
+		},
+	}
+
+	for _, tc := range testCases {
+		s.Run(tc.name, func() {
+			m := map[string]string{cmdMetaBuild: tc.build}
+
+			cmdList := s.asinfo.createMetaCmdList(m)
+			for _, cmd := range tc.wantPresent {
+				s.Contains(cmdList, cmd, "expected command %q in list for build %q", cmd, tc.build)
+			}
+
+			for _, cmd := range tc.wantAbsent {
+				s.NotContains(cmdList, cmd, "unexpected command %q in list for build %q", cmd, tc.build)
+			}
+		})
+	}
 }
 
 func (s *AsParserTestSuite) TestBuildValidation() {

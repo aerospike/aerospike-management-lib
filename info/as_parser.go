@@ -81,10 +81,14 @@ const (
 	cmdConfigXDR           = "get-config:context=xdr"                  // ConfigXDR
 	cmdConfigSecurity      = "get-config:context=security"             // ConfigSecurity
 	cmdConfigDC            = "get-config:context=xdr;dc="              // ConfigDC
-	// cmdConfigMESH            = "mesh"                               // ConfigMesh Deprecated in 8.1.0 use get-config:context=network
-	cmdConfigRacks           = "racks:" // configRacks
-	cmdConfigLogging         = "log/"   // ConfigLog
+	cmdConfigRacks         = "racks:"                                  // configRacks
+	cmdConfigLogging       = "log/"                                    // ConfigLog
+
+	// build >= uses cmdConfigNamespaceName else cmdConfigNamespaceID
 	cmdNamespaceVersionPivot = "7.2"
+
+	// build >= this uses release metadata for top-level edition/version; older uses version + edition commands.
+	cmdReleaseFormatPivot = "8.1.1"
 
 	cmdLatency = "latency:"
 
@@ -94,11 +98,6 @@ const (
 	cmdMetaClusterName = "cluster-name" // Cluster Name
 	cmdMetaVersion     = "version"      // Version (deprecated in 8.1.1, use release from 8.1.1)
 	cmdMetaRelease     = "release"      // Release - from 8.1.1
-
-	// cmdMetaService        = "service"         // Service - Deprecated in 8.1.0 use service-clear-std
-	// cmdMetaServices       = "services"        // Services // deprecated in 8.1.0 use peers-clear-std
-	// cmdMetaServicesAlumni = "services-alumni" // ServicesAlumni // deprecated in 8.1.0 use alumni-clear-std
-	// cmdMetaServicesAlternate = "services-alternate" // ServiceAlternate // deprecated in 8.1.0 use  peers-clear-alt
 
 	cmdMetaServiceClearStd = "service-clear-std" // ServiceClearStd
 	cmdMetaServiceClearAlt = "service-clear-alt" // ServiceClearAlt
@@ -112,7 +111,6 @@ const (
 	cmdMetaAlumniClearAlt  = "alumni-clear-alt"  // AlumniClearAlt
 	cmdMetaAlumniTLSStd    = "alumni-tls-std"    // AlumniTLSStd
 	cmdMetaAlumniTLSAlt    = "alumni-tls-alt"    // AlumniTLSAlt
-	cmdMetaFeatures        = "features"          // Features // Deprecated in 8.1.0
 	cmdMetaEdition         = "edition"           // Edition // Deprecated in 8.1.1 use release
 )
 
@@ -145,7 +143,6 @@ const (
 	MetaServiceClearAlt = cmdMetaServiceClearAlt
 	MetaServiceTLSStd   = cmdMetaServiceTLSStd
 	MetaServiceTLSAlt   = cmdMetaServiceTLSAlt
-	MetaFeatures        = cmdMetaFeatures
 	MetaEdition         = cmdMetaEdition
 )
 
@@ -538,7 +535,7 @@ func NamespaceConfigCmd(ns, build string) string {
 // *******************************************************************************************
 
 // getCoreInfoCommands returns the exact list of info commands used for core cluster discovery.
-// Single source of truth for getCoreInfo and for tests asserting the request shape.
+// Does not include edition or release; getCoreInfo requests those after build is known.
 func getCoreInfoCommands() []string {
 	return []string{
 		constStatNSNames,
@@ -546,7 +543,6 @@ func getCoreInfoCommands() []string {
 		cmdStatSindexList,
 		constStatLogIDs,
 		cmdMetaBuild,
-		cmdMetaEdition,
 	}
 }
 
@@ -554,6 +550,21 @@ func (info *AsInfo) getCoreInfo() (map[string]string, error) {
 	m, err := info.RequestInfo(getCoreInfoCommands()...)
 	if err != nil {
 		return nil, err
+	}
+	// Request edition for config/racks logic. Use build to avoid sending deprecated "edition" to 8.1.1+.
+	if cmp, err := lib.CompareVersions(m[cmdMetaBuild], cmdReleaseFormatPivot); err == nil && cmp >= 0 {
+		resp, err := info.RequestInfo(cmdMetaRelease)
+		if err == nil && resp[cmdMetaRelease] != "" {
+			release := parseBasicInfo(resp[cmdMetaRelease])
+			if edition := release.TryString("edition", ""); edition != "" {
+				m[cmdMetaEdition] = edition
+			}
+		}
+	} else {
+		resp, err := info.RequestInfo(cmdMetaEdition)
+		if err == nil && resp[cmdMetaEdition] != "" {
+			m[cmdMetaEdition] = resp[cmdMetaEdition]
+		}
 	}
 
 	return m, nil
@@ -577,7 +588,7 @@ func (info *AsInfo) createCmdList(
 
 			rawCmdList = append(rawCmdList, cmds...)
 		case ConstMetadata:
-			cmds := info.createMetaCmdList()
+			cmds := info.createMetaCmdList(m)
 			rawCmdList = append(rawCmdList, cmds...)
 		case ConstLatency:
 			rawCmdList = append(rawCmdList, cmdLatency)
@@ -804,13 +815,21 @@ func (info *AsInfo) createDCNamespaceConfigCmdList(dc string, namespaces ...stri
 	return cmdList
 }
 
-func (info *AsInfo) createMetaCmdList() []string {
+// createMetaCmdList returns metadata info commands.
+// Build >= 8.1.1: request "release" only for edition/version/build_os; do not send deprecated version, edition, build_os.
+// Build < 8.1.1: request version, edition, build_os; do not send "release" (not supported).
+func (info *AsInfo) createMetaCmdList(m map[string]string) []string {
 	cmdList := []string{
-		cmdMetaNodeID, cmdMetaBuild, cmdMetaRelease, cmdMetaVersion,
+		cmdMetaNodeID, cmdMetaBuild,
 		cmdMetaServiceClearStd, cmdMetaServiceClearAlt, cmdMetaServiceTLSStd, cmdMetaServiceTLSAlt,
 		cmdMetaPeerClearStd, cmdMetaPeerClearAlt, cmdMetaPeerTLSStd, cmdMetaPeerTLSAlt,
 		cmdMetaAlumniClearStd, cmdMetaAlumniClearAlt, cmdMetaAlumniTLSStd, cmdMetaAlumniTLSAlt,
-		cmdMetaBuildOS, cmdMetaClusterName, cmdMetaFeatures, cmdMetaEdition,
+		cmdMetaClusterName,
+	}
+	if cmp, err := lib.CompareVersions(m[cmdMetaBuild], cmdReleaseFormatPivot); err == nil && cmp >= 0 {
+		cmdList = append(cmdList, cmdMetaRelease)
+	} else {
+		cmdList = append(cmdList, cmdMetaVersion, cmdMetaBuildOS, cmdMetaEdition)
 	}
 
 	return cmdList
@@ -1267,7 +1286,19 @@ func parseMetadataInfo(rawMap map[string]string) lib.Stats {
 	metaMap["node_id"] = rawMap[cmdMetaNodeID]
 	metaMap["asd_build"] = rawMap[cmdMetaBuild]
 	metaMap["release"] = parseBasicInfo(rawMap[cmdMetaRelease])
-	metaMap["version"] = rawMap[cmdMetaVersion]
+
+	// Top-level edition, version, build_os:
+	// Build >= 8.1.1: release is present, derive from it.
+	// Build < 8.1.1: release is nil, use raw version/edition/build_os commands.
+	if release, ok := metaMap["release"].(lib.Stats); ok && release != nil {
+		metaMap["edition"] = release.TryString("edition", "")
+		metaMap["version"] = release.TryString("edition", "") + " build " + release.TryString("version", "")
+		metaMap["build_os"] = release.TryString("os", "")
+	} else {
+		metaMap["version"] = rawMap[cmdMetaVersion]
+		metaMap["edition"] = rawMap[cmdMetaEdition]
+		metaMap["build_os"] = rawMap[cmdMetaBuildOS]
+	}
 
 	// New info commands with full structured output
 	metaMap["service-clear-std"] = parseListTypeMetaInfo(rawMap, cmdMetaServiceClearStd)
@@ -1292,9 +1323,6 @@ func parseMetadataInfo(rawMap map[string]string) lib.Stats {
 	metaMap["services-alumni"] = getEndpointsFromStats(metaMap["alumni-clear-std"])
 	// services-alternate from peers-clear-alt (deprecated in 8.1.0)
 	metaMap["services-alternate"] = getEndpointsFromStats(metaMap["peers-clear-alt"])
-	metaMap["features"] = parseListTypeMetaInfo(rawMap, cmdMetaFeatures)
-	metaMap["edition"] = rawMap[cmdMetaEdition]
-	metaMap["build_os"] = rawMap[cmdMetaBuildOS]
 
 	return metaMap
 }
