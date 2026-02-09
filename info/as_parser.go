@@ -551,20 +551,34 @@ func (info *AsInfo) getCoreInfo() (map[string]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	// Request edition for config/racks logic. Use build to avoid sending deprecated "edition" to 8.1.1+.
+
+	// Edition detection is required for safe config capability gating (e.g. racks).
+	// Fail fast if the secondary metadata call fails or does not provide edition.
 	if cmp, err := lib.CompareVersions(m[cmdMetaBuild], cmdReleaseFormatPivot); err == nil && cmp >= 0 {
 		resp, err := info.RequestInfo(cmdMetaRelease)
-		if err == nil && resp[cmdMetaRelease] != "" {
-			release := parseBasicInfo(resp[cmdMetaRelease])
-			if edition := release.TryString("edition", ""); edition != "" {
-				m[cmdMetaEdition] = edition
-			}
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch release metadata: %w", err)
 		}
+
+		release := parseBasicInfo(resp[cmdMetaRelease])
+		edition := release.TryString("edition", "")
+		if edition == "" {
+			return nil, fmt.Errorf("missing edition in release metadata")
+		}
+
+		m[cmdMetaEdition] = edition
 	} else {
 		resp, err := info.RequestInfo(cmdMetaEdition)
-		if err == nil && resp[cmdMetaEdition] != "" {
-			m[cmdMetaEdition] = resp[cmdMetaEdition]
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch edition metadata: %w", err)
 		}
+
+		edition := strings.TrimSpace(resp[cmdMetaEdition])
+		if edition == "" {
+			return nil, fmt.Errorf("missing edition metadata")
+		}
+
+		m[cmdMetaEdition] = edition
 	}
 
 	return m, nil
@@ -1556,93 +1570,6 @@ func parseNodeEntry(nodeEntry string) NodeEndpoint {
 	}
 
 	return node
-}
-
-// extractAddressesFromNodeList extracts addresses from the node list array format:
-// [[node-id,tls-name,[addr1,addr2,...]],...]
-// Examples:
-//   - [[A1,,[10.128.0.71:31207]],[A2,,[10.128.0.98:30352]]]
-//   - [[BB9050011AC4202,clusternode,[172.17.0.5:4333]]]
-func extractAddressesFromNodeList(nodeListStr string) []string {
-	var addresses []string
-
-	// Remove outer brackets
-	if len(nodeListStr) < 2 || nodeListStr[0] != '[' || nodeListStr[len(nodeListStr)-1] != ']' {
-		return addresses
-	}
-
-	nodeListStr = nodeListStr[1 : len(nodeListStr)-1]
-	if nodeListStr == "" {
-		return addresses
-	}
-
-	// Parse each node entry: [node-id,tls-name,[addr,...]]
-	depth := 0
-	start := 0
-
-	for i := 0; i < len(nodeListStr); i++ {
-		switch nodeListStr[i] {
-		case '[':
-			if depth == 0 {
-				start = i
-			}
-
-			depth++
-		case ']':
-			depth--
-			if depth == 0 {
-				// Found a complete node entry
-				nodeEntry := nodeListStr[start : i+1]
-				addrs := extractAddressesFromNodeEntry(nodeEntry)
-				addresses = append(addresses, addrs...)
-			}
-		}
-	}
-
-	return addresses
-}
-
-// extractAddressesFromNodeEntry extracts addresses from a single node entry:
-// [node-id,tls-name,[addr1,addr2,...]]
-// Examples:
-//   - [A1,,[10.128.0.71:31207]]
-//   - [BB9050011AC4202,clusternode,[172.17.0.5:4333]]
-func extractAddressesFromNodeEntry(nodeEntry string) []string {
-	var addresses []string
-
-	// Remove outer brackets
-	if len(nodeEntry) < 2 || nodeEntry[0] != '[' || nodeEntry[len(nodeEntry)-1] != ']' {
-		return addresses
-	}
-
-	nodeEntry = nodeEntry[1 : len(nodeEntry)-1]
-
-	// Find the address array - it's the last [...] in the entry
-	lastBracket := strings.LastIndex(nodeEntry, "[")
-	if lastBracket == -1 {
-		return addresses
-	}
-
-	closeBracket := strings.LastIndex(nodeEntry, "]")
-	if closeBracket == -1 || closeBracket <= lastBracket {
-		return addresses
-	}
-
-	addrStr := nodeEntry[lastBracket+1 : closeBracket]
-	if addrStr == "" {
-		return addresses
-	}
-
-	// Split addresses by comma
-	addrs := strings.Split(addrStr, ",")
-	for _, addr := range addrs {
-		addr = strings.TrimSpace(addr)
-		if addr != "" {
-			addresses = append(addresses, addr)
-		}
-	}
-
-	return addresses
 }
 
 // ***************************************************************************

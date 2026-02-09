@@ -344,21 +344,57 @@ func (s *AsParserTestSuite) TestGetAsInfoMetadataBuild811OrAboveUsesRelease() {
 	s.Equal("ubuntu24.04", rel.TryString("os", ""))
 }
 
-// TestGetAsConfigBuild811OrAboveReleaseEmpty ensures we don't panic when build >= 8.1.1
-// but release response is empty (e.g. old proxy); edition stays unset, config still works for contexts that don't need it.
-func (s *AsParserTestSuite) TestGetAsConfigBuild811OrAboveReleaseEmpty() {
+// TestGetAsConfigBuild811OrAboveReleaseEmptyFailsFast ensures we fail fast when build >= 8.1.1
+// but release response does not include edition metadata.
+func (s *AsParserTestSuite) TestGetAsConfigBuild811OrAboveReleaseEmptyFailsFast() {
 	coreInfoResp := map[string]string{"build": "8.1.1.0"}
 	releaseEmpty := map[string]string{cmdMetaRelease: ""}
-	serviceResp := map[string]string{"get-config:context=service": "advertise-ipv6=false;auto-pin=none;batch-index-threads=8;batch-max-buffers-per-queue=255;batch-max-unused-buffers=256"}
 
 	s.mockConn.EXPECT().RequestInfo(coreInfoCommandsAsAny()...).Return(coreInfoResp, nil)
 	s.mockConn.EXPECT().RequestInfo(cmdMetaRelease).Return(releaseEmpty, nil)
-	s.mockConn.EXPECT().RequestInfo([]string{"get-config:context=service"}).Return(serviceResp, nil)
 
-	result, err := s.asinfo.GetAsConfig("service")
-	s.Require().NoError(err)
-	s.Require().NotNil(result)
-	s.Contains(result, "service")
+	_, err := s.asinfo.GetAsConfig("service")
+	s.Require().Error(err)
+	s.Contains(err.Error(), "missing edition in release metadata")
+}
+
+// TestGetAsConfigBuild811OrAboveReleaseRequestErrorFailsFast ensures we fail fast when
+// release metadata request itself fails for build >= 8.1.1.
+func (s *AsParserTestSuite) TestGetAsConfigBuild811OrAboveReleaseRequestErrorFailsFast() {
+	coreInfoResp := map[string]string{"build": "8.1.1.0"}
+
+	s.mockConn.EXPECT().RequestInfo(coreInfoCommandsAsAny()...).Return(coreInfoResp, nil)
+	s.mockConn.EXPECT().RequestInfo(cmdMetaRelease).Return(nil, aero.ErrTimeout).MinTimes(1)
+
+	_, err := s.asinfo.GetAsConfig("service")
+	s.Require().Error(err)
+	s.Contains(err.Error(), "failed to fetch release metadata")
+}
+
+// TestGetAsConfigBuildBelow811EditionRequestErrorFailsFast ensures we fail fast when
+// edition metadata request fails for build < 8.1.1.
+func (s *AsParserTestSuite) TestGetAsConfigBuildBelow811EditionRequestErrorFailsFast() {
+	coreInfoResp := map[string]string{"build": "6.4.0.0"}
+
+	s.mockConn.EXPECT().RequestInfo(coreInfoCommandsAsAny()...).Return(coreInfoResp, nil)
+	s.mockConn.EXPECT().RequestInfo(cmdMetaEdition).Return(nil, aero.ErrTimeout).MinTimes(1)
+
+	_, err := s.asinfo.GetAsConfig("service")
+	s.Require().Error(err)
+	s.Contains(err.Error(), "failed to fetch edition metadata")
+}
+
+// TestGetAsConfigBuildBelow811EditionEmptyFailsFast ensures we fail fast when
+// edition metadata is empty for build < 8.1.1.
+func (s *AsParserTestSuite) TestGetAsConfigBuildBelow811EditionEmptyFailsFast() {
+	coreInfoResp := map[string]string{"build": "6.4.0.0"}
+
+	s.mockConn.EXPECT().RequestInfo(coreInfoCommandsAsAny()...).Return(coreInfoResp, nil)
+	s.mockConn.EXPECT().RequestInfo(cmdMetaEdition).Return(map[string]string{cmdMetaEdition: " "}, nil)
+
+	_, err := s.asinfo.GetAsConfig("service")
+	s.Require().Error(err)
+	s.Contains(err.Error(), "missing edition metadata")
 }
 
 // TestGetAsConfigBuildInvalidRequestsEdition ensures that when build is invalid/empty,
@@ -567,50 +603,69 @@ func TestNewAsInfo_NotAuthenticatedError(t *testing.T) {
 	}
 }
 
-func TestExtractAddressesFromNodeList(t *testing.T) {
+func TestParseNodeList(t *testing.T) {
 	testCases := []struct {
 		name     string
 		input    string
-		expected []string
+		expected []NodeEndpoint
 	}{
 		{
-			name:     "multiple peers",
-			input:    "[[A1,,[10.128.0.71:31207]],[A2,,[10.128.0.98:30352]]]",
-			expected: []string{"10.128.0.71:31207", "10.128.0.98:30352"},
+			name:  "multiple peers",
+			input: "[[A1,,[10.128.0.71:31207]],[A2,,[10.128.0.98:30352]]]",
+			expected: []NodeEndpoint{
+				{NodeID: "A1", TLSName: "", Endpoints: []string{"10.128.0.71:31207"}},
+				{NodeID: "A2", TLSName: "", Endpoints: []string{"10.128.0.98:30352"}},
+			},
 		},
 		{
-			name:     "single peer",
-			input:    "[[A0,,[10.128.0.94:32354]]]",
-			expected: []string{"10.128.0.94:32354"},
+			name:  "single peer",
+			input: "[[A0,,[10.128.0.94:32354]]]",
+			expected: []NodeEndpoint{
+				{NodeID: "A0", TLSName: "", Endpoints: []string{"10.128.0.94:32354"}},
+			},
 		},
 		{
 			name:     "empty array",
 			input:    "[]",
-			expected: []string{},
+			expected: nil,
 		},
 		{
 			name:     "invalid - no brackets",
 			input:    "invalid",
-			expected: []string{},
+			expected: nil,
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			result := extractAddressesFromNodeList(tc.input)
+			result := parseNodeList(tc.input)
 
 			if len(tc.expected) == 0 && len(result) == 0 {
 				return
 			}
 
 			if len(result) != len(tc.expected) {
-				t.Errorf("Expected %d addresses, got %d", len(tc.expected), len(result))
-				return
+				t.Fatalf("Expected %d nodes, got %d", len(tc.expected), len(result))
 			}
 
-			for i, addr := range tc.expected {
-				if result[i] != addr {
-					t.Errorf("Expected address[%d] = %q, got %q", i, addr, result[i])
+			for i, exp := range tc.expected {
+				if result[i].NodeID != exp.NodeID {
+					t.Errorf("Node[%d]: expected NodeID %q, got %q", i, exp.NodeID, result[i].NodeID)
+				}
+
+				if result[i].TLSName != exp.TLSName {
+					t.Errorf("Node[%d]: expected TLSName %q, got %q", i, exp.TLSName, result[i].TLSName)
+				}
+
+				if len(result[i].Endpoints) != len(exp.Endpoints) {
+					t.Errorf("Node[%d]: expected %d endpoints, got %d", i, len(exp.Endpoints), len(result[i].Endpoints))
+					continue
+				}
+
+				for j, addr := range exp.Endpoints {
+					if result[i].Endpoints[j] != addr {
+						t.Errorf("Node[%d].Endpoints[%d]: expected %q, got %q", i, j, addr, result[i].Endpoints[j])
+					}
 				}
 			}
 		})
@@ -732,55 +787,63 @@ func TestParseNodeEndpointList_Endpoints(t *testing.T) {
 	}
 }
 
-func TestExtractAddressesFromNodeEntry(t *testing.T) {
+func TestParseNodeEntry(t *testing.T) {
 	testCases := []struct {
 		name     string
 		input    string
-		expected []string
+		expected NodeEndpoint
 	}{
 		{
 			name:     "standard entry with empty tls-name",
 			input:    "[A1,,[10.128.0.71:31207]]",
-			expected: []string{"10.128.0.71:31207"},
+			expected: NodeEndpoint{NodeID: "A1", TLSName: "", Endpoints: []string{"10.128.0.71:31207"}},
 		},
 		{
 			name:     "entry with tls-name",
 			input:    "[A1,my-tls,[10.128.0.71:31207]]",
-			expected: []string{"10.128.0.71:31207"},
+			expected: NodeEndpoint{NodeID: "A1", TLSName: "my-tls", Endpoints: []string{"10.128.0.71:31207"}},
 		},
 		{
 			name:     "entry with multiple addresses",
 			input:    "[A1,,[10.128.0.71:31207,192.168.1.1:3000]]",
-			expected: []string{"10.128.0.71:31207", "192.168.1.1:3000"},
+			expected: NodeEndpoint{NodeID: "A1", TLSName: "", Endpoints: []string{"10.128.0.71:31207", "192.168.1.1:3000"}},
 		},
 		{
-			name:     "empty addresses",
+			name:     "empty addresses with inner brackets",
+			input:    "[A1,,[]]",
+			expected: NodeEndpoint{NodeID: "A1", TLSName: "", Endpoints: []string{}},
+		},
+		{
+			name:     "malformed - no inner brackets for addresses",
 			input:    "[A1,,]",
-			expected: []string{},
+			expected: NodeEndpoint{Endpoints: []string{}},
 		},
 		{
-			name:     "invalid - no brackets",
+			name:     "invalid - no outer brackets",
 			input:    "A1,,[10.128.0.71:31207]",
-			expected: []string{},
+			expected: NodeEndpoint{Endpoints: []string{}},
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			result := extractAddressesFromNodeEntry(tc.input)
+			result := parseNodeEntry(tc.input)
 
-			if len(tc.expected) == 0 && len(result) == 0 {
-				return
+			if result.NodeID != tc.expected.NodeID {
+				t.Errorf("Expected NodeID %q, got %q", tc.expected.NodeID, result.NodeID)
 			}
 
-			if len(result) != len(tc.expected) {
-				t.Errorf("Expected %d addresses, got %d", len(tc.expected), len(result))
-				return
+			if result.TLSName != tc.expected.TLSName {
+				t.Errorf("Expected TLSName %q, got %q", tc.expected.TLSName, result.TLSName)
 			}
 
-			for i, addr := range tc.expected {
-				if result[i] != addr {
-					t.Errorf("Expected address[%d] = %q, got %q", i, addr, result[i])
+			if len(result.Endpoints) != len(tc.expected.Endpoints) {
+				t.Fatalf("Expected %d endpoints, got %d", len(tc.expected.Endpoints), len(result.Endpoints))
+			}
+
+			for i, addr := range tc.expected.Endpoints {
+				if result.Endpoints[i] != addr {
+					t.Errorf("Endpoints[%d]: expected %q, got %q", i, addr, result.Endpoints[i])
 				}
 			}
 		})

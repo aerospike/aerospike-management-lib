@@ -2,7 +2,6 @@ package deployment
 
 import (
 	"fmt"
-	"sync"
 
 	"github.com/go-logr/logr"
 
@@ -14,8 +13,8 @@ import (
 // specific capabilities on the system.
 type host struct {
 	asConnInfo *asConnInfo
-	// build provides cached, thread-safe access to the Aerospike build version.
-	// Initialized via sync.OnceValues to ensure the network call happens only once.
+	// build provides access to the Aerospike build version.
+	// It is injected for testability.
 	build func() (string, error)
 	log   logr.Logger
 	id    string // host UUID string
@@ -40,10 +39,7 @@ func newHost(
 	if asConn != nil {
 		nd.log = asConn.Log
 		nd.asConnInfo = newASConnInfo(aerospikePolicy, asConn)
-		// Initialize cached build getter - fetches once on first call, thread-safe
-		nd.build = sync.OnceValues(func() (string, error) {
-			return nd.asConnInfo.asInfo.Build()
-		})
+		nd.build = nd.asConnInfo.asInfo.Build
 	}
 
 	return nd, nil
@@ -70,8 +66,6 @@ func (n *host) String() string {
 }
 
 // Build returns the Aerospike build version for this host.
-// The value is fetched once on first call and cached for the lifetime of the host connection.
-// This method is safe for concurrent use.
 func (n *host) Build() (string, error) {
 	if n.build == nil {
 		return "", fmt.Errorf("host connection not initialized")
