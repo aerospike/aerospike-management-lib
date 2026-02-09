@@ -561,6 +561,7 @@ func (info *AsInfo) getCoreInfo() (map[string]string, error) {
 		}
 
 		release := parseBasicInfo(resp[cmdMetaRelease])
+
 		edition := release.TryString("edition", "")
 		if edition == "" {
 			return nil, fmt.Errorf("missing edition in release metadata")
@@ -777,12 +778,6 @@ func (info *AsInfo) createXDRConfigCmdList(m map[string]string) ([]string, error
 				return
 			}
 
-			lock.Lock()
-
-			m = mergeDicts(m, resp)
-
-			lock.Unlock()
-
 			var nsNames []string
 
 			rawDCConfig := resp[cmdConfigDC+dc]
@@ -795,7 +790,15 @@ func (info *AsInfo) createXDRConfigCmdList(m map[string]string) ([]string, error
 				nsNames = []string{}
 			}
 
-			cmdList = append(cmdList, info.createDCNamespaceConfigCmdList(dc, nsNames...)...)
+			dcCmds := info.createDCNamespaceConfigCmdList(dc, nsNames...)
+
+			lock.Lock()
+
+			m = mergeDicts(m, resp)
+
+			cmdList = append(cmdList, dcCmds...)
+
+			lock.Unlock()
 
 			results <- nil
 		}(dc)
