@@ -247,6 +247,20 @@ func waitForASDToStart(name string) error {
 	return nil
 }
 
+func getContainerIPFromNetworks(inspect container.InspectResponse) string {
+	if inspect.NetworkSettings == nil {
+		return ""
+	}
+
+	for _, net := range inspect.NetworkSettings.Networks {
+		if net.IPAddress != "" {
+			return net.IPAddress
+		}
+	}
+
+	return ""
+}
+
 func RunAerospikeContainer(
 	index int,
 	name,
@@ -304,11 +318,6 @@ func RunAerospikeContainer(
 		},
 	}
 
-	if err != nil {
-		log.Printf("Unable to get absolute path for work directory: %s", err)
-		return nil, err
-	}
-
 	hostConfig := &container.HostConfig{
 		PortBindings: nat.PortMap{
 			nat.Port(ports[0]): []nat.PortBinding{{
@@ -340,15 +349,16 @@ func RunAerospikeContainer(
 	}
 
 	inspect, _ := cli.ContainerInspect(ctx, name)
+	containerIP := getContainerIPFromNetworks(inspect)
 
-	log.Printf("Started container %s with IP %s", name, inspect.NetworkSettings.IPAddress)
+	log.Printf("Started container %s with IP %s", name, containerIP)
 	log.Printf("Waiting for asd %s to start", name)
 
 	if waitForASDToStart(name) != nil {
 		return nil, err
 	}
 
-	return &AerospikeContainer{inspect.NetworkSettings.IPAddress, confFile, portBase}, nil
+	return &AerospikeContainer{containerIP, confFile, portBase}, nil
 }
 
 func RestartAerospikeContainer(name, confFileContents string) error {
