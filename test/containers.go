@@ -354,7 +354,7 @@ func RunAerospikeContainer(
 	log.Printf("Started container %s with IP %s", name, containerIP)
 	log.Printf("Waiting for asd %s to start", name)
 
-	if waitForASDToStart(name) != nil {
+	if err := waitForASDToStart(name); err != nil {
 		return nil, err
 	}
 
@@ -392,7 +392,7 @@ func RestartAerospikeContainer(name, confFileContents string) error {
 	log.Printf("Restarted container %s with IP %s", name, ip)
 	log.Printf("Waiting for asd %s to start", name)
 
-	if waitForASDToStart(name) != nil {
+	if err := waitForASDToStart(name); err != nil {
 		return err
 	}
 

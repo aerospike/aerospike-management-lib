@@ -36,14 +36,37 @@ func (s *AsParserTestSuite) SetupTest() {
 
 // coreInfoCommandsAsAny returns getCoreInfoCommands() as []any for gomock expectations.
 func coreInfoCommandsAsAny() []any {
-	cmds := getCoreInfoCommands()
+	return stringsToAny(getCoreInfoCommands())
+}
 
+// stringsToAny converts a string slice to []any so it can be expanded
+// as variadic gomock matchers for RequestInfo(...string) expectations.
+func stringsToAny(cmds []string) []any {
 	out := make([]any, len(cmds))
 	for i := range cmds {
 		out[i] = cmds[i]
 	}
 
 	return out
+}
+
+// metaCmdListAsAny returns the metadata command list as []any for gomock expectations.
+// build is used to determine the correct set of commands (>= 8.1.1 vs older).
+func metaCmdListAsAny(build string) []any {
+	base := []string{
+		cmdMetaNodeID, cmdMetaBuild,
+		cmdMetaServiceClearStd, cmdMetaServiceClearAlt, cmdMetaServiceTLSStd, cmdMetaServiceTLSAlt,
+		cmdMetaPeerClearStd, cmdMetaPeerClearAlt, cmdMetaPeerTLSStd, cmdMetaPeerTLSAlt,
+		cmdMetaAlumniClearStd, cmdMetaAlumniClearAlt, cmdMetaAlumniTLSStd, cmdMetaAlumniTLSAlt,
+		cmdMetaClusterName,
+	}
+	if cmp, err := lib.CompareVersions(build, cmdReleaseFormatPivot); err == nil && cmp >= 0 {
+		base = append(base, cmdMetaRelease)
+	} else {
+		base = append(base, cmdMetaVersion, cmdMetaBuildOS, cmdMetaEdition, cmdMetaFeatures)
+	}
+
+	return stringsToAny(base)
 }
 
 // editionRespForCore is the second RequestInfo call after getCoreInfo (build < 8.1.1).
@@ -157,10 +180,10 @@ func (s *AsParserTestSuite) TestAsInfoGetAsConfigXDREnabled() {
 
 	s.mockConn.EXPECT().RequestInfo(coreInfoCommandsAsAny()...).Return(coreInfoResp, nil)
 	s.mockConn.EXPECT().RequestInfo(cmdMetaEdition).Return(editionRespForCore, nil)
-	s.mockConn.EXPECT().RequestInfo([]string{"get-config:context=xdr"}).Return(map[string]string{"get-config:context=xdr": "dcs=DC1,DC2;src-id=0;trace-sample=0"}, nil)
-	s.mockConn.EXPECT().RequestInfo([]string{"get-config:context=xdr;dc=DC1"}).Return(map[string]string{"get-config:context=xdr;dc=DC1": "auth-mode=none;auth-password-file=null;auth-user=null;connector=false;max-recoveries-interleaved=0;node-address-port=;period-ms=100;tls-name=null;use-alternate-access-address=false;namespaces=test"}, nil)
-	s.mockConn.EXPECT().RequestInfo([]string{"get-config:context=xdr;dc=DC2"}).Return(map[string]string{"get-config:context=xdr;dc=DC2": "auth-mode=none;auth-password-file=null;auth-user=null;connector=false;max-recoveries-interleaved=0;node-address-port=;period-ms=100;tls-name=null;use-alternate-access-address=false;namespaces=bar"}, nil)
-	s.mockConn.EXPECT().RequestInfo(gomock.Any()).DoAndReturn(
+	s.mockConn.EXPECT().RequestInfo("get-config:context=xdr").Return(map[string]string{"get-config:context=xdr": "dcs=DC1,DC2;src-id=0;trace-sample=0"}, nil)
+	s.mockConn.EXPECT().RequestInfo("get-config:context=xdr;dc=DC1").Return(map[string]string{"get-config:context=xdr;dc=DC1": "auth-mode=none;auth-password-file=null;auth-user=null;connector=false;max-recoveries-interleaved=0;node-address-port=;period-ms=100;tls-name=null;use-alternate-access-address=false;namespaces=test"}, nil)
+	s.mockConn.EXPECT().RequestInfo("get-config:context=xdr;dc=DC2").Return(map[string]string{"get-config:context=xdr;dc=DC2": "auth-mode=none;auth-password-file=null;auth-user=null;connector=false;max-recoveries-interleaved=0;node-address-port=;period-ms=100;tls-name=null;use-alternate-access-address=false;namespaces=bar"}, nil)
+	s.mockConn.EXPECT().RequestInfo(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(cmds ...string) (map[string]string, aero.Error) {
 			expectedCmds := []string{
 				"get-config:context=xdr;dc=DC1;namespace=test",
@@ -200,7 +223,7 @@ func (s *AsParserTestSuite) TestAsInfoGetAsConfigXDRDisabled() {
 
 	s.mockConn.EXPECT().RequestInfo(coreInfoCommandsAsAny()...).Return(coreInfoResp, nil)
 	s.mockConn.EXPECT().RequestInfo(cmdMetaEdition).Return(editionRespForCore, nil)
-	s.mockConn.EXPECT().RequestInfo([]string{"get-config:context=xdr"}).Return(map[string]string{"get-config:context=xdr": "dcs=;src-id=0;trace-sample=0"}, nil)
+	s.mockConn.EXPECT().RequestInfo("get-config:context=xdr").Return(map[string]string{"get-config:context=xdr": "dcs=;src-id=0;trace-sample=0"}, nil)
 
 	expected := lib.Stats{"xdr": lib.Stats{
 		"src-id":       int64(0),
@@ -221,7 +244,7 @@ func (s *AsParserTestSuite) TestGetAsConfigBuild811OrAboveUsesRelease() {
 
 	s.mockConn.EXPECT().RequestInfo(coreInfoCommandsAsAny()...).Return(coreInfoResp, nil)
 	s.mockConn.EXPECT().RequestInfo(cmdMetaRelease).Return(releaseRespForCore811, nil)
-	s.mockConn.EXPECT().RequestInfo([]string{"get-config:context=service"}).Return(serviceResp, nil)
+	s.mockConn.EXPECT().RequestInfo("get-config:context=service").Return(serviceResp, nil)
 
 	result, err := s.asinfo.GetAsConfig("service")
 	s.Require().NoError(err)
@@ -236,7 +259,7 @@ func (s *AsParserTestSuite) TestGetAsConfigRacksBuild811() {
 
 	s.mockConn.EXPECT().RequestInfo(coreInfoCommandsAsAny()...).Return(coreInfoResp, nil)
 	s.mockConn.EXPECT().RequestInfo(cmdMetaRelease).Return(releaseRespForCore811, nil)
-	s.mockConn.EXPECT().RequestInfo([]string{"racks:"}).Return(map[string]string{
+	s.mockConn.EXPECT().RequestInfo("racks:").Return(map[string]string{
 		"racks:": "ns=test:rack_0=1B;ns=bar:rack_0=2B;",
 	}, nil)
 
@@ -288,7 +311,7 @@ func (s *AsParserTestSuite) TestGetAsInfoMetadataBuildBelow811() {
 
 	s.mockConn.EXPECT().RequestInfo(coreInfoCommandsAsAny()...).Return(coreInfoResp, nil)
 	s.mockConn.EXPECT().RequestInfo(cmdMetaEdition).Return(editionRespForCore, nil)
-	s.mockConn.EXPECT().RequestInfo(gomock.Any()).DoAndReturn(func(_ ...string) (map[string]string, aero.Error) {
+	s.mockConn.EXPECT().RequestInfo(metaCmdListAsAny("6.4.0.0")...).DoAndReturn(func(_ ...string) (map[string]string, aero.Error) {
 		return metadataRaw, nil
 	})
 
@@ -322,7 +345,7 @@ func (s *AsParserTestSuite) TestGetAsInfoMetadataBuild811OrAboveUsesRelease() {
 
 	s.mockConn.EXPECT().RequestInfo(coreInfoCommandsAsAny()...).Return(coreInfoResp, nil)
 	s.mockConn.EXPECT().RequestInfo(cmdMetaRelease).Return(releaseRespForCore811, nil)
-	s.mockConn.EXPECT().RequestInfo(gomock.Any()).DoAndReturn(func(_ ...string) (map[string]string, aero.Error) {
+	s.mockConn.EXPECT().RequestInfo(metaCmdListAsAny("8.1.1.0")...).DoAndReturn(func(_ ...string) (map[string]string, aero.Error) {
 		return metadataRaw, nil
 	})
 
@@ -405,7 +428,7 @@ func (s *AsParserTestSuite) TestGetAsConfigBuildInvalidRequestsEdition() {
 
 	s.mockConn.EXPECT().RequestInfo(coreInfoCommandsAsAny()...).Return(coreInfoResp, nil)
 	s.mockConn.EXPECT().RequestInfo(cmdMetaEdition).Return(editionRespForCore, nil)
-	s.mockConn.EXPECT().RequestInfo([]string{"get-config:context=service"}).Return(serviceResp, nil)
+	s.mockConn.EXPECT().RequestInfo("get-config:context=service").Return(serviceResp, nil)
 
 	result, err := s.asinfo.GetAsConfig("service")
 	s.Require().NoError(err)
@@ -587,7 +610,7 @@ func TestNewAsInfo_NotAuthenticatedError(t *testing.T) {
 	mockConn.EXPECT().Login(policy).Return(nil).AnyTimes()
 	mockConn.EXPECT().SetTimeout(gomock.Any(), time.Second*100).AnyTimes()
 	mockConn.EXPECT().Close().Return().AnyTimes()
-	mockConn.EXPECT().RequestInfo([]string{"auth will fail"}).Return(map[string]string{"ERROR:80:not authenticated": ""}, nil)
+	mockConn.EXPECT().RequestInfo("auth will fail").Return(map[string]string{"ERROR:80:not authenticated": ""}, nil)
 
 	maxInfoRetries = 1 // Should be configurable
 	asinfo := NewAsInfoWithConnFactory(logr.Discard(), host, policy, mockConnFact)
@@ -1136,12 +1159,12 @@ func TestParseNodeEndpointListAsStats(t *testing.T) {
 			}
 
 			// Check generation
-			if gen, ok := result["generation"].(int); !ok || gen != tc.expectedGeneration {
+			if gen, ok := result["generation"].(int64); !ok || gen != int64(tc.expectedGeneration) {
 				t.Errorf("Expected generation %d, got %v", tc.expectedGeneration, result["generation"])
 			}
 
 			// Check default_port
-			if port, ok := result["default_port"].(int); !ok || port != tc.expectedPort {
+			if port, ok := result["default_port"].(int64); !ok || port != int64(tc.expectedPort) {
 				t.Errorf("Expected default_port %d, got %v", tc.expectedPort, result["default_port"])
 			}
 
@@ -1169,8 +1192,8 @@ func TestGetEndpointsFromStats(t *testing.T) {
 		{
 			name: "valid stats with endpoints",
 			input: lib.Stats{
-				"generation":   20,
-				"default_port": 3000,
+				"generation":   int64(20),
+				"default_port": int64(3000),
 				"endpoints":    []string{"10.128.0.71:31207", "10.128.0.98:30352"},
 				"nodes":        []lib.Stats{},
 			},
@@ -1179,8 +1202,8 @@ func TestGetEndpointsFromStats(t *testing.T) {
 		{
 			name: "stats with empty endpoints (non-TLS cluster querying TLS endpoint)",
 			input: lib.Stats{
-				"generation":   20,
-				"default_port": 3000,
+				"generation":   int64(20),
+				"default_port": int64(3000),
 				"endpoints":    []string{},
 				"nodes":        []lib.Stats{},
 			},

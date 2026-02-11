@@ -99,6 +99,12 @@ const (
 	cmdMetaVersion     = "version"      // Version (deprecated in 8.1.1, use release from 8.1.1)
 	cmdMetaRelease     = "release"      // Release - from 8.1.1
 
+	// TODO: Remove the deprecated commands
+	cmdMetaService           = "service"            // service // deprecated in 8.1.0 use service-clear-std
+	cmdMetaServices          = "services"           // Services // deprecated in 8.1.0 use peers-clear-std
+	cmdMetaServicesAlumni    = "services-alumni"    // ServicesAlumni // deprecated in 8.1.0 use alumni-clear-std
+	cmdMetaServicesAlternate = "services-alternate" // ServicesAlternate // deprecated in 8.1.1 use peers-clear-alt
+
 	cmdMetaServiceClearStd = "service-clear-std" // ServiceClearStd
 	cmdMetaServiceClearAlt = "service-clear-alt" // ServiceClearAlt
 	cmdMetaServiceTLSStd   = "service-tls-std"   // ServiceTLSStd
@@ -112,6 +118,7 @@ const (
 	cmdMetaAlumniTLSStd    = "alumni-tls-std"    // AlumniTLSStd
 	cmdMetaAlumniTLSAlt    = "alumni-tls-alt"    // AlumniTLSAlt
 	cmdMetaEdition         = "edition"           // Edition // Deprecated in 8.1.1 use release
+	cmdMetaFeatures        = "features"          // Features // Deprecated in 8.1.1 use release
 )
 
 // other meta-info
@@ -133,17 +140,22 @@ const (
 
 // Aerospike Metadata Context
 const (
-	MetaBuild           = "asd_build"
-	MetaBuildOS         = cmdMetaBuildOS
-	MetaNodeID          = cmdMetaNodeID
-	MetaClusterName     = cmdMetaClusterName
-	MetaRelease         = cmdMetaRelease
-	MetaVersion         = cmdMetaVersion
-	MetaServiceClearStd = cmdMetaServiceClearStd
-	MetaServiceClearAlt = cmdMetaServiceClearAlt
-	MetaServiceTLSStd   = cmdMetaServiceTLSStd
-	MetaServiceTLSAlt   = cmdMetaServiceTLSAlt
-	MetaEdition         = cmdMetaEdition
+	MetaBuild             = "asd_build"
+	MetaBuildOS           = cmdMetaBuildOS
+	MetaNodeID            = cmdMetaNodeID
+	MetaClusterName       = cmdMetaClusterName
+	MetaRelease           = cmdMetaRelease
+	MetaVersion           = cmdMetaVersion
+	MetaServiceClearStd   = cmdMetaServiceClearStd
+	MetaServiceClearAlt   = cmdMetaServiceClearAlt
+	MetaServiceTLSStd     = cmdMetaServiceTLSStd
+	MetaServiceTLSAlt     = cmdMetaServiceTLSAlt
+	MetaEdition           = cmdMetaEdition
+	MetaFeatures          = cmdMetaFeatures
+	MetaService           = cmdMetaService
+	MetaServices          = cmdMetaServices
+	MetaServicesAlumni    = cmdMetaServicesAlumni
+	MetaServicesAlternate = cmdMetaServicesAlternate
 )
 
 const (
@@ -230,7 +242,7 @@ func (info *AsInfo) RequestInfo(cmd ...string) (
 	return result, err
 }
 
-// Build returns the Aerospike build string. No caching to avoid stale values during upgrades.
+// Build returns the Aerospike build string for this node.
 func (info *AsInfo) Build() (string, error) {
 	m, err := info.RequestInfo(cmdMetaBuild)
 	if err != nil {
@@ -525,7 +537,7 @@ func ParseSetNames(m map[string]string, ns string) []string {
 	return setNames(m[constStatSet], ns)
 }
 
-// NamespaceConfigCmd returns the correct namespace config command for the given build.
+// NamespaceConfigCmd returns the namespace configuration command for the given server build.
 func NamespaceConfigCmd(ns, build string) string {
 	return namespaceConfigCmd(ns, build)
 }
@@ -846,7 +858,7 @@ func (info *AsInfo) createMetaCmdList(m map[string]string) []string {
 	if cmp, err := lib.CompareVersions(m[cmdMetaBuild], cmdReleaseFormatPivot); err == nil && cmp >= 0 {
 		cmdList = append(cmdList, cmdMetaRelease)
 	} else {
-		cmdList = append(cmdList, cmdMetaVersion, cmdMetaBuildOS, cmdMetaEdition)
+		cmdList = append(cmdList, cmdMetaVersion, cmdMetaBuildOS, cmdMetaEdition, cmdMetaFeatures)
 	}
 
 	return cmdList
@@ -1331,6 +1343,8 @@ func parseMetadataInfo(rawMap map[string]string) lib.Stats {
 	metaMap["alumni-tls-std"] = parseNodeEndpointListAsStats(rawMap, cmdMetaAlumniTLSStd)
 	metaMap["alumni-tls-alt"] = parseNodeEndpointListAsStats(rawMap, cmdMetaAlumniTLSAlt)
 
+	metaMap["features"] = parseListTypeMetaInfo(rawMap, cmdMetaFeatures)
+
 	// Deprecated commands - derived from new info commands (returns []string for backward compatibility)
 	// service from service-clear-std (deprecated in 8.1.0)
 	metaMap["service"] = metaMap["service-clear-std"]
@@ -1466,8 +1480,8 @@ func parseNodeEndpointListAsStats(rawMap map[string]string, cmd string) lib.Stat
 	}
 
 	return lib.Stats{
-		"generation":   parsed.Generation,
-		"default_port": parsed.DefaultPort,
+		"generation":   int64(parsed.Generation),
+		"default_port": int64(parsed.DefaultPort),
 		"endpoints":    parsed.Endpoints(), // flat list for convenience
 		"nodes":        nodes,              // full node details
 	}
@@ -1932,7 +1946,7 @@ func parseIntoDcMap(str, del, sep string) lib.Stats {
 	return m.ToParsedValues()
 }
 
-// based aerospike build version, returns the correct namespace get-config command
+// Based on the Aerospike build version, this function returns the correct namespace get-config command
 func namespaceConfigCmd(ns, build string) string {
 	if cmp, err := lib.CompareVersions(build, cmdNamespaceVersionPivot); err == nil && cmp >= 0 {
 		return cmdConfigNamespaceName + ns
