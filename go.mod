@@ -3,12 +3,12 @@ module github.com/aerospike/aerospike-management-lib
 go 1.24.10
 
 require (
-	github.com/aerospike/aerospike-client-go/v8 v8.5.1
+	github.com/aerospike/aerospike-client-go/v8 v8.6.0
 	github.com/deckarep/golang-set/v2 v2.3.1
 	github.com/docker/docker v28.3.2+incompatible
 	github.com/docker/go-connections v0.4.0
 	github.com/go-logr/logr v1.4.3
-	github.com/stretchr/testify v1.10.0
+	github.com/stretchr/testify v1.11.1
 	github.com/xeipuuv/gojsonschema v1.2.0
 	go.uber.org/mock v0.3.0
 	gopkg.in/yaml.v3 v3.0.1
