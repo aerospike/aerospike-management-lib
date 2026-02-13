@@ -84,8 +84,9 @@ const (
 	cmdConfigRacks         = "racks:"                                  // configRacks
 	cmdConfigLogging       = "log/"                                    // ConfigLog
 
-	// build >= uses cmdConfigNamespaceName else cmdConfigNamespaceID
-	cmdNamespaceVersionPivot = "7.2"
+	// Pivot version for set-config and get-config commands of namespace context
+	// For Build >= 7.2: "namespace="; else "id=" (legacy).
+	CmdNamespaceVersionPivot = "7.2"
 
 	// build >= this uses release metadata for top-level edition/version; older uses version + edition commands.
 	cmdReleaseFormatPivot = "8.1.1"
@@ -1948,7 +1949,7 @@ func parseIntoDcMap(str, del, sep string) lib.Stats {
 
 // Based on the Aerospike build version, this function returns the correct namespace get-config command
 func namespaceConfigCmd(ns, build string) string {
-	if cmp, err := lib.CompareVersions(build, cmdNamespaceVersionPivot); err == nil && cmp >= 0 {
+	if cmp, err := lib.CompareVersions(build, CmdNamespaceVersionPivot); err == nil && cmp >= 0 {
 		return cmdConfigNamespaceName + ns
 	}
 
