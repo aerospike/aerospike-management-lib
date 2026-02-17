@@ -12,9 +12,12 @@ import (
 // host is a system on which the aerospike server is running. It provides aerospike
 // specific capabilities on the system.
 type host struct {
-	log        logr.Logger
 	asConnInfo *asConnInfo
-	id         string // host UUID string
+	// build provides access to the Aerospike build version.
+	// It is injected for testability.
+	build func() (string, error)
+	log   logr.Logger
+	id    string // host UUID string
 }
 
 type asConnInfo struct {
@@ -29,16 +32,17 @@ type asConnInfo struct {
 func newHost(
 	id string, aerospikePolicy *aero.ClientPolicy, asConn *ASConn,
 ) (*host, error) {
-	nd := host{
+	nd := &host{
 		id: id,
 	}
 
 	if asConn != nil {
 		nd.log = asConn.Log
 		nd.asConnInfo = newASConnInfo(aerospikePolicy, asConn)
+		nd.build = nd.asConnInfo.asInfo.Build
 	}
 
-	return &nd, nil
+	return nd, nil
 }
 
 func newASConnInfo(aerospikePolicy *aero.ClientPolicy, asConn *ASConn) *asConnInfo {
@@ -59,6 +63,15 @@ func newASConnInfo(aerospikePolicy *aero.ClientPolicy, asConn *ASConn) *asConnIn
 
 func (n *host) String() string {
 	return n.id
+}
+
+// Build returns the Aerospike build version for this host.
+func (n *host) Build() (string, error) {
+	if n.build == nil {
+		return "", fmt.Errorf("host connection not initialized")
+	}
+
+	return n.build()
 }
 
 // Close closes all the open connections of the host.

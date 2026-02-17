@@ -1164,3 +1164,16 @@ var ReCurlyBraces = regexp.MustCompile(`^\{.*\}$`)
 // DynamicConfigMap is a map of config flatten keys and their operations and values
 // for eg: "xdr.dcs.{DC3}.node-address-ports": {Remove: []string{"1.1.2.1 3000"}}
 type DynamicConfigMap map[string]map[OpType]interface{}
+
+// Based on the Aerospike build version, this function returns the correct namespace set-config command
+func namespaceSetConfigCmd(build string) string {
+	if build == "" {
+		return cmdSetConfigNamespaceID
+	}
+
+	if cmp, err := lib.CompareVersions(build, info.CmdNamespaceVersionPivot); err == nil && cmp >= 0 {
+		return cmdSetConfigNamespaceNS
+	}
+
+	return cmdSetConfigNamespaceID
+}

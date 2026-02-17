@@ -13,12 +13,13 @@ import (
 )
 
 const (
-	cmdSetConfigNetwork   = "set-config:context=network;"      // ConfigNetwork
-	cmdSetConfigService   = "set-config:context=service;"      // ConfigService
-	cmdSetConfigNamespace = "set-config:context=namespace;id=" // ConfigNamespace
-	cmdSetConfigXDR       = "set-config:context=xdr"           // ConfigXDR
-	cmdSetConfigSecurity  = "set-config:context=security;"     // ConfigSecurity
-	cmdSetLogging         = "log-set:id="                      // ConfigLogging
+	cmdSetConfigNetwork     = "set-config:context=network;"      // ConfigNetwork
+	cmdSetConfigService     = "set-config:context=service;"      // ConfigService
+	cmdSetConfigNamespaceID = "set-config:context=namespace;id=" // ConfigNamespace
+	cmdSetConfigNamespaceNS = "set-config:context=namespace;namespace="
+	cmdSetConfigXDR         = "set-config:context=xdr"       // ConfigXDR
+	cmdSetConfigSecurity    = "set-config:context=security;" // ConfigSecurity
+	cmdSetLogging           = "log-set:id="                  // ConfigLogging
 )
 
 // convertValueToString converts the value of a config to a string.
@@ -179,10 +180,11 @@ func createSetConfigSecurityCmdList(tokens []string, operationValueMap map[OpTyp
 }
 
 // createSetConfigNamespaceCmdList creates set-config commands for namespace context.
-func createSetConfigNamespaceCmdList(tokens []string, operationValueMap map[OpType][]string) []string {
+// build parameter is used to select the command prefix (id= vs namespace=) for Aerospike 7.2+.
+func createSetConfigNamespaceCmdList(tokens []string, operationValueMap map[OpType][]string, build string) []string {
 	val := operationValueMap[Update]
 	cmdList := make([]string, 0, len(val))
-	cmd := cmdSetConfigNamespace
+	cmd := namespaceSetConfigCmd(build)
 	prevToken := info.ConfigNamespaceContext
 
 	for _, token := range tokens[1:] {
@@ -325,10 +327,38 @@ func createSetConfigXDRCmdList(tokens []string, operationValueMap map[OpType][]s
 }
 
 // CreateSetConfigCmdList creates set-config commands for given config.
+// For backward compatibility this remains the 4-argument form; build is resolved via conn.RunInfo("build")
+// when conn is available. Callers that already have the server build/version should use
+// CreateSetConfigCmdListWithBuildVersion to avoid an extra info round-trip.
 func CreateSetConfigCmdList(log logr.Logger, configMap DynamicConfigMap, conn deployment.ASConnInterface,
 	aerospikePolicy *aero.ClientPolicy,
 ) ([]string, error) {
+	return createSetConfigCmdList(log, configMap, conn, aerospikePolicy, "")
+}
+
+// CreateSetConfigCmdListWithBuildVersion creates set-config commands for given config.
+// buildVersion is the Aerospike server build/version (e.g. from metadata). When non-empty it is used
+// to choose the namespace set-config command format (id= vs namespace= for 7.2+). When empty, build is
+// fetched via conn.RunInfo("build") when conn is available.
+func CreateSetConfigCmdListWithBuildVersion(log logr.Logger, configMap DynamicConfigMap,
+	conn deployment.ASConnInterface,
+	aerospikePolicy *aero.ClientPolicy,
+	buildVersion string,
+) ([]string, error) {
+	return createSetConfigCmdList(log, configMap, conn, aerospikePolicy, buildVersion)
+}
+
+func createSetConfigCmdList(log logr.Logger, configMap DynamicConfigMap, conn deployment.ASConnInterface,
+	aerospikePolicy *aero.ClientPolicy, buildVersion string,
+) ([]string, error) {
 	cmdList := make([]string, 0, len(configMap))
+
+	build := buildVersion
+	if build == "" && conn != nil && aerospikePolicy != nil {
+		if m, err := conn.RunInfo(aerospikePolicy, "build"); err == nil && m["build"] != "" {
+			build = m["build"]
+		}
+	}
 
 	orderedConfList := rearrangeConfigMap(log, configMap)
 	for _, c := range orderedConfList {
@@ -348,7 +378,7 @@ func CreateSetConfigCmdList(log logr.Logger, configMap DynamicConfigMap, conn de
 			cmdList = append(cmdList, createSetConfigNetworkCmdList(tokens, val)...)
 
 		case info.ConfigNamespaceContext:
-			cmdList = append(cmdList, createSetConfigNamespaceCmdList(tokens, val)...)
+			cmdList = append(cmdList, createSetConfigNamespaceCmdList(tokens, val, build)...)
 
 		case info.ConfigXDRContext:
 			cmdList = append(cmdList, createSetConfigXDRCmdList(tokens, val)...)
@@ -527,7 +557,7 @@ func CreateConfigSetCmdsUsingPatch(
 		return nil, fmt.Errorf("static field has been changed, cannot change config dynamically")
 	}
 
-	return CreateSetConfigCmdList(logr.Logger{}, asConfChange, conn, aerospikePolicy)
+	return CreateSetConfigCmdListWithBuildVersion(logr.Logger{}, asConfChange, conn, aerospikePolicy, version)
 }
 
 func CreateConfigSetCmdsUsingOperation(
@@ -564,5 +594,5 @@ func CreateConfigSetCmdsUsingOperation(
 		return nil, fmt.Errorf("static field has been changed, cannot change config dynamically")
 	}
 
-	return CreateSetConfigCmdList(logr.Logger{}, asConfChange, conn, aerospikePolicy)
+	return CreateSetConfigCmdListWithBuildVersion(logr.Logger{}, asConfChange, conn, aerospikePolicy, version)
 }

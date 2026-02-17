@@ -117,6 +117,82 @@ func (s *AsSetConfigTestSuite) TestCreateSetConfigCmdListOrdered() {
 	}
 }
 
+func (s *AsSetConfigTestSuite) TestCreateSetConfigCmdListForNamespaceParamByBuild() {
+	// Namespace set-config: build >= 7.2 uses "namespace=", pre-7.2 uses legacy "id=".
+	inputConf := DynamicConfigMap{
+		"namespaces.{test}.replication-factor": {Update: "2"},
+	}
+	logger := logr.Discard()
+	policy := &aero.ClientPolicy{}
+
+	tests := []struct {
+		name         string
+		buildVersion string
+		wantContains string
+		msg          string
+	}{
+		{"build 7.2+ uses namespace=",
+			"7.2.0.0",
+			"set-config:context=namespace;namespace=test",
+			"build 7.2+ must use namespace= parameter, got: %s",
+		},
+		{"pre-7.2 uses id=",
+			"7.1.0.0",
+			"set-config:context=namespace;id=test",
+			"pre-7.2 must use id= parameter, got: %s",
+		},
+	}
+	for _, tt := range tests {
+		s.Run(tt.name, func() {
+			result, err := CreateSetConfigCmdListWithBuildVersion(logger, inputConf, nil, policy, tt.buildVersion)
+			s.Require().NoError(err)
+			s.Require().Len(result, 1)
+			s.Require().Contains(result[0], tt.wantContains, tt.msg, result[0])
+		})
+	}
+}
+
+func (s *AsSetConfigTestSuite) TestNamespaceSetConfigCommandList() {
+	testCases := []struct {
+		name  string
+		build string
+		want  string
+	}{
+		{
+			name:  "empty build returns legacy id prefix",
+			build: "",
+			want:  "set-config:context=namespace;id=",
+		},
+		{
+			name:  "pre-7.2 uses id",
+			build: "7.0.0.0",
+			want:  "set-config:context=namespace;id=",
+		},
+		{
+			name:  "7.2 uses namespace",
+			build: "7.2.0.0",
+			want:  "set-config:context=namespace;namespace=",
+		},
+		{
+			name:  "8.0 uses namespace",
+			build: "8.0.0.0",
+			want:  "set-config:context=namespace;namespace=",
+		},
+		{
+			name:  "invalid build falls back to id",
+			build: "not-a-version",
+			want:  "set-config:context=namespace;id=",
+		},
+	}
+
+	for _, tc := range testCases {
+		s.Run(tc.name, func() {
+			got := namespaceSetConfigCmd(tc.build)
+			s.Equal(tc.want, got)
+		})
+	}
+}
+
 func TestAsSetConfigTestSuite(t *testing.T) {
 	suite.Run(t, new(AsSetConfigTestSuite))
 }

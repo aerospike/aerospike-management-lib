@@ -2,3 +2,5 @@
 *_mock.go
 .vscode
 *.cov
+
+tmp

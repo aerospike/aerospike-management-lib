@@ -25,6 +25,22 @@ type ClusterAsStat = lib.Stats
 
 type NodeAsStats = lib.Stats
 
+// NodeEndpoint represents a single node's endpoint information from peers/alumni commands.
+// Format: [node-id,tls-name,[addr1,addr2,...]]
+type NodeEndpoint struct {
+	NodeID    string   // Node identifier (e.g., "A1", "BB9050011AC4202")
+	TLSName   string   // TLS name if configured, empty otherwise
+	Endpoints []string // List of endpoint addresses (e.g., ["10.128.0.71:31207"])
+}
+
+// NodeEndpointList represents the full response from peers/alumni info commands.
+// Format: <generation>,<default-port>,[[node-id,tls-name,[addr,...]], ...]
+type NodeEndpointList struct {
+	Nodes       []NodeEndpoint
+	Generation  int
+	DefaultPort int
+}
+
 // ErrInvalidNamespace specifies that the namespace is invalid on the cluster.
 var ErrInvalidNamespace = fmt.Errorf("invalid namespace")
 
@@ -47,38 +63,63 @@ const (
 	// 1. string values which are not commands
 	// 2. string values which are used to generate other commands
 	// 3. string values which are both command and constant
-	constStatNS      = "namespace/" // StatNamespace
-	constStatDC      = "get-stats:context=xdr;dc="
-	constStatSet     = "sets/"      // StatSets
-	constStatBin     = "bins/"      // StatBins
-	constStatSIndex  = "sindex/"    // StatSindex
-	constStatNSNames = "namespaces" // StatNamespaces
-	constStatDCNames = "dcs"        // StatDcs need dc names
-	constStatLogIDs  = "logs"       // StatLogs need logging id
+	constStatNS                = "namespace/" // StatNamespace
+	constStatDC                = "get-stats:context=xdr;dc="
+	constStatSet               = "sets/"                  // StatSets
+	constStatBin               = "bins/"                  // StatBins     // Removed in 7.0.0
+	cmdStatSindexList          = "sindex-list:"           // StatSindex list (core)
+	cmdStatSindexListNamespace = "sindex-list:namespace=" // StatSindex list per namespace
+	cmdStatSindexStatNamespace = "sindex-stat:namespace=" // StatSindex stat per index
+	constStatNSNames           = "namespaces"             // StatNamespaces
+	constStatDCNames           = "dcs"                    // StatDcs need dc names
+	constStatLogIDs            = "logs"                   // StatLogs need logging id
 
-	cmdConfigNetwork   = "get-config:context=network"       // ConfigNetwork
-	cmdConfigService   = "get-config:context=service"       // ConfigService
-	cmdConfigNamespace = "get-config:context=namespace;id=" // ConfigNamespace
-	cmdConfigXDR       = "get-config:context=xdr"           // ConfigXDR
-	cmdConfigSecurity  = "get-config:context=security"      // ConfigSecurity
-	cmdConfigDC        = "get-config:context=xdr;dc="       // ConfigDC
-	cmdConfigMESH      = "mesh"                             // ConfigMesh
-	cmdConfigRacks     = "racks:"                           // configRacks
-	cmdConfigLogging   = "log/"                             // ConfigLog
+	cmdConfigNetwork       = "get-config:context=network"              // ConfigNetwork
+	cmdConfigService       = "get-config:context=service"              // ConfigService
+	cmdConfigNamespaceID   = "get-config:context=namespace;id="        // ConfigNamespace (pre-7.2)
+	cmdConfigNamespaceName = "get-config:context=namespace;namespace=" // ConfigNamespace (7.2+)
+	cmdConfigXDR           = "get-config:context=xdr"                  // ConfigXDR
+	cmdConfigSecurity      = "get-config:context=security"             // ConfigSecurity
+	cmdConfigDC            = "get-config:context=xdr;dc="              // ConfigDC
+	cmdConfigRacks         = "racks:"                                  // configRacks
+	cmdConfigLogging       = "log/"                                    // ConfigLog
+
+	// Pivot version for set-config and get-config commands of namespace context
+	// For Build >= 7.2: "namespace="; else "id=" (legacy).
+	CmdNamespaceVersionPivot = "7.2"
+
+	// build >= this uses release metadata for top-level edition/version; older uses version + edition commands.
+	cmdReleaseFormatPivot = "8.1.1"
 
 	cmdLatency = "latency:"
 
-	cmdMetaBuild             = "build"              // Build
-	cmdMetaVersion           = "version"            // Version
-	cmdMetaBuildOS           = "build_os"           // BUILD OS
-	cmdMetaNodeID            = "node"               // NodeID
-	cmdMetaClusterName       = "cluster-name"       // Cluster Name
-	cmdMetaService           = "service"            // Service
-	cmdMetaServices          = "services"           // Services
-	cmdMetaServicesAlumni    = "services-alumni"    // ServicesAlumni
-	cmdMetaServicesAlternate = "services-alternate" // ServiceAlternate
-	cmdMetaFeatures          = "features"           // Features
-	cmdMetaEdition           = "edition"            // Edition
+	cmdMetaBuild       = "build"        // Build
+	cmdMetaBuildOS     = "build_os"     // BUILD OS - Deprecated in 8.1.1, use release from 8.1.1
+	cmdMetaNodeID      = "node"         // NodeID
+	cmdMetaClusterName = "cluster-name" // Cluster Name
+	cmdMetaVersion     = "version"      // Version (deprecated in 8.1.1, use release from 8.1.1)
+	cmdMetaRelease     = "release"      // Release - from 8.1.1
+
+	// TODO: Remove the deprecated commands
+	cmdMetaService           = "service"            // service // deprecated in 8.1.0 use service-clear-std
+	cmdMetaServices          = "services"           // Services // deprecated in 8.1.0 use peers-clear-std
+	cmdMetaServicesAlumni    = "services-alumni"    // ServicesAlumni // deprecated in 8.1.0 use alumni-clear-std
+	cmdMetaServicesAlternate = "services-alternate" // ServicesAlternate // deprecated in 8.1.1 use peers-clear-alt
+
+	cmdMetaServiceClearStd = "service-clear-std" // ServiceClearStd
+	cmdMetaServiceClearAlt = "service-clear-alt" // ServiceClearAlt
+	cmdMetaServiceTLSStd   = "service-tls-std"   // ServiceTLSStd
+	cmdMetaServiceTLSAlt   = "service-tls-alt"   // ServiceTLSAlt
+	cmdMetaPeerClearStd    = "peers-clear-std"   // PeerClearStd
+	cmdMetaPeerClearAlt    = "peers-clear-alt"   // PeerClearAlt
+	cmdMetaPeerTLSStd      = "peers-tls-std"     // PeerTLSStd
+	cmdMetaPeerTLSAlt      = "peers-tls-alt"     // PeerTLSAlt
+	cmdMetaAlumniClearStd  = "alumni-clear-std"  // AlumniClearStd
+	cmdMetaAlumniClearAlt  = "alumni-clear-alt"  // AlumniClearAlt
+	cmdMetaAlumniTLSStd    = "alumni-tls-std"    // AlumniTLSStd
+	cmdMetaAlumniTLSAlt    = "alumni-tls-alt"    // AlumniTLSAlt
+	cmdMetaEdition         = "edition"           // Edition // Deprecated in 8.1.1 use release
+	cmdMetaFeatures        = "features"          // Features // Deprecated in 8.1.1 use release
 )
 
 // other meta-info
@@ -101,16 +142,21 @@ const (
 // Aerospike Metadata Context
 const (
 	MetaBuild             = "asd_build"
-	MetaVersion           = cmdMetaVersion
 	MetaBuildOS           = cmdMetaBuildOS
 	MetaNodeID            = cmdMetaNodeID
 	MetaClusterName       = cmdMetaClusterName
+	MetaRelease           = cmdMetaRelease
+	MetaVersion           = cmdMetaVersion
+	MetaServiceClearStd   = cmdMetaServiceClearStd
+	MetaServiceClearAlt   = cmdMetaServiceClearAlt
+	MetaServiceTLSStd     = cmdMetaServiceTLSStd
+	MetaServiceTLSAlt     = cmdMetaServiceTLSAlt
+	MetaEdition           = cmdMetaEdition
+	MetaFeatures          = cmdMetaFeatures
 	MetaService           = cmdMetaService
 	MetaServices          = cmdMetaServices
 	MetaServicesAlumni    = cmdMetaServicesAlumni
 	MetaServicesAlternate = cmdMetaServicesAlternate
-	MetaFeatures          = cmdMetaFeatures
-	MetaEdition           = cmdMetaEdition
 )
 
 const (
@@ -195,6 +241,21 @@ func (info *AsInfo) RequestInfo(cmd ...string) (
 	}
 
 	return result, err
+}
+
+// Build returns the Aerospike build string for this node.
+func (info *AsInfo) Build() (string, error) {
+	m, err := info.RequestInfo(cmdMetaBuild)
+	if err != nil {
+		return "", err
+	}
+
+	build := m[cmdMetaBuild]
+	if build == "" || (len(build) >= 5 && strings.EqualFold(build[:5], "error")) {
+		return "", fmt.Errorf("failed to get build info from node: %s", m[cmdMetaBuild])
+	}
+
+	return m[cmdMetaBuild], nil
 }
 
 // AllConfigs returns all the dynamic configurations of the node.
@@ -394,9 +455,19 @@ func GetLogNamesCmd() string {
 	return constStatLogIDs
 }
 
-// GetSindexNamesCmd returns the command to get sindex names
+// GetSindexNamesCmd returns the command to get sindex names (core list).
 func GetSindexNamesCmd() string {
-	return constStatSIndex
+	return cmdStatSindexList
+}
+
+// SindexListNamespaceCmd returns the command to list sindex names for a namespace.
+func SindexListNamespaceCmd(ns string) string {
+	return cmdStatSindexListNamespace + ns
+}
+
+// SindexStatCmd returns the command to get stats for a specific sindex.
+func SindexStatCmd(ns, index string) string {
+	return cmdStatSindexStatNamespace + ns + ";indexname=" + index
 }
 
 // GetSetNamesCmd returns the command to get set names
@@ -459,7 +530,7 @@ func ParseLogNames(m map[string]string) []string {
 
 // ParseSindexNames parses all sindex names for namespace
 func ParseSindexNames(m map[string]string, ns string) []string {
-	return sindexNames(m[constStatSIndex], ns)
+	return sindexNames(m[cmdStatSindexList], ns)
 }
 
 // ParseSetNames parses all set names for namespace
@@ -467,16 +538,61 @@ func ParseSetNames(m map[string]string, ns string) []string {
 	return setNames(m[constStatSet], ns)
 }
 
+// NamespaceConfigCmd returns the namespace configuration command for the given server build.
+func NamespaceConfigCmd(ns, build string) string {
+	return namespaceConfigCmd(ns, build)
+}
+
 // *******************************************************************************************
 // create raw cmd list
 // *******************************************************************************************
 
+// getCoreInfoCommands returns the exact list of info commands used for core cluster discovery.
+// Does not include edition or release; getCoreInfo requests those after build is known.
+func getCoreInfoCommands() []string {
+	return []string{
+		constStatNSNames,
+		cmdConfigXDR,
+		cmdStatSindexList,
+		constStatLogIDs,
+		cmdMetaBuild,
+	}
+}
+
 func (info *AsInfo) getCoreInfo() (map[string]string, error) {
-	m, err := info.RequestInfo(
-		constStatNSNames, cmdConfigXDR, constStatSIndex, constStatLogIDs, cmdMetaBuild, cmdMetaEdition,
-	)
+	m, err := info.RequestInfo(getCoreInfoCommands()...)
 	if err != nil {
 		return nil, err
+	}
+
+	// Edition detection is required for safe config capability gating (e.g. racks).
+	// Fail fast if the secondary metadata call fails or does not provide edition.
+	if cmp, err := lib.CompareVersions(m[cmdMetaBuild], cmdReleaseFormatPivot); err == nil && cmp >= 0 {
+		resp, err := info.RequestInfo(cmdMetaRelease)
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch release metadata: %w", err)
+		}
+
+		release := parseBasicInfo(resp[cmdMetaRelease])
+
+		edition := release.TryString("edition", "")
+		if edition == "" {
+			return nil, fmt.Errorf("missing edition in release metadata")
+		}
+
+		m[cmdMetaEdition] = edition
+	} else {
+		resp, err := info.RequestInfo(cmdMetaEdition)
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch edition metadata: %w", err)
+		}
+
+		edition := strings.TrimSpace(resp[cmdMetaEdition])
+		if edition == "" {
+			return nil, fmt.Errorf("missing edition metadata")
+		}
+
+		m[cmdMetaEdition] = edition
 	}
 
 	return m, nil
@@ -500,7 +616,7 @@ func (info *AsInfo) createCmdList(
 
 			rawCmdList = append(rawCmdList, cmds...)
 		case ConstMetadata:
-			cmds := info.createMetaCmdList()
+			cmds := info.createMetaCmdList(m)
 			rawCmdList = append(rawCmdList, cmds...)
 		case ConstLatency:
 			rawCmdList = append(rawCmdList, cmdLatency)
@@ -520,16 +636,16 @@ func (info *AsInfo) createStatCmdList(m map[string]string) []string {
 	for _, ns := range nsNames {
 		// namespace, sets, bins, sindex
 		cmdList = append(
-			cmdList, constStatNS+ns, constStatSet+ns, constStatSIndex+ns,
+			cmdList, constStatNS+ns, constStatSet+ns, SindexListNamespaceCmd(ns),
 		)
 
 		if r, _ := lib.CompareVersions(m[cmdMetaBuild], "7.0"); r == -1 {
 			cmdList = append(cmdList, constStatBin+ns)
 		}
 
-		indexNames := sindexNames(m[constStatSIndex], ns)
+		indexNames := sindexNames(m[cmdStatSindexList], ns)
 		for _, index := range indexNames {
-			cmdList = append(cmdList, constStatSIndex+ns+"/"+index)
+			cmdList = append(cmdList, SindexStatCmd(ns, index))
 		}
 	}
 
@@ -570,7 +686,7 @@ func (info *AsInfo) createConfigCmdList(
 		case ConfigNamespaceContext:
 			cmdList = append(
 				cmdList,
-				info.createNamespaceConfigCmdList(ParseNamespaceNames(m)...)...,
+				info.createNamespaceConfigCmdList(m[cmdMetaBuild], ParseNamespaceNames(m)...)...,
 			)
 
 		case ConfigSetContext:
@@ -625,11 +741,11 @@ func (info *AsInfo) createConfigCmdList(
 }
 
 // createNamespaceConfigCmdList creates get-config command for namespace
-func (info *AsInfo) createNamespaceConfigCmdList(nsNames ...string) []string {
+func (info *AsInfo) createNamespaceConfigCmdList(build string, nsNames ...string) []string {
 	cmdList := make([]string, 0, len(nsNames))
 
 	for _, ns := range nsNames {
-		cmdList = append(cmdList, cmdConfigNamespace+ns)
+		cmdList = append(cmdList, namespaceConfigCmd(ns, build))
 	}
 
 	return cmdList
@@ -675,12 +791,6 @@ func (info *AsInfo) createXDRConfigCmdList(m map[string]string) ([]string, error
 				return
 			}
 
-			lock.Lock()
-
-			m = mergeDicts(m, resp)
-
-			lock.Unlock()
-
 			var nsNames []string
 
 			rawDCConfig := resp[cmdConfigDC+dc]
@@ -693,7 +803,15 @@ func (info *AsInfo) createXDRConfigCmdList(m map[string]string) ([]string, error
 				nsNames = []string{}
 			}
 
-			cmdList = append(cmdList, info.createDCNamespaceConfigCmdList(dc, nsNames...)...)
+			dcCmds := info.createDCNamespaceConfigCmdList(dc, nsNames...)
+
+			lock.Lock()
+
+			m = mergeDicts(m, resp)
+
+			cmdList = append(cmdList, dcCmds...)
+
+			lock.Unlock()
 
 			results <- nil
 		}(dc)
@@ -727,12 +845,21 @@ func (info *AsInfo) createDCNamespaceConfigCmdList(dc string, namespaces ...stri
 	return cmdList
 }
 
-func (info *AsInfo) createMetaCmdList() []string {
+// createMetaCmdList returns metadata info commands.
+// Build >= 8.1.1: request "release" only for edition/version/build_os; do not send deprecated version, edition, build_os.
+// Build < 8.1.1: request version, edition, build_os; do not send "release" (not supported).
+func (info *AsInfo) createMetaCmdList(m map[string]string) []string {
 	cmdList := []string{
-		cmdMetaNodeID, cmdMetaBuild, cmdMetaService,
-		cmdMetaServices, cmdMetaServicesAlumni, cmdMetaServicesAlternate,
-		cmdMetaVersion,
-		cmdMetaBuildOS, cmdMetaClusterName, cmdMetaFeatures, cmdMetaEdition,
+		cmdMetaNodeID, cmdMetaBuild,
+		cmdMetaServiceClearStd, cmdMetaServiceClearAlt, cmdMetaServiceTLSStd, cmdMetaServiceTLSAlt,
+		cmdMetaPeerClearStd, cmdMetaPeerClearAlt, cmdMetaPeerTLSStd, cmdMetaPeerTLSAlt,
+		cmdMetaAlumniClearStd, cmdMetaAlumniClearAlt, cmdMetaAlumniTLSStd, cmdMetaAlumniTLSAlt,
+		cmdMetaClusterName,
+	}
+	if cmp, err := lib.CompareVersions(m[cmdMetaBuild], cmdReleaseFormatPivot); err == nil && cmp >= 0 {
+		cmdList = append(cmdList, cmdMetaRelease)
+	} else {
+		cmdList = append(cmdList, cmdMetaVersion, cmdMetaBuildOS, cmdMetaEdition, cmdMetaFeatures)
 	}
 
 	return cmdList
@@ -956,10 +1083,10 @@ func parseStatNsInfo(res string) lib.Stats {
 
 func parseStatSindexsInfo(rawMap map[string]string, ns string) lib.Stats {
 	indexMap := make(lib.Stats)
-	indexNames := sindexNames(rawMap[constStatSIndex], ns)
+	indexNames := sindexNames(rawMap[SindexListNamespaceCmd(ns)], ns)
 
 	for _, index := range indexNames {
-		indexMap[index] = parseBasicInfo(rawMap[constStatSIndex+ns+"/"+index])
+		indexMap[index] = parseBasicInfo(rawMap[SindexStatCmd(ns, index)])
 	}
 
 	return indexMap
@@ -1011,7 +1138,7 @@ func parseConfigInfo(rawMap map[string]string) lib.Stats {
 		configMap[ConfigNetworkContext] = nc
 	}
 
-	nsc := parseAllNsConfig(rawMap, cmdConfigNamespace)
+	nsc := parseAllNsConfig(rawMap, rawMap[cmdMetaBuild])
 	if len(nsc) > 0 {
 		configMap[ConfigNamespaceContext] = nsc
 	}
@@ -1054,12 +1181,13 @@ func parseAllLoggingConfig(rawMap map[string]string, cmd string) lib.Stats {
 }
 
 // {test}-configname -> configname
-func parseAllNsConfig(rawMap map[string]string, cmd string) lib.Stats {
+func parseAllNsConfig(rawMap map[string]string, build string) lib.Stats {
 	nsConfigMap := make(lib.Stats)
 	nsNames := getNames(rawMap[constStatNSNames])
 
 	for _, ns := range nsNames {
-		m := parseBasicConfigInfo(rawMap[cmd+ns], "=")
+		key := namespaceConfigCmd(ns, build)
+		m := parseBasicConfigInfo(rawMap[key], "=")
 		setM := parseConfigSetsInfo(rawMap[constStatSet+ns])
 
 		if len(setM) > 0 {
@@ -1187,18 +1315,46 @@ func parseMetadataInfo(rawMap map[string]string) lib.Stats {
 
 	metaMap["node_id"] = rawMap[cmdMetaNodeID]
 	metaMap["asd_build"] = rawMap[cmdMetaBuild]
-	metaMap["service"] = parseListTypeMetaInfo(rawMap, cmdMetaService)
-	metaMap["services"] = parseListTypeMetaInfo(rawMap, cmdMetaServices)
-	metaMap["services-alumni"] = parseListTypeMetaInfo(
-		rawMap, cmdMetaServicesAlumni,
-	)
-	metaMap["services-alternate"] = parseListTypeMetaInfo(
-		rawMap, cmdMetaServicesAlternate,
-	)
+	metaMap["release"] = parseBasicInfo(rawMap[cmdMetaRelease])
+
+	// Top-level edition, version, build_os:
+	// Build >= 8.1.1: release is present, derive from it.
+	// Build < 8.1.1: release is nil, use raw version/edition/build_os commands.
+	if release, ok := metaMap["release"].(lib.Stats); ok && release != nil {
+		metaMap["edition"] = release.TryString("edition", "")
+		metaMap["version"] = release.TryString("edition", "") + " build " + release.TryString("version", "")
+		metaMap["build_os"] = release.TryString("os", "")
+	} else {
+		metaMap["version"] = rawMap[cmdMetaVersion]
+		metaMap["edition"] = rawMap[cmdMetaEdition]
+		metaMap["build_os"] = rawMap[cmdMetaBuildOS]
+	}
+
+	// New info commands with full structured output
+	metaMap["service-clear-std"] = parseListTypeMetaInfo(rawMap, cmdMetaServiceClearStd)
+	metaMap["service-clear-alt"] = parseListTypeMetaInfo(rawMap, cmdMetaServiceClearAlt)
+	metaMap["service-tls-std"] = parseListTypeMetaInfo(rawMap, cmdMetaServiceTLSStd)
+	metaMap["service-tls-alt"] = parseListTypeMetaInfo(rawMap, cmdMetaServiceTLSAlt)
+	metaMap["peers-clear-std"] = parseNodeEndpointListAsStats(rawMap, cmdMetaPeerClearStd)
+	metaMap["peers-clear-alt"] = parseNodeEndpointListAsStats(rawMap, cmdMetaPeerClearAlt)
+	metaMap["peers-tls-std"] = parseNodeEndpointListAsStats(rawMap, cmdMetaPeerTLSStd)
+	metaMap["peers-tls-alt"] = parseNodeEndpointListAsStats(rawMap, cmdMetaPeerTLSAlt)
+	metaMap["alumni-clear-std"] = parseNodeEndpointListAsStats(rawMap, cmdMetaAlumniClearStd)
+	metaMap["alumni-clear-alt"] = parseNodeEndpointListAsStats(rawMap, cmdMetaAlumniClearAlt)
+	metaMap["alumni-tls-std"] = parseNodeEndpointListAsStats(rawMap, cmdMetaAlumniTLSStd)
+	metaMap["alumni-tls-alt"] = parseNodeEndpointListAsStats(rawMap, cmdMetaAlumniTLSAlt)
+
 	metaMap["features"] = parseListTypeMetaInfo(rawMap, cmdMetaFeatures)
-	metaMap["edition"] = rawMap[cmdMetaEdition]
-	metaMap["version"] = rawMap[cmdMetaVersion]
-	metaMap["build_os"] = rawMap[cmdMetaBuildOS]
+
+	// Deprecated commands - derived from new info commands (returns []string for backward compatibility)
+	// service from service-clear-std (deprecated in 8.1.0)
+	metaMap["service"] = metaMap["service-clear-std"]
+	// services from peers-clear-std (deprecated in 8.1.0)
+	metaMap["services"] = getEndpointsFromStats(metaMap["peers-clear-std"])
+	// services-alumni from alumni-clear-std (deprecated in 8.1.0)
+	metaMap["services-alumni"] = getEndpointsFromStats(metaMap["alumni-clear-std"])
+	// services-alternate from peers-clear-alt (deprecated in 8.1.0)
+	metaMap["services-alternate"] = getEndpointsFromStats(metaMap["peers-clear-alt"])
 
 	return metaMap
 }
@@ -1213,6 +1369,225 @@ func parseListTypeMetaInfo(rawMap map[string]string, cmd string) []string {
 	l := strings.Split(str, ";")
 
 	return l
+}
+
+// ParseNodeEndpointList parses the peers/alumni info command output format and returns
+// the full structured information including generation, default-port, and all node details.
+// Format: <generation>,<default-port>,[[node-id,tls-name,[addr,...]], ...]
+// Examples:
+//   - 20,3000,[[A1,,[10.128.0.71:31207]],[A2,,[10.128.0.98:30352]]]
+//   - 10,4333,[[BB9050011AC4202,clusternode,[172.17.0.5]]]
+//
+// This format is used by: peers-clear-std, peers-clear-alt, peers-tls-std, peers-tls-alt,
+// alumni-clear-std, alumni-clear-alt, alumni-tls-std, alumni-tls-alt
+func ParseNodeEndpointList(str string) NodeEndpointList {
+	result := NodeEndpointList{
+		Nodes: []NodeEndpoint{},
+	}
+
+	str = strings.TrimSpace(str)
+	if str == "" {
+		return result
+	}
+
+	// Parse generation (first value before comma)
+	firstComma := strings.Index(str, ",")
+	if firstComma == -1 {
+		return result
+	}
+
+	gen, err := strconv.Atoi(str[:firstComma])
+	if err != nil {
+		return result
+	}
+
+	result.Generation = gen
+	str = str[firstComma+1:]
+
+	// Parse default-port (second value before the bracket)
+	firstBracket := strings.Index(str, "[")
+	if firstBracket == -1 {
+		return result
+	}
+
+	portStr := strings.TrimSuffix(str[:firstBracket], ",")
+
+	port, err := strconv.Atoi(portStr)
+	if err != nil {
+		return result
+	}
+
+	result.DefaultPort = port
+
+	// Parse the node list
+	nodeListStr := str[firstBracket:]
+	result.Nodes = parseNodeList(nodeListStr)
+
+	return result
+}
+
+// Endpoints returns a flat list of all endpoint addresses from the NodeEndpointList.
+// This provides backward compatibility with the deprecated services command format.
+func (n NodeEndpointList) Endpoints() []string {
+	var addresses []string
+	for _, node := range n.Nodes {
+		addresses = append(addresses, node.Endpoints...)
+	}
+
+	return addresses
+}
+
+// getEndpointsFromStats extracts the "endpoints" []string from a lib.Stats map.
+// Returns empty []string if not found or wrong type.
+func getEndpointsFromStats(stats interface{}) []string {
+	if stats == nil {
+		return []string{}
+	}
+
+	statsMap, ok := stats.(lib.Stats)
+	if !ok {
+		return []string{}
+	}
+
+	endpoints, ok := statsMap["endpoints"].([]string)
+	if !ok {
+		return []string{}
+	}
+
+	return endpoints
+}
+
+// parseNodeEndpointListAsStats parses the peers/alumni info command output and returns
+// a lib.Stats map with full structured information.
+// Format: <generation>,<default-port>,[[node-id,tls-name,[addr,...]], ...]
+// Returns lib.Stats with keys: "generation", "default_port", "endpoints", "nodes"
+func parseNodeEndpointListAsStats(rawMap map[string]string, cmd string) lib.Stats {
+	str := strings.TrimSpace(rawMap[cmd])
+	if str == "" {
+		return lib.Stats{}
+	}
+
+	parsed := ParseNodeEndpointList(str)
+
+	// Build nodes array as []lib.Stats
+	nodes := make([]lib.Stats, 0, len(parsed.Nodes))
+	for _, node := range parsed.Nodes {
+		nodeStats := lib.Stats{
+			"node_id":   node.NodeID,
+			"tls_name":  node.TLSName,
+			"endpoints": node.Endpoints,
+		}
+		nodes = append(nodes, nodeStats)
+	}
+
+	return lib.Stats{
+		"generation":   int64(parsed.Generation),
+		"default_port": int64(parsed.DefaultPort),
+		"endpoints":    parsed.Endpoints(), // flat list for convenience
+		"nodes":        nodes,              // full node details
+	}
+}
+
+// parseNodeList parses the node list array and returns full NodeEndpoint information.
+// Format: [[node-id,tls-name,[addr1,addr2,...]],...]
+// Examples:
+//   - [[A1,,[10.128.0.71:31207]],[A2,,[10.128.0.98:30352]]]
+//   - [[BB9050011AC4202,clusternode,[172.17.0.5:4333]]]
+func parseNodeList(nodeListStr string) []NodeEndpoint {
+	var nodes []NodeEndpoint
+
+	// Remove outer brackets
+	if len(nodeListStr) < 2 || nodeListStr[0] != '[' || nodeListStr[len(nodeListStr)-1] != ']' {
+		return nodes
+	}
+
+	nodeListStr = nodeListStr[1 : len(nodeListStr)-1]
+	if nodeListStr == "" {
+		return nodes
+	}
+
+	// Parse each node entry: [node-id,tls-name,[addr,...]]
+	depth := 0
+	start := 0
+
+	for i := 0; i < len(nodeListStr); i++ {
+		switch nodeListStr[i] {
+		case '[':
+			if depth == 0 {
+				start = i
+			}
+
+			depth++
+		case ']':
+			depth--
+			if depth == 0 {
+				// Found a complete node entry
+				nodeEntry := nodeListStr[start : i+1]
+				node := parseNodeEntry(nodeEntry)
+				nodes = append(nodes, node)
+			}
+		}
+	}
+
+	return nodes
+}
+
+// parseNodeEntry parses a single node entry and returns full NodeEndpoint information.
+// Format: [node-id,tls-name,[addr1,addr2,...]]
+// Examples:
+//   - [A1,,[10.128.0.71:31207]]
+//   - [BB9050011AC4202,clusternode,[172.17.0.5:4333]]
+func parseNodeEntry(nodeEntry string) NodeEndpoint {
+	node := NodeEndpoint{
+		Endpoints: []string{},
+	}
+
+	// Remove outer brackets
+	if len(nodeEntry) < 2 || nodeEntry[0] != '[' || nodeEntry[len(nodeEntry)-1] != ']' {
+		return node
+	}
+
+	nodeEntry = nodeEntry[1 : len(nodeEntry)-1]
+
+	// Find the address array - it's the last [...] in the entry
+	lastOpenBracket := strings.LastIndex(nodeEntry, "[")
+	if lastOpenBracket == -1 {
+		return node
+	}
+
+	lastCloseBracket := strings.LastIndex(nodeEntry, "]")
+	if lastCloseBracket == -1 || lastCloseBracket <= lastOpenBracket {
+		return node
+	}
+
+	// Extract addresses
+	addrStr := nodeEntry[lastOpenBracket+1 : lastCloseBracket]
+	if addrStr != "" {
+		addrs := strings.Split(addrStr, ",")
+		for _, addr := range addrs {
+			addr = strings.TrimSpace(addr)
+			if addr != "" {
+				node.Endpoints = append(node.Endpoints, addr)
+			}
+		}
+	}
+
+	// Parse the part before the address array: "node-id,tls-name,"
+	prefix := nodeEntry[:lastOpenBracket]
+	prefix = strings.TrimSuffix(prefix, ",") // Remove trailing comma before [
+
+	// Split by comma to get node-id and tls-name
+	// Format: "A1," or "BB9050011AC4202,clusternode"
+	parts := strings.SplitN(prefix, ",", 2)
+	if len(parts) >= 1 {
+		node.NodeID = strings.TrimSpace(parts[0])
+	}
+
+	if len(parts) >= 2 {
+		node.TLSName = strings.TrimSpace(parts[1])
+	}
+
+	return node
 }
 
 // ***************************************************************************
@@ -1570,4 +1945,13 @@ func parseIntoDcMap(str, del, sep string) lib.Stats {
 	}
 
 	return m.ToParsedValues()
+}
+
+// Based on the Aerospike build version, this function returns the correct namespace get-config command
+func namespaceConfigCmd(ns, build string) string {
+	if cmp, err := lib.CompareVersions(build, CmdNamespaceVersionPivot); err == nil && cmp >= 0 {
+		return cmdConfigNamespaceName + ns
+	}
+
+	return cmdConfigNamespaceID + ns
 }
