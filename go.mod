@@ -4,7 +4,7 @@ go 1.24.10
 
 require (
 	github.com/aerospike/aerospike-client-go/v8 v8.6.0
-	github.com/deckarep/golang-set/v2 v2.3.1
+	github.com/deckarep/golang-set/v2 v2.8.0
 	github.com/docker/docker v28.3.2+incompatible
 	github.com/docker/go-connections v0.4.0
 	github.com/go-logr/logr v1.4.3
