@@ -6,7 +6,7 @@ require (
 	github.com/aerospike/aerospike-client-go/v8 v8.6.0
 	github.com/deckarep/golang-set/v2 v2.3.1
 	github.com/docker/docker v28.3.2+incompatible
-	github.com/docker/go-connections v0.4.0
+	github.com/docker/go-connections v0.6.0
 	github.com/go-logr/logr v1.4.3
 	github.com/stretchr/testify v1.11.1
 	github.com/xeipuuv/gojsonschema v1.2.0
@@ -48,7 +48,6 @@ require (
 	go.opentelemetry.io/otel/sdk v1.25.0 // indirect
 	go.opentelemetry.io/otel/trace v1.37.0 // indirect
 	golang.org/x/mod v0.27.0 // indirect
-	golang.org/x/net v0.43.0 // indirect
 	golang.org/x/sync v0.16.0 // indirect
 	golang.org/x/sys v0.35.0 // indirect
 	golang.org/x/tools v0.36.0 // indirect
