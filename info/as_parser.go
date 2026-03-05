@@ -1429,7 +1429,8 @@ func ParseNodeEndpointList(str string) NodeEndpointList {
 // Endpoints returns a flat list of all endpoint addresses from the NodeEndpointList.
 // This provides backward compatibility with the deprecated services command format.
 func (n NodeEndpointList) Endpoints() []string {
-	var addresses []string
+	var addresses []string //nolint:prealloc // two-pass preallocation would cost more than occasional growth for small endpoint lists
+
 	for _, node := range n.Nodes {
 		addresses = append(addresses, node.Endpoints...)
 	}
