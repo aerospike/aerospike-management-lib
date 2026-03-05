@@ -105,7 +105,7 @@ func ConfValuesValid(flatConf *Conf) []*ValidationErr {
 }
 
 func validateSlice(baseKey string, val []string) []*ValidationErr {
-	vErrs := make([]*ValidationErr, 0)
+	vErrs := make([]*ValidationErr, 0, len(val))
 	for _, v := range val {
 		vErrs = append(vErrs, validateString(baseKey, v))
 	}
