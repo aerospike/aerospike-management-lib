@@ -428,10 +428,10 @@ func (c *cluster) InfoQuiesce(hostsToBeQuiesced, hostIDs, removedNamespaces []st
 			lg.V(1).Info("Will try after time", "Seconds", sleepSeconds)
 			time.Sleep(time.Duration(sleepSeconds) * time.Second)
 
-			cmd := "throughput:back=10;duration=10;slice=10"
+			cmd := "latencies"
 			throughputStr, err := c.infoCmd(hostID, cmd)
 
-			// {test}-read:06:50:24-GMT,ops/sec;06:50:34,4864.8;{test}-write:06:50:24-GMT,ops/sec;06:50:34,4863.9;error-no-data-yet-or-back-too-small;error-no-data-yet-or-back-too-small;error-no-data-yet-or-back-too-small;error-no-data-yet-or-back-too-small;error-no-data-yet-or-back-too-small;error-no-data-yet-or-back-too-small
+			// batch-index:;{test}-read:;{test}-write:msec,17.2,9.88,4.07,2.33,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.00;{test}-udf:;{test}-batch-sub-read:;{test}-batch-sub-write:;{test}-batch-sub-udf:;{test}-pi-query:;{test}-si-query:;{testMem}-read:;{testMem}-write:;{testMem}-udf:;{testMem}-batch-sub-read:;{testMem}-batch-sub-write:;{testMem}-batch-sub-udf:;{testMem}-pi-query:;{testMem}-si-query:
 			if err == nil {
 				allList := strings.Split(throughputStr[cmd], ";")
 				if len(allList) > 0 {
@@ -439,7 +439,7 @@ func (c *cluster) InfoQuiesce(hostsToBeQuiesced, hostIDs, removedNamespaces []st
 
 					for _, histInfo := range allList {
 						fields := strings.Split(histInfo, ",")
-						if len(fields) == 2 && fields[1] != "ops/sec" {
+						if len(fields) >= 2 {
 							throughputVal, err := strconv.ParseFloat(fields[1], 64)
 							if err == nil && throughputVal > 0 {
 								nodeInUse = true
