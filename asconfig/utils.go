@@ -310,6 +310,8 @@ func SplitKey(log logr.Logger, key, sep string) []string {
 func expandKey(
 	log logr.Logger, input Conf, keys []string, val interface{},
 ) bool {
+	log.Info("expand key", "keys", keys, "val", val, "input", input)
+
 	if len(keys) == 1 {
 		return false
 	}
