@@ -309,11 +309,12 @@ func SplitKey(log logr.Logger, key, sep string) []string {
 
 func expandKey(
 	log logr.Logger, input Conf, keys []string, val interface{},
-) bool {
-	log.Info("expand key", "keys", keys, "val", val, "input", input)
-
+) {
 	if len(keys) == 1 {
-		return false
+		// skip the loop, fall through to assignment
+		input[keys[0]] = val
+
+		return
 	}
 
 	m := input
@@ -329,8 +330,6 @@ func expandKey(
 	}
 
 	m[keys[len(keys)-1]] = val
-
-	return true
 }
 
 func processKey(log logr.Logger, k string, keys []string, m Conf) Conf {
