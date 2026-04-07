@@ -1,6 +1,7 @@
 package asconfig
 
 import (
+	"fmt"
 	"reflect"
 	"sort"
 	"strings"
@@ -75,11 +76,20 @@ func isValueDiff(log logr.Logger, v1, v2 interface{}) bool {
 func diff(
 	log logr.Logger, c1, c2 Conf,
 	isFlat, c2IsDefault, ignoreInternalFields bool,
-) Conf {
+) (Conf, error) {
 	// Flatten if not flattened already.
 	if !isFlat {
-		c1 = flattenConf(log, c1, sep)
-		c2 = flattenConf(log, c2, sep)
+		var err error
+
+		c1, err = flattenConf(log, c1, sep)
+		if err != nil {
+			return nil, fmt.Errorf("failed to flatten first config: %w", err)
+		}
+
+		c2, err = flattenConf(log, c2, sep)
+		if err != nil {
+			return nil, fmt.Errorf("failed to flatten second config: %w", err)
+		}
 	}
 
 	d := make(Conf)
@@ -146,7 +156,7 @@ func diff(
 		}
 	}
 
-	return d
+	return d, nil
 }
 
 func handleMissingSection(log logr.Logger, key string, desired, current Conf, d DynamicConfigMap,
@@ -270,8 +280,17 @@ func detailedDiff(log logr.Logger, desired, current Conf, isFlat,
 	desiredToActual bool, ver string) (DynamicConfigMap, error) {
 	// Flatten if not flattened already.
 	if !isFlat {
-		desired = flattenConf(log, desired, sep)
-		current = flattenConf(log, current, sep)
+		var err error
+
+		desired, err = flattenConf(log, desired, sep)
+		if err != nil {
+			return nil, fmt.Errorf("failed to flatten desired config: %w", err)
+		}
+
+		current, err = flattenConf(log, current, sep)
+		if err != nil {
+			return nil, fmt.Errorf("failed to flatten current config: %w", err)
+		}
 	}
 
 	d := make(DynamicConfigMap)
@@ -381,6 +400,6 @@ func ConfDiff(
 //	diff = flatConf - flatDefConf
 func defaultDiff(
 	log logr.Logger, flatConf Conf, flatDefConf Conf,
-) map[string]interface{} {
+) (map[string]interface{}, error) {
 	return diff(log, flatConf, flatDefConf, true, true, false)
 }

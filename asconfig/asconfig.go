@@ -33,7 +33,10 @@ type ValidationErr struct {
 func NewMapAsConfig(
 	log logr.Logger, configMap map[string]interface{},
 ) (*AsConfig, error) {
-	baseConf := newMap(log, configMap)
+	baseConf, err := newMap(log, configMap)
+	if err != nil {
+		return nil, err
+	}
 
 	return &AsConfig{
 		log:      log,
@@ -42,7 +45,7 @@ func NewMapAsConfig(
 }
 
 // newMap converts passed in map[string]interface{} into Conf
-func newMap(log logr.Logger, configMap map[string]interface{}) Conf {
+func newMap(log logr.Logger, configMap map[string]interface{}) (Conf, error) {
 	return flattenConf(log, toConf(log, configMap), sep)
 }
 

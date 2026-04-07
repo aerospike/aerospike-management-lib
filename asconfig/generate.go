@@ -490,7 +490,12 @@ func (s *flattenConfStep) execute(conf Conf) error {
 
 	convertDictRespToConf(origConfig)
 
-	conf[flatConfKey] = flattenConf(s.log, conf[info.ConstConfigs].(Conf), sep)
+	flatConf, err := flattenConf(s.log, conf[info.ConstConfigs].(Conf), sep)
+	if err != nil {
+		return err
+	}
+
+	conf[flatConfKey] = flatConf
 
 	return nil
 }
