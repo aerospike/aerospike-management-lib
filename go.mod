@@ -1,6 +1,6 @@
 module github.com/aerospike/aerospike-management-lib
 
-go 1.25.7
+go 1.25.8
 
 require (
 	github.com/aerospike/aerospike-client-go/v8 v8.6.0
@@ -12,7 +12,7 @@ require (
 	github.com/xeipuuv/gojsonschema v1.2.0
 	go.uber.org/mock v0.6.0
 	gopkg.in/yaml.v3 v3.0.1
-	k8s.io/apimachinery v0.35.2
+	k8s.io/apimachinery v0.35.3
 )
 
 require (

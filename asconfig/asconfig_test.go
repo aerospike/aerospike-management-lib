@@ -626,6 +626,47 @@ func (s *AsConfigTestSuite) TestAsConfigGetExpandMap() {
 				},
 			},
 		},
+		{
+			// expandKey must assign a single-segment key (no dot) directly into
+			// the parent Conf. If it mistakenly runs processKey on the single
+			// key, processKey creates an intermediate Conf node, which causes
+			// the value to be wrapped: input["k"] = Conf{"k": val} instead of
+			// input["k"] = val.
+			"single-segment top-level scalar key",
+			map[string]interface{}{
+				"proto-fd-max": 15000,
+			},
+			Conf{
+				"proto-fd-max": 15000,
+			},
+		},
+		{
+			// SplitKey returns an empty slice for an empty string key, which
+			// previously caused a panic at keys[len(keys)-1]. expandKey must
+			// guard against this and silently skip the entry.
+			"empty string key does not panic",
+			map[string]interface{}{
+				"": 42,
+			},
+			Conf{},
+		},
+		{
+			// Verify that single-segment and multi-segment keys are both
+			// expanded correctly when they appear in the same flat map.
+			"mixed single-segment and multi-segment keys",
+			map[string]interface{}{
+				"proto-fd-max": 15000,
+				"service": map[string]interface{}{
+					"threads": 4,
+				},
+			},
+			Conf{
+				"proto-fd-max": 15000,
+				"service": Conf{
+					"threads": 4,
+				},
+			},
+		},
 	}
 
 	for _, tc := range testCases {
