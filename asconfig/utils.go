@@ -307,28 +307,23 @@ func SplitKey(log logr.Logger, key, sep string) []string {
 	return strings.FieldsFunc(key, f)
 }
 
-func expandKey(
-	log logr.Logger, input Conf, keys []string, val interface{},
-) bool {
-	if len(keys) == 1 {
-		return false
+func expandKey(log logr.Logger, input Conf, keys []string, val interface{}) {
+	if len(keys) == 0 {
+		log.Info("expandKey called with empty keys, skipping")
+
+		return
 	}
 
 	m := input
-	i := 0
 
-	for _, k := range keys {
+	// Traverse all segments except the last, creating intermediate Conf
+	// nodes as needed, then assign the value at the final segment.
+	// For a single-segment key, assign the value directly.
+	for _, k := range keys[:len(keys)-1] {
 		m = processKey(log, k, keys, m)
-		i++
-
-		if i == len(keys)-1 {
-			break
-		}
 	}
 
 	m[keys[len(keys)-1]] = val
-
-	return true
 }
 
 func processKey(log logr.Logger, k string, keys []string, m Conf) Conf {
