@@ -641,6 +641,16 @@ func (s *AsConfigTestSuite) TestAsConfigGetExpandMap() {
 			},
 		},
 		{
+			// SplitKey returns an empty slice for an empty string key, which
+			// previously caused a panic at keys[len(keys)-1]. expandKey must
+			// guard against this and silently skip the entry.
+			"empty string key does not panic",
+			map[string]interface{}{
+				"": 42,
+			},
+			Conf{},
+		},
+		{
 			// Verify that single-segment and multi-segment keys are both
 			// expanded correctly when they appear in the same flat map.
 			"mixed single-segment and multi-segment keys",

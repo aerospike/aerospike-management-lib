@@ -308,27 +308,21 @@ func SplitKey(log logr.Logger, key, sep string) []string {
 }
 
 func expandKey(log logr.Logger, input Conf, keys []string, val interface{}) {
-	m := input
-	i := 0
-
-	// For a single-segment key (no dots), skip the loop entirely.
-	// processKey always creates an intermediate Conf node, so running it on a
-	// single-segment key would wrap the scalar value inside a nested Conf
-	// (e.g. input["xyz"] = Conf{"xyz": true}) instead of assigning it directly
-	// (input["xyz"] = true). Skipping the loop leaves m pointing at input, and
-	// the assignment below sets the value at the correct level.
-	if len(keys) > 1 {
-		for _, k := range keys {
+	switch len(keys) {
+	case 0:
+		log.Info("expandKey called with empty keys, skipping")
+	case 1:
+		input[keys[0]] = val
+	default:
+		// Traverse all segments except the last, creating intermediate Conf
+		// nodes as needed, then assign the value at the final segment.
+		m := input
+		for _, k := range keys[:len(keys)-1] {
 			m = processKey(log, k, keys, m)
-			i++
-
-			if i == len(keys)-1 {
-				break
-			}
 		}
-	}
 
-	m[keys[len(keys)-1]] = val
+		m[keys[len(keys)-1]] = val
+	}
 }
 
 func processKey(log logr.Logger, k string, keys []string, m Conf) Conf {
