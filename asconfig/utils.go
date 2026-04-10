@@ -344,7 +344,7 @@ func processKey(log logr.Logger, k string, keys []string, m Conf) Conf {
 }
 
 // flattenConfList flatten list and save index for expandConf
-func flattenConfList(log logr.Logger, input []Conf, sep string) (Conf, error) {
+func flattenConfList(log logr.Logger, input []Conf, sectionName, sep string) (Conf, error) {
 	res := make(Conf, len(input))
 	keyIdx := 0
 
@@ -376,7 +376,7 @@ func flattenConfList(log logr.Logger, input []Conf, sep string) (Conf, error) {
 		name = string(SectionNameStartChar) + name + string(SectionNameEndChar)
 
 		if _, exists := res[name+sep+keyIndex]; exists {
-			return nil, fmt.Errorf("duplicate name %q in list section", getRawName(name))
+			return nil, fmt.Errorf("duplicate name %q in %s list section", getRawName(name), sectionName)
 		}
 
 		flatV, err := flattenConf(log, v, sep)
@@ -416,7 +416,7 @@ func flattenConf(log logr.Logger, input Conf, sep string) (Conf, error) {
 			}
 
 		case []Conf:
-			flatV, err := flattenConfList(log, v, sep)
+			flatV, err := flattenConfList(log, v, k, sep)
 			if err != nil {
 				return nil, err
 			}

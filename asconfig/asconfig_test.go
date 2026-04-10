@@ -38,8 +38,8 @@ func (s *AsConfigTestSuite) TestAsConfigGetFlatMap() {
 	testCases := []struct {
 		name        string
 		inputMap    map[string]interface{}
-		expected    *Conf  // nil for error cases
-		errContains string // non-empty when an error is expected
+		expected    *Conf    // nil for error cases
+		errContains []string // non-empty when an error is expected
 	}{
 		// --- success cases: verify the resulting flat map ---
 		{
@@ -94,7 +94,7 @@ func (s *AsConfigTestSuite) TestAsConfigGetFlatMap() {
 					{"name": "test", "replication-factor": 3},
 				},
 			},
-			errContains: "test",
+			errContains: []string{"test", "namespaces"},
 		},
 		{
 			// namespaces.sets is an array-of-object keyed by "name" in 8.x schema.
@@ -110,9 +110,8 @@ func (s *AsConfigTestSuite) TestAsConfigGetFlatMap() {
 					},
 				},
 			},
-			errContains: "setA",
+			errContains: []string{"setA", "sets"},
 		},
-
 		{
 			name: "duplicate TLS names",
 			inputMap: map[string]interface{}{
@@ -123,7 +122,7 @@ func (s *AsConfigTestSuite) TestAsConfigGetFlatMap() {
 					},
 				},
 			},
-			errContains: "abc",
+			errContains: []string{"abc", "tls"},
 		},
 		{
 			name: "duplicate XDR DC names",
@@ -135,7 +134,7 @@ func (s *AsConfigTestSuite) TestAsConfigGetFlatMap() {
 					},
 				},
 			},
-			errContains: "DC1",
+			errContains: []string{"DC1", "dcs"},
 		},
 		{
 			name: "duplicate logging sink names",
@@ -145,7 +144,7 @@ func (s *AsConfigTestSuite) TestAsConfigGetFlatMap() {
 					{"name": "/var/log/aerospike/aerospike.log"},
 				},
 			},
-			errContains: "/var/log/aerospike/aerospike.log",
+			errContains: []string{"/var/log/aerospike/aerospike.log", "logging"},
 		},
 		{
 			name: "duplicate namespace names within an XDR DC",
@@ -162,7 +161,7 @@ func (s *AsConfigTestSuite) TestAsConfigGetFlatMap() {
 					},
 				},
 			},
-			errContains: "ns1",
+			errContains: []string{"ns1", "namespaces"},
 		},
 	}
 
@@ -172,9 +171,13 @@ func (s *AsConfigTestSuite) TestAsConfigGetFlatMap() {
 
 			asConfig, err := NewMapAsConfig(logger, tc.inputMap)
 
-			if tc.errContains != "" {
+			if len(tc.errContains) > 0 {
 				s.Assert().Error(err)
-				s.Assert().ErrorContains(err, tc.errContains)
+
+				for _, substr := range tc.errContains {
+					s.Assert().ErrorContains(err, substr)
+				}
+
 				s.Assert().Nil(asConfig)
 			} else {
 				s.Assert().NoError(err)
