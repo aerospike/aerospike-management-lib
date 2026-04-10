@@ -344,7 +344,7 @@ func processKey(log logr.Logger, k string, keys []string, m Conf) Conf {
 }
 
 // flattenConfList flatten list and save index for expandConf
-func flattenConfList(log logr.Logger, input []Conf, sep string) Conf {
+func flattenConfList(log logr.Logger, input []Conf, sectionName, sep string) (Conf, error) {
 	res := make(Conf, len(input))
 	keyIdx := 0
 
@@ -375,7 +375,16 @@ func flattenConfList(log logr.Logger, input []Conf, sep string) Conf {
 		// but this solution will work for most of the cases and reduce most of the failure scenarios
 		name = string(SectionNameStartChar) + name + string(SectionNameEndChar)
 
-		for k2, v2 := range flattenConf(log, v, sep) {
+		if _, exists := res[name+sep+keyIndex]; exists {
+			return nil, fmt.Errorf("duplicate name %q in %s list section", getRawName(name), sectionName)
+		}
+
+		flatV, err := flattenConf(log, v, sep)
+		if err != nil {
+			return nil, err
+		}
+
+		for k2, v2 := range flatV {
 			res[name+sep+k2] = v2
 		}
 		// store index for expanding in correct order
@@ -383,11 +392,11 @@ func flattenConfList(log logr.Logger, input []Conf, sep string) Conf {
 		keyIdx++
 	}
 
-	return res
+	return res, nil
 }
 
 // flattenConf flatten Conf by creating new key by using sep
-func flattenConf(log logr.Logger, input Conf, sep string) Conf {
+func flattenConf(log logr.Logger, input Conf, sep string) (Conf, error) {
 	res := make(Conf, len(input))
 
 	for k, v := range input {
@@ -395,14 +404,24 @@ func flattenConf(log logr.Logger, input Conf, sep string) Conf {
 		case Conf:
 			if len(v) == 0 {
 				res[k] = v
-			}
+			} else {
+				flatV, err := flattenConf(log, v, sep)
+				if err != nil {
+					return nil, err
+				}
 
-			for k2, v2 := range flattenConf(log, v, sep) {
-				res[k+sep+k2] = v2
+				for k2, v2 := range flatV {
+					res[k+sep+k2] = v2
+				}
 			}
 
 		case []Conf:
-			for k2, v2 := range flattenConfList(log, v, sep) {
+			flatV, err := flattenConfList(log, v, k, sep)
+			if err != nil {
+				return nil, err
+			}
+
+			for k2, v2 := range flatV {
 				res[k+sep+k2] = v2
 			}
 
@@ -411,7 +430,7 @@ func flattenConf(log logr.Logger, input Conf, sep string) Conf {
 		}
 	}
 
-	return res
+	return res, nil
 }
 
 func BaseKey(k string) (baseKey string) {

@@ -36,13 +36,15 @@ func (s *AsConfigTestSuite) SetupTest() {
 
 func (s *AsConfigTestSuite) TestAsConfigGetFlatMap() {
 	testCases := []struct {
-		name     string
-		inputMap map[string]interface{}
-		expected *Conf
+		name        string
+		inputMap    map[string]interface{}
+		expected    *Conf    // nil for error cases
+		errContains []string // non-empty when an error is expected
 	}{
+		// --- success cases: verify the resulting flat map ---
 		{
-			"namespace context",
-			map[string]interface{}{
+			name: "namespace context",
+			inputMap: map[string]interface{}{
 				"namespaces": []map[string]interface{}{
 					{
 						"name": "test",
@@ -58,7 +60,7 @@ func (s *AsConfigTestSuite) TestAsConfigGetFlatMap() {
 					},
 				},
 			},
-			&Conf{
+			expected: &Conf{
 				"namespaces.{test}.<index>":             0,
 				"namespaces.{test}.name":                "test",
 				"namespaces.{test}.storage-engine.type": "memory",
@@ -67,6 +69,100 @@ func (s *AsConfigTestSuite) TestAsConfigGetFlatMap() {
 				"namespaces.{bar}.storage-engine.type":  "memory",
 			},
 		},
+		{
+			name: "valid config with unique names across all list sections",
+			inputMap: map[string]interface{}{
+				"namespaces": []map[string]interface{}{
+					{"name": "ns1", "replication-factor": 2},
+					{"name": "ns2", "replication-factor": 3},
+				},
+				"network": map[string]interface{}{
+					"tls": []map[string]interface{}{
+						{"name": "tls-fabric"},
+						{"name": "tls-service"},
+					},
+				},
+			},
+		},
+
+		// --- error cases: duplicate names in list sections ---
+		{
+			name: "duplicate namespace names",
+			inputMap: map[string]interface{}{
+				"namespaces": []map[string]interface{}{
+					{"name": "test", "replication-factor": 2},
+					{"name": "test", "replication-factor": 3},
+				},
+			},
+			errContains: []string{"test", "namespaces"},
+		},
+		{
+			// namespaces.sets is an array-of-object keyed by "name" in 8.x schema.
+			name: "duplicate set names within a namespace",
+			inputMap: map[string]interface{}{
+				"namespaces": []map[string]interface{}{
+					{
+						"name": "test",
+						"sets": []map[string]interface{}{
+							{"name": "setA", "disable-eviction": true},
+							{"name": "setA", "disable-eviction": false},
+						},
+					},
+				},
+			},
+			errContains: []string{"setA", "sets"},
+		},
+		{
+			name: "duplicate TLS names",
+			inputMap: map[string]interface{}{
+				"network": map[string]interface{}{
+					"tls": []map[string]interface{}{
+						{"name": "abc", "cert-file": "/etc/certs/cert.pem"},
+						{"name": "abc", "cert-file": "/etc/certs/cert2.pem"},
+					},
+				},
+			},
+			errContains: []string{"abc", "tls"},
+		},
+		{
+			name: "duplicate XDR DC names",
+			inputMap: map[string]interface{}{
+				"xdr": map[string]interface{}{
+					"dcs": []map[string]interface{}{
+						{"name": "DC1", "node-address-ports": "1.1.1.1 3000"},
+						{"name": "DC1", "node-address-ports": "2.2.2.2 3000"},
+					},
+				},
+			},
+			errContains: []string{"DC1", "dcs"},
+		},
+		{
+			name: "duplicate logging sink names",
+			inputMap: map[string]interface{}{
+				"logging": []map[string]interface{}{
+					{"name": "/var/log/aerospike/aerospike.log"},
+					{"name": "/var/log/aerospike/aerospike.log"},
+				},
+			},
+			errContains: []string{"/var/log/aerospike/aerospike.log", "logging"},
+		},
+		{
+			name: "duplicate namespace names within an XDR DC",
+			inputMap: map[string]interface{}{
+				"xdr": map[string]interface{}{
+					"dcs": []map[string]interface{}{
+						{
+							"name": "DC1",
+							"namespaces": []map[string]interface{}{
+								{"name": "ns1", "bin-policy": "all"},
+								{"name": "ns1", "bin-policy": "no-bins"},
+							},
+						},
+					},
+				},
+			},
+			errContains: []string{"ns1", "namespaces"},
+		},
 	}
 
 	for _, tc := range testCases {
@@ -74,10 +170,22 @@ func (s *AsConfigTestSuite) TestAsConfigGetFlatMap() {
 			logger := logr.Discard()
 
 			asConfig, err := NewMapAsConfig(logger, tc.inputMap)
-			actual := asConfig.GetFlatMap()
 
-			s.Assert().Nil(err)
-			s.Assert().Equal(tc.expected, actual)
+			if len(tc.errContains) > 0 {
+				s.Assert().Error(err)
+
+				for _, substr := range tc.errContains {
+					s.Assert().ErrorContains(err, substr)
+				}
+
+				s.Assert().Nil(asConfig)
+			} else {
+				s.Assert().NoError(err)
+
+				if tc.expected != nil {
+					s.Assert().Equal(tc.expected, asConfig.GetFlatMap())
+				}
+			}
 		})
 	}
 }
