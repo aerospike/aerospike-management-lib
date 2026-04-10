@@ -404,15 +404,15 @@ func flattenConf(log logr.Logger, input Conf, sep string) (Conf, error) {
 		case Conf:
 			if len(v) == 0 {
 				res[k] = v
-			}
+			} else {
+				flatV, err := flattenConf(log, v, sep)
+				if err != nil {
+					return nil, err
+				}
 
-			flatV, err := flattenConf(log, v, sep)
-			if err != nil {
-				return nil, err
-			}
-
-			for k2, v2 := range flatV {
-				res[k+sep+k2] = v2
+				for k2, v2 := range flatV {
+					res[k+sep+k2] = v2
+				}
 			}
 
 		case []Conf:
