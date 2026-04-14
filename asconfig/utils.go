@@ -407,7 +407,7 @@ func flattenConf(log logr.Logger, input Conf, sep string) (Conf, error) {
 			} else {
 				flatV, err := flattenConf(log, v, sep)
 				if err != nil {
-					return nil, err
+					return nil, fmt.Errorf("%s: %w", k, err)
 				}
 
 				for k2, v2 := range flatV {

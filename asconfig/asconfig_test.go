@@ -122,7 +122,7 @@ func (s *AsConfigTestSuite) TestAsConfigGetFlatMap() {
 					},
 				},
 			},
-			errContains: []string{"abc", "tls"},
+			errContains: []string{"network:", "abc", "tls"},
 		},
 		{
 			name: "duplicate XDR DC names",
@@ -134,7 +134,7 @@ func (s *AsConfigTestSuite) TestAsConfigGetFlatMap() {
 					},
 				},
 			},
-			errContains: []string{"DC1", "dcs"},
+			errContains: []string{"xdr:", "DC1", "dcs"},
 		},
 		{
 			name: "duplicate logging sink names",
@@ -161,7 +161,7 @@ func (s *AsConfigTestSuite) TestAsConfigGetFlatMap() {
 					},
 				},
 			},
-			errContains: []string{"ns1", "namespaces"},
+			errContains: []string{"xdr:", "ns1", "namespaces"},
 		},
 	}
 
