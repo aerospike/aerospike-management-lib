@@ -3,7 +3,7 @@ module github.com/aerospike/aerospike-management-lib
 go 1.25.8
 
 require (
-	github.com/aerospike/aerospike-client-go/v8 v8.6.0
+	github.com/aerospike/aerospike-client-go/v8 v8.7.0
 	github.com/deckarep/golang-set/v2 v2.8.0
 	github.com/docker/docker v28.5.2+incompatible
 	github.com/docker/go-connections v0.6.0
@@ -38,7 +38,7 @@ require (
 	github.com/x448/float16 v0.8.4 // indirect
 	github.com/xeipuuv/gojsonpointer v0.0.0-20190905194746-02993c407bfb // indirect
 	github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 // indirect
-	github.com/yuin/gopher-lua v1.1.1 // indirect
+	github.com/yuin/gopher-lua v1.1.2 // indirect
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.50.0 // indirect
 	go.opentelemetry.io/otel v1.37.0 // indirect
