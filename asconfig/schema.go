@@ -12,6 +12,7 @@ import (
 
 	sets "github.com/deckarep/golang-set/v2"
 	"github.com/go-logr/logr"
+	"github.com/xeipuuv/gojsonschema"
 
 	"github.com/aerospike/aerospike-management-lib/info"
 )
@@ -389,6 +390,50 @@ func eval(v interface{}) interface{} {
 	default:
 		return v
 	}
+}
+
+// ValidateConfig validates a raw config map against the JSON schema for the
+// given Aerospike server version. configMap is the unmarshalled YAML/JSON
+// config (e.g. from NewMapAsConfig). It returns true and nil slices/error on
+// success. On schema violations it returns false, a populated ValidationErr
+// slice, and ErrConfigSchema. On hard failures (unsupported version, JSON
+// encoding) it returns false, nil, and the underlying error.
+func ValidateConfig(configMap map[string]interface{}, ver string) (bool, []*ValidationErr, error) {
+	schema, err := getSchema(ver)
+	if err != nil {
+		return false, nil, fmt.Errorf("failed to get aerospike config schema for version %s: %w", ver, err)
+	}
+
+	configJSON, err := json.Marshal(configMap)
+	if err != nil {
+		return false, nil, fmt.Errorf("failed to marshal config to JSON: %w", err)
+	}
+
+	result, err := gojsonschema.Validate(
+		gojsonschema.NewStringLoader(schema),
+		gojsonschema.NewBytesLoader(configJSON),
+	)
+	if err != nil {
+		return false, nil, fmt.Errorf("JSON schema validation failed: %w", err)
+	}
+
+	if result.Valid() {
+		return true, nil, nil
+	}
+
+	vErrs := make([]*ValidationErr, 0, len(result.Errors()))
+
+	for _, desc := range result.Errors() {
+		vErrs = append(vErrs, &ValidationErr{
+			ErrType:     desc.Type(),
+			Context:     desc.Context().String(),
+			Description: desc.Description(),
+			Field:       desc.Field(),
+			Value:       desc.Value(),
+		})
+	}
+
+	return false, vErrs, ErrConfigSchema
 }
 
 func getFlatSchema(ver string) (map[string]interface{}, error) {
