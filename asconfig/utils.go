@@ -895,6 +895,14 @@ func handleValueType(log logr.Logger, key string, value interface{}, result Conf
 	case bool:
 		result[key] = convertBool(key, v)
 
+	case int:
+		// yaml.v3 decodes YAML integers as int (not int64/uint64).
+		if v < 0 {
+			result[key] = int64(v)
+		} else {
+			result[key] = uint64(v)
+		}
+
 	case int64:
 		if v < 0 {
 			result[key] = v
