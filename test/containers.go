@@ -11,11 +11,10 @@ import (
 	"time"
 
 	"github.com/aerospike/aerospike-client-go/v8"
-	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/image"
-	"github.com/docker/docker/api/types/mount"
-	"github.com/docker/docker/client"
-	"github.com/docker/go-connections/nat"
+	"github.com/moby/moby/api/types/container"
+	"github.com/moby/moby/api/types/mount"
+	"github.com/moby/moby/api/types/network"
+	"github.com/moby/moby/client"
 )
 
 var ClusterName = "mgmt-lib-test"
@@ -101,12 +100,12 @@ type Containers struct {
 var containers = &Containers{make(map[string]*AerospikeContainer), nil, ""}
 
 func Start(size int) error {
-	cli, _ := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	cli, _ := client.New(client.FromEnv)
 	ctx := context.Background()
 	containers.dockerCLI = cli
 	containers.workDir, _ = filepath.Abs(WordDirAbs)
 
-	reader, err := cli.ImagePull(ctx, Image, image.PullOptions{})
+	reader, err := cli.ImagePull(ctx, Image, client.ImagePullOptions{})
 	if err != nil {
 		log.Printf("Unable to pull aerospike image: %s", err)
 		return err
@@ -247,14 +246,14 @@ func waitForASDToStart(name string) error {
 	return nil
 }
 
-func getContainerIPFromNetworks(inspect container.InspectResponse) string {
-	if inspect.NetworkSettings == nil {
+func getContainerIPFromNetworks(inspect *container.InspectResponse) string {
+	if inspect == nil || inspect.NetworkSettings == nil {
 		return ""
 	}
 
 	for _, net := range inspect.NetworkSettings.Networks {
-		if net.IPAddress != "" {
-			return net.IPAddress
+		if net.IPAddress.IsValid() {
+			return net.IPAddress.String()
 		}
 	}
 
@@ -310,26 +309,24 @@ func RunAerospikeContainer(
 		Tty:      true,
 		// Uncomment if multi-node EE tests are needed
 		// Env:      []string{fmt.Sprintf("FEATURES=%s", featKey)},
-		ExposedPorts: nat.PortSet{
-			nat.Port(ports[0]): {},
-			nat.Port(ports[1]): {},
-			nat.Port(ports[2]): {},
-			nat.Port(ports[3]): {},
+		ExposedPorts: network.PortSet{
+			network.MustParsePort(ports[0]): {},
+			network.MustParsePort(ports[1]): {},
+			network.MustParsePort(ports[2]): {},
+			network.MustParsePort(ports[3]): {},
 		},
 	}
 
 	hostConfig := &container.HostConfig{
-		PortBindings: nat.PortMap{
-			nat.Port(ports[0]): []nat.PortBinding{{
-				HostPort: ports[0],
-			}}, nat.Port(ports[1]): []nat.PortBinding{{
-				HostPort: ports[1],
-			}}, nat.Port(ports[2]): []nat.PortBinding{{
-
-				HostPort: ports[2],
-			}}, nat.Port(ports[3]): []nat.PortBinding{{
-
-				HostPort: ports[3],
+		PortBindings: network.PortMap{
+			network.MustParsePort(ports[0]): []network.PortBinding{{
+				HostPort: network.MustParsePort(ports[0]).Port(),
+			}}, network.MustParsePort(ports[1]): []network.PortBinding{{
+				HostPort: network.MustParsePort(ports[1]).Port(),
+			}}, network.MustParsePort(ports[2]): []network.PortBinding{{
+				HostPort: network.MustParsePort(ports[2]).Port(),
+			}}, network.MustParsePort(ports[3]): []network.PortBinding{{
+				HostPort: network.MustParsePort(ports[3]).Port(),
 			}},
 		},
 		Mounts: []mount.Mount{
@@ -337,19 +334,20 @@ func RunAerospikeContainer(
 		},
 	}
 
-	if _, err = cli.ContainerCreate(ctx, &config, hostConfig, nil, nil, name); err != nil {
+	createOpts := client.ContainerCreateOptions{Config: &config, HostConfig: hostConfig, Name: name}
+	if _, err = cli.ContainerCreate(ctx, createOpts); err != nil {
 		log.Printf("Unable to create container %s: %s", name, err)
 		return nil, err
 	}
 
-	err = cli.ContainerStart(ctx, name, container.StartOptions{})
+	_, err = cli.ContainerStart(ctx, name, client.ContainerStartOptions{})
 	if err != nil {
 		log.Printf("Unable to start container %s: %s", name, err)
 		return nil, err
 	}
 
-	inspect, _ := cli.ContainerInspect(ctx, name)
-	containerIP := getContainerIPFromNetworks(inspect)
+	inspectResult, _ := cli.ContainerInspect(ctx, name, client.ContainerInspectOptions{})
+	containerIP := getContainerIPFromNetworks(&inspectResult.Container)
 
 	log.Printf("Started container %s with IP %s", name, containerIP)
 	log.Printf("Waiting for asd %s to start", name)
@@ -383,7 +381,7 @@ func RestartAerospikeContainer(name, confFileContents string) error {
 		}
 	}
 
-	err := cli.ContainerRestart(ctx, name, container.StopOptions{})
+	_, err := cli.ContainerRestart(ctx, name, client.ContainerRestartOptions{})
 	if err != nil {
 		log.Printf("Unable to restart container %s: %s", name, err)
 		return err
@@ -403,5 +401,7 @@ func RmAerospikeContainer(name string) error {
 	cli := containers.dockerCLI
 	ctx := context.Background()
 
-	return cli.ContainerRemove(ctx, name, container.RemoveOptions{Force: true})
+	_, err := cli.ContainerRemove(ctx, name, client.ContainerRemoveOptions{Force: true})
+
+	return err
 }
