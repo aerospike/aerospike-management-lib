@@ -187,6 +187,14 @@ func writeConf(log logr.Logger, tok []string, conf Conf) error {
 	// More special Case handling
 	switch cfgName {
 	case "context":
+		if len(tok) < 3 {
+			log.Error(ErrConfigParse, "Logging context requires a context name and a level",
+				"config", cfgName, "token", tok,
+			)
+
+			return ErrConfigParse
+		}
+
 		conf[tok[1]] = tok[2]
 
 	default:

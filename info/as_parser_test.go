@@ -626,6 +626,44 @@ func TestNewAsInfo_NotAuthenticatedError(t *testing.T) {
 	}
 }
 
+// TestRequestInfoLoginFailure ensures that a connection which failed to log in is
+// closed and dropped, so that a retry does not send commands over it unauthenticated.
+func TestRequestInfoLoginFailure(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	mockConnFact := NewMockConnectionFactory(ctrl)
+	mockConn := NewMockConnection(ctrl)
+	policy := &aero.ClientPolicy{User: "admin"}
+	host := &aero.Host{}
+	loginErr := &aero.AerospikeError{ResultCode: 62}
+
+	retries := 2
+	prevRetries := maxInfoRetries
+	maxInfoRetries = retries
+
+	defer func() { maxInfoRetries = prevRetries }()
+
+	// A new connection must be created and closed on every attempt. RequestInfo and
+	// IsConnected are not expected, calling either means the failed connection was reused.
+	mockConnFact.EXPECT().NewConnection(policy, host).Return(mockConn, nil).Times(retries)
+	mockConn.EXPECT().Login(policy).Return(loginErr).Times(retries)
+	mockConn.EXPECT().Close().Return().Times(retries)
+
+	asinfo := NewAsInfoWithConnFactory(logr.Discard(), host, policy, mockConnFact)
+
+	res, err := asinfo.RequestInfo("statistics")
+	if res != nil {
+		t.Errorf("Expected nil response, got %v", res)
+	}
+
+	if !errors.Is(err, loginErr) {
+		t.Errorf("Expected error %v, got %v", loginErr, err)
+	}
+
+	if asinfo.conn != nil {
+		t.Error("Expected the unauthenticated connection to be dropped")
+	}
+}
+
 func TestParseNodeList(t *testing.T) {
 	testCases := []struct {
 		name     string

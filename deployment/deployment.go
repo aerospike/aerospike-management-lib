@@ -49,6 +49,12 @@ func (asc *ASConn) RunInfo(
 	}
 	asinfo := info.NewAsInfo(asc.Log, &h, aerospikePolicy)
 
+	defer func() {
+		if err := asinfo.Close(); err != nil {
+			asc.Log.V(1).Info("Failed to close asinfo connection", "err", err)
+		}
+	}()
+
 	return asinfo.RequestInfo(command...)
 }
 

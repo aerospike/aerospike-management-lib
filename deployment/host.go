@@ -76,6 +76,10 @@ func (n *host) Build() (string, error) {
 
 // Close closes all the open connections of the host.
 func (n *host) Close() error {
+	if n.asConnInfo == nil {
+		return nil
+	}
+
 	if n.asConnInfo.asInfo != nil {
 		if err := n.asConnInfo.asInfo.Close(); err != nil {
 			return fmt.Errorf(

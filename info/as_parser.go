@@ -300,11 +300,16 @@ func (info *AsInfo) doInfo(commands ...string) (map[string]string, error) {
 
 		aerr := info.conn.Login(info.policy)
 		if aerr != nil {
+			// The connection is unauthenticated, it must not be reused for
+			// sending commands on a retry.
+			info.conn.Close()
+			info.conn = nil
+
 			ae := &aero.AerospikeError{}
-			if errors.As(err, &ae) {
+			if errors.As(aerr, &ae) {
 				return nil, fmt.Errorf(
-					"failed to authenticate user `%s` in aerospike server: %v",
-					info.policy.User, ae.ResultCode,
+					"failed to authenticate user `%s` in aerospike server, result code %v: %w",
+					info.policy.User, ae.ResultCode, aerr,
 				)
 			}
 
