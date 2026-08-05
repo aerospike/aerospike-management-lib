@@ -303,7 +303,6 @@ func (info *AsInfo) doInfo(commands ...string) (map[string]string, error) {
 			// The connection is unauthenticated, it must not be reused for
 			// sending commands on a retry.
 			info.conn.Close()
-			info.conn = nil
 
 			ae := &aero.AerospikeError{}
 			if errors.As(aerr, &ae) {

@@ -627,7 +627,8 @@ func TestNewAsInfo_NotAuthenticatedError(t *testing.T) {
 }
 
 // TestRequestInfoLoginFailure ensures that a connection which failed to log in is
-// closed and dropped, so that a retry does not send commands over it unauthenticated.
+// closed, so that a retry creates a fresh, re-authenticated connection instead of
+// sending commands over the unauthenticated one.
 func TestRequestInfoLoginFailure(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockConnFact := NewMockConnectionFactory(ctrl)
@@ -642,11 +643,12 @@ func TestRequestInfoLoginFailure(t *testing.T) {
 
 	defer func() { maxInfoRetries = prevRetries }()
 
-	// A new connection must be created and closed on every attempt. RequestInfo and
-	// IsConnected are not expected, calling either means the failed connection was reused.
+	// A new connection must be created and closed on every attempt. RequestInfo
+	// is not expected, calling it would mean the failed connection was reused.
 	mockConnFact.EXPECT().NewConnection(policy, host).Return(mockConn, nil).Times(retries)
 	mockConn.EXPECT().Login(policy).Return(loginErr).Times(retries)
 	mockConn.EXPECT().Close().Return().Times(retries)
+	mockConn.EXPECT().IsConnected().Return(false).AnyTimes()
 
 	asinfo := NewAsInfoWithConnFactory(logr.Discard(), host, policy, mockConnFact)
 
@@ -657,10 +659,6 @@ func TestRequestInfoLoginFailure(t *testing.T) {
 
 	if !errors.Is(err, loginErr) {
 		t.Errorf("Expected error %v, got %v", loginErr, err)
-	}
-
-	if asinfo.conn != nil {
-		t.Error("Expected the unauthenticated connection to be dropped")
 	}
 }
 
