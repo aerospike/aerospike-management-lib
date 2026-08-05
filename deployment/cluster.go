@@ -18,8 +18,7 @@ const CmdNamespaces = "namespaces"
 
 // cluster represents an aerospike cluster
 type cluster struct {
-	allHosts      map[string]*host // all cluster hosts
-	selectedHosts map[string]*host // hosts on which script will work
+	allHosts map[string]*host // all cluster hosts
 
 	log logr.Logger
 }
@@ -58,22 +57,17 @@ func getHosts(policy *aero.ClientPolicy, conns []*HostConn) (
 	return hosts, nil
 }
 
-// NewCluster returns a new cluster for the hosts
-func newCluster(log logr.Logger, policy *aero.ClientPolicy, allConns, operableConns []*HostConn) (*cluster, error) {
+// NewCluster returns a new cluster for the hosts.
+// The caller must call close() on the returned cluster to release its connections.
+func newCluster(log logr.Logger, policy *aero.ClientPolicy, allConns []*HostConn) (*cluster, error) {
 	allHosts, err := getHosts(policy, allConns)
 	if err != nil {
 		return nil, err
 	}
 
-	selectedHosts, err := getHosts(policy, operableConns)
-	if err != nil {
-		return nil, err
-	}
-
 	c := cluster{
-		allHosts:      allHosts,
-		selectedHosts: selectedHosts,
-		log:           log,
+		allHosts: allHosts,
+		log:      log,
 	}
 
 	return &c, nil
@@ -81,20 +75,26 @@ func newCluster(log logr.Logger, policy *aero.ClientPolicy, allConns, operableCo
 
 // close the aerospike client connections and the ssh connections.
 func (c *cluster) close() {
-	for _, nd := range c.allHosts {
-		if err := nd.Close(); err != nil {
-			c.log.V(1).Info(
-				"Failed to close node connections", "node", nd, "err", err,
-			)
-		}
-	}
+	closeHosts(c.log, c.allHosts)
+}
 
-	for _, nd := range c.selectedHosts {
-		if err := nd.Close(); err != nil {
-			c.log.V(1).Info(
-				"Failed to close node connections", "node", nd, "err", err,
-			)
-		}
+func closeHosts(log logr.Logger, hosts map[string]*host) {
+	for _, nd := range hosts {
+		closeHost(log, nd)
+	}
+}
+
+func closeHostList(log logr.Logger, hosts []*host) {
+	for _, nd := range hosts {
+		closeHost(log, nd)
+	}
+}
+
+func closeHost(log logr.Logger, nd *host) {
+	if err := nd.Close(); err != nil {
+		log.V(1).Info(
+			"Failed to close node connections", "node", nd, "err", err,
+		)
 	}
 }
 

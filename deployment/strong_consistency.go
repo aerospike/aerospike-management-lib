@@ -30,6 +30,8 @@ func ManageRoster(log logr.Logger, hostConns []*HostConn, policy *as.ClientPolic
 		return err
 	}
 
+	defer closeHostList(log, clHosts)
+
 	scNamespacesPerHost, isClusterSCEnabled, err := getSCNamespaces(clHosts)
 	if err != nil {
 		return err
@@ -143,6 +145,8 @@ func ValidateSCClusterState(log logr.Logger, hostConns []*HostConn, policy *as.C
 	if err != nil {
 		return err
 	}
+
+	defer closeHostList(log, clHosts)
 
 	scNamespacesPerHost, isClusterSCEnabled, err := getSCNamespaces(clHosts)
 	if err != nil {
