@@ -13,6 +13,45 @@ import (
 	lib "github.com/aerospike/aerospike-management-lib"
 )
 
+// Test fixture values shared across the table-driven tests below.
+const (
+	testBuild640 = "6.4.0.0"
+	testBuild811 = "8.1.1.0"
+	testBuild710 = "7.1.0.0"
+
+	testNSBar        = "bar"
+	testKeyNS        = "ns"
+	testValNone      = "none"
+	testValNull      = "null"
+	testValCritical  = "CRITICAL"
+	testInvalidInput = "invalid"
+
+	testEndpointA1  = "10.128.0.71:31207"
+	testEndpointA2  = "10.128.0.98:30352"
+	testEndpointA0  = "10.128.0.94:32354"
+	testEndpointTLS = "172.17.0.5:4333"
+	testEndpointStd = "172.17.0.5:3000"
+	testEndpointExt = "192.168.1.1:3000"
+
+	testNodeIDTLS  = "BB9050011AC4202"
+	testTLSNameVal = "clusternode"
+
+	testPeersEmptyStd = "20,3000,[]"
+	testPeersEmptyAlt = "11,3000,[]"
+	testPeersTwoNodes = "15,4333,[[BB9050011AC4202,clusternode,[172.17.0.5:4333]],[BB9050011AC4203,clusternode,[172.17.0.6:4333]]]"
+
+	cmdConfigNamespaceTest = "get-config:context=namespace;id=test"
+	respServiceConfig      = "advertise-ipv6=false;auto-pin=none;batch-index-threads=8;batch-max-buffers-per-queue=255;batch-max-unused-buffers=256"
+
+	testNameNonTLSStdEmpty = "non-TLS cluster - peers-tls-std empty (TLS not enabled)"
+	testNameNonTLSAltEmpty = "non-TLS cluster - peers-tls-alt empty (TLS not enabled)"
+	testNameMultiAddr      = "node with multiple addresses"
+
+	testNSName   = "test"
+	testRackKey  = "rack_0"
+	testNodeIDA1 = "A1"
+)
+
 type AsParserTestSuite struct {
 	suite.Suite
 	asinfo   *AsInfo
@@ -87,43 +126,43 @@ func (s *AsParserTestSuite) TestAsInfoGetAsConfig() {
 		expected     lib.Stats
 	}{
 		{
-			"service",
-			map[string]string{"build": "6.4.0.0"},
-			[]string{"get-config:context=service"},
-			map[string]string{"get-config:context=service": "advertise-ipv6=false;auto-pin=none;batch-index-threads=8;batch-max-buffers-per-queue=255;batch-max-unused-buffers=256"},
-			lib.Stats{"service": lib.Stats{"advertise-ipv6": false, "auto-pin": "none", "batch-index-threads": int64(8), "batch-max-buffers-per-queue": int64(255), "batch-max-unused-buffers": int64(256)}},
+			cmdMetaService,
+			map[string]string{cmdMetaBuild: testBuild640},
+			[]string{cmdConfigService},
+			map[string]string{cmdConfigService: respServiceConfig},
+			lib.Stats{cmdMetaService: lib.Stats{"advertise-ipv6": false, "auto-pin": testValNone, "batch-index-threads": int64(8), "batch-max-buffers-per-queue": int64(255), "batch-max-unused-buffers": int64(256)}},
 		},
 		{
 			"network",
-			map[string]string{"build": "6.4.0.0"},
+			map[string]string{cmdMetaBuild: testBuild640},
 			[]string{"get-config:context=network"},
 			map[string]string{"get-config:context=network": "service.access-port=0;service.address=any;service.alternate-access-port=0;service.port=3000"},
 			lib.Stats{"network": lib.Stats{"service.access-port": int64(0), "service.address": "any", "service.alternate-access-port": int64(0), "service.port": int64(3000)}},
 		},
 		{
-			"namespaces",
-			map[string]string{"build": "6.4.0.0", "namespaces": "test;bar"},
-			[]string{"get-config:context=namespace;id=test", "get-config:context=namespace;id=bar"},
-			map[string]string{"get-config:context=namespace;id=test": "allow-ttl-without-nsup=false;background-query-max-rps=10000;conflict-resolution-policy=generation;conflict-resolve-writes=false", "get-config:context=namespace;id=bar": "allow-ttl-without-nsup=true;background-query-max-rps=10000;conflict-resolution-policy=generation;conflict-resolve-writes=false"},
-			lib.Stats{"namespaces": lib.Stats{"test": lib.Stats{"allow-ttl-without-nsup": false, "background-query-max-rps": int64(10000), "conflict-resolution-policy": "generation", "conflict-resolve-writes": false}, "bar": lib.Stats{"allow-ttl-without-nsup": true, "background-query-max-rps": int64(10000), "conflict-resolution-policy": "generation", "conflict-resolve-writes": false}}},
+			ConfigNamespaceContext,
+			map[string]string{cmdMetaBuild: testBuild640, ConfigNamespaceContext: "test;bar"},
+			[]string{cmdConfigNamespaceTest, "get-config:context=namespace;id=bar"},
+			map[string]string{cmdConfigNamespaceTest: "allow-ttl-without-nsup=false;background-query-max-rps=10000;conflict-resolution-policy=generation;conflict-resolve-writes=false", "get-config:context=namespace;id=bar": "allow-ttl-without-nsup=true;background-query-max-rps=10000;conflict-resolution-policy=generation;conflict-resolve-writes=false"},
+			lib.Stats{ConfigNamespaceContext: lib.Stats{testNSName: lib.Stats{"allow-ttl-without-nsup": false, "background-query-max-rps": int64(10000), "conflict-resolution-policy": "generation", "conflict-resolve-writes": false}, testNSBar: lib.Stats{"allow-ttl-without-nsup": true, "background-query-max-rps": int64(10000), "conflict-resolution-policy": "generation", "conflict-resolve-writes": false}}},
 		},
 		{
-			"sets",
-			map[string]string{"build": "6.4.0.0", "namespaces": "test;bar"},
+			ConfigSetContext,
+			map[string]string{cmdMetaBuild: testBuild640, ConfigNamespaceContext: "test;bar"},
 			[]string{"sets/test", "sets/bar"},
 			map[string]string{"sets/test": "ns=test:set=testset:objects=1:tombstones=0:memory_data_bytes=311142:device_data_bytes=0:truncate_lut=0:sindexes=0:index_populating=false:truncating=false:disable-eviction=false:enable-index=false:stop-writes-count=1:stop-writes-size=1;", "sets/bar": "ns=test:set=testset:objects=2:tombstones=0:memory_data_bytes=311142:device_data_bytes=0:truncate_lut=0:sindexes=0:index_populating=false:truncating=false:disable-eviction=false:enable-index=false:stop-writes-count=2:stop-writes-size=2;"},
-			lib.Stats{"namespaces": lib.Stats{"test": lib.Stats{"sets": lib.Stats{"testset": lib.Stats{"disable-eviction": false, "enable-index": false, "stop-writes-count": int64(1), "stop-writes-size": int64(1)}}}, "bar": lib.Stats{"sets": lib.Stats{"testset": lib.Stats{"disable-eviction": false, "enable-index": false, "stop-writes-count": int64(2), "stop-writes-size": int64(2)}}}}},
+			lib.Stats{ConfigNamespaceContext: lib.Stats{testNSName: lib.Stats{ConfigSetContext: lib.Stats{"testset": lib.Stats{"disable-eviction": false, "enable-index": false, "stop-writes-count": int64(1), "stop-writes-size": int64(1)}}}, testNSBar: lib.Stats{ConfigSetContext: lib.Stats{"testset": lib.Stats{"disable-eviction": false, "enable-index": false, "stop-writes-count": int64(2), "stop-writes-size": int64(2)}}}}},
 		},
 		{
-			"dcs",
-			map[string]string{"build": "5.0.0.0", "dcs": "DC1;DC2"},
+			constStatDCNames,
+			map[string]string{cmdMetaBuild: "5.0.0.0", constStatDCNames: "DC1;DC2"},
 			nil,
 			nil,
 			lib.Stats{},
 		},
 		{
 			"security",
-			map[string]string{"build": "6.4.0.0"},
+			map[string]string{cmdMetaBuild: testBuild640},
 			[]string{"get-config:context=security"},
 			map[string]string{
 				"get-config:context=security": "enable-ldap=false;enable-security=true;ldap-login-threads=8;privilege-refresh-period=300;ldap.disable-tls=false;ldap.polling-period=300",
@@ -132,25 +171,25 @@ func (s *AsParserTestSuite) TestAsInfoGetAsConfig() {
 		},
 		{
 			"logging",
-			map[string]string{"build": "6.4.0.0", "logs": "0:/var/log/aerospike.log"},
+			map[string]string{cmdMetaBuild: testBuild640, "logs": "0:/var/log/aerospike.log"},
 			[]string{"log/0"},
 			map[string]string{
 				"log/0": "misc:CRITICAL;alloc:CRITICAL;arenax:CRITICAL;hardware:CRITICAL;msg:CRITICAL;rbuffer:CRITICAL;socket:CRITICAL;tls:CRITICAL;vmapx:CRITICAL",
 			},
 			lib.Stats{"logging": lib.Stats{
-				"/var/log/aerospike.log": lib.Stats{"misc": "CRITICAL", "alloc": "CRITICAL", "arenax": "CRITICAL", "hardware": "CRITICAL", "msg": "CRITICAL", "rbuffer": "CRITICAL", "socket": "CRITICAL", "tls": "CRITICAL", "vmapx": "CRITICAL"},
+				"/var/log/aerospike.log": lib.Stats{"misc": testValCritical, "alloc": testValCritical, "arenax": testValCritical, "hardware": testValCritical, "msg": testValCritical, "rbuffer": testValCritical, "socket": testValCritical, "tls": testValCritical, "vmapx": testValCritical},
 			}},
 		},
 		{
-			"racks",
-			map[string]string{"build": "6.4.0.0"},
-			[]string{"racks:"},
+			ConfigRacksContext,
+			map[string]string{cmdMetaBuild: testBuild640},
+			[]string{cmdConfigRacks},
 			map[string]string{
-				"racks:": "ns=test:rack_0=1B;ns=bar:rack_0=2B;",
+				cmdConfigRacks: "ns=test:rack_0=1B;ns=bar:rack_0=2B;",
 			},
-			lib.Stats{"racks": []lib.Stats{
-				{"ns": "test", "rack_0": "1B"},
-				{"ns": "bar", "rack_0": "2B"},
+			lib.Stats{ConfigRacksContext: []lib.Stats{
+				{testKeyNS: testNSName, testRackKey: "1B"},
+				{testKeyNS: testNSBar, testRackKey: "2B"},
 			}},
 		},
 		// Add more test cases here
@@ -175,8 +214,8 @@ func (s *AsParserTestSuite) TestAsInfoGetAsConfig() {
 }
 
 func (s *AsParserTestSuite) TestAsInfoGetAsConfigXDREnabled() {
-	context := "xdr"
-	coreInfoResp := map[string]string{"build": "6.4.0.0"}
+	context := ConfigXDRContext
+	coreInfoResp := map[string]string{cmdMetaBuild: testBuild640}
 
 	s.mockConn.EXPECT().RequestInfo(coreInfoCommandsAsAny()...).Return(coreInfoResp, nil)
 	s.mockConn.EXPECT().RequestInfo(cmdMetaEdition).Return(editionRespForCore, nil)
@@ -198,15 +237,15 @@ func (s *AsParserTestSuite) TestAsInfoGetAsConfigXDREnabled() {
 		},
 	)
 
-	expected := lib.Stats{"xdr": lib.Stats{
+	expected := lib.Stats{ConfigXDRContext: lib.Stats{
 		"src-id":       int64(0),
 		"trace-sample": int64(0),
-		"dcs": lib.Stats{
-			"DC1": lib.Stats{"auth-mode": "none", "auth-password-file": "null", "auth-user": "null", "connector": false, "max-recoveries-interleaved": int64(0), "node-address-port": "", "period-ms": int64(100), "tls-name": "null", "use-alternate-access-address": false, "namespaces": lib.Stats{
-				"test": lib.Stats{"enabled": true, "bin-policy": "all", "compression-level": int64(1), "compression-threshold": int64(128), "delay-ms": int64(0), "enable-compression": false, "forward": false, "hot-key-ms": int64(100), "ignored-bins": ""},
+		constStatDCNames: lib.Stats{
+			"DC1": lib.Stats{"auth-mode": testValNone, "auth-password-file": testValNull, "auth-user": testValNull, "connector": false, "max-recoveries-interleaved": int64(0), "node-address-port": "", "period-ms": int64(100), "tls-name": testValNull, "use-alternate-access-address": false, ConfigNamespaceContext: lib.Stats{
+				testNSName: lib.Stats{"enabled": true, "bin-policy": "all", "compression-level": int64(1), "compression-threshold": int64(128), "delay-ms": int64(0), "enable-compression": false, "forward": false, "hot-key-ms": int64(100), "ignored-bins": ""},
 			}},
-			"DC2": lib.Stats{"auth-mode": "none", "auth-password-file": "null", "auth-user": "null", "connector": false, "max-recoveries-interleaved": int64(0), "node-address-port": "", "period-ms": int64(100), "tls-name": "null", "use-alternate-access-address": false, "namespaces": lib.Stats{
-				"bar": lib.Stats{"enabled": true, "bin-policy": "all", "compression-level": int64(1), "compression-threshold": int64(128), "delay-ms": int64(0), "enable-compression": false, "forward": false, "hot-key-ms": int64(100), "ignored-bins": ""},
+			"DC2": lib.Stats{"auth-mode": testValNone, "auth-password-file": testValNull, "auth-user": testValNull, "connector": false, "max-recoveries-interleaved": int64(0), "node-address-port": "", "period-ms": int64(100), "tls-name": testValNull, "use-alternate-access-address": false, ConfigNamespaceContext: lib.Stats{
+				testNSBar: lib.Stats{"enabled": true, "bin-policy": "all", "compression-level": int64(1), "compression-threshold": int64(128), "delay-ms": int64(0), "enable-compression": false, "forward": false, "hot-key-ms": int64(100), "ignored-bins": ""},
 			}},
 		},
 	}}
@@ -218,17 +257,17 @@ func (s *AsParserTestSuite) TestAsInfoGetAsConfigXDREnabled() {
 }
 
 func (s *AsParserTestSuite) TestAsInfoGetAsConfigXDRDisabled() {
-	context := "xdr"
-	coreInfoResp := map[string]string{"build": "6.4.0.0"}
+	context := ConfigXDRContext
+	coreInfoResp := map[string]string{cmdMetaBuild: testBuild640}
 
 	s.mockConn.EXPECT().RequestInfo(coreInfoCommandsAsAny()...).Return(coreInfoResp, nil)
 	s.mockConn.EXPECT().RequestInfo(cmdMetaEdition).Return(editionRespForCore, nil)
 	s.mockConn.EXPECT().RequestInfo("get-config:context=xdr").Return(map[string]string{"get-config:context=xdr": "dcs=;src-id=0;trace-sample=0"}, nil)
 
-	expected := lib.Stats{"xdr": lib.Stats{
-		"src-id":       int64(0),
-		"trace-sample": int64(0),
-		"dcs":          lib.Stats{},
+	expected := lib.Stats{ConfigXDRContext: lib.Stats{
+		"src-id":         int64(0),
+		"trace-sample":   int64(0),
+		constStatDCNames: lib.Stats{},
 	}}
 	result, err := s.asinfo.GetAsConfig(context)
 
@@ -239,43 +278,43 @@ func (s *AsParserTestSuite) TestAsInfoGetAsConfigXDRDisabled() {
 // TestGetAsConfigBuild811OrAboveUsesRelease ensures that for build >= 8.1.1 we request
 // "release" (not "edition") in getCoreInfo and get edition from it.
 func (s *AsParserTestSuite) TestGetAsConfigBuild811OrAboveUsesRelease() {
-	coreInfoResp := map[string]string{"build": "8.1.1.0"}
-	serviceResp := map[string]string{"get-config:context=service": "advertise-ipv6=false;auto-pin=none;batch-index-threads=8;batch-max-buffers-per-queue=255;batch-max-unused-buffers=256"}
+	coreInfoResp := map[string]string{cmdMetaBuild: testBuild811}
+	serviceResp := map[string]string{cmdConfigService: respServiceConfig}
 
 	s.mockConn.EXPECT().RequestInfo(coreInfoCommandsAsAny()...).Return(coreInfoResp, nil)
 	s.mockConn.EXPECT().RequestInfo(cmdMetaRelease).Return(releaseRespForCore811, nil)
-	s.mockConn.EXPECT().RequestInfo("get-config:context=service").Return(serviceResp, nil)
+	s.mockConn.EXPECT().RequestInfo(cmdConfigService).Return(serviceResp, nil)
 
-	result, err := s.asinfo.GetAsConfig("service")
+	result, err := s.asinfo.GetAsConfig(cmdMetaService)
 	s.Require().NoError(err)
 	s.Require().NotNil(result)
-	s.Equal(lib.Stats{"service": lib.Stats{"advertise-ipv6": false, "auto-pin": "none", "batch-index-threads": int64(8), "batch-max-buffers-per-queue": int64(255), "batch-max-unused-buffers": int64(256)}}, result)
+	s.Equal(lib.Stats{cmdMetaService: lib.Stats{"advertise-ipv6": false, "auto-pin": testValNone, "batch-index-threads": int64(8), "batch-max-buffers-per-queue": int64(255), "batch-max-unused-buffers": int64(256)}}, result)
 }
 
 // TestGetAsConfigRacksBuild811 verifies that racks config works for build >= 8.1.1
 // where edition is derived from the release command (not the deprecated edition command).
 func (s *AsParserTestSuite) TestGetAsConfigRacksBuild811() {
-	coreInfoResp := map[string]string{"build": "8.1.1.0"}
+	coreInfoResp := map[string]string{cmdMetaBuild: testBuild811}
 
 	s.mockConn.EXPECT().RequestInfo(coreInfoCommandsAsAny()...).Return(coreInfoResp, nil)
 	s.mockConn.EXPECT().RequestInfo(cmdMetaRelease).Return(releaseRespForCore811, nil)
-	s.mockConn.EXPECT().RequestInfo("racks:").Return(map[string]string{
-		"racks:": "ns=test:rack_0=1B;ns=bar:rack_0=2B;",
+	s.mockConn.EXPECT().RequestInfo(cmdConfigRacks).Return(map[string]string{
+		cmdConfigRacks: "ns=test:rack_0=1B;ns=bar:rack_0=2B;",
 	}, nil)
 
-	result, err := s.asinfo.GetAsConfig("racks")
+	result, err := s.asinfo.GetAsConfig(ConfigRacksContext)
 	s.Require().NoError(err)
 	s.Require().NotNil(result)
-	s.Equal(lib.Stats{"racks": []lib.Stats{
-		{"ns": "test", "rack_0": "1B"},
-		{"ns": "bar", "rack_0": "2B"},
+	s.Equal(lib.Stats{ConfigRacksContext: []lib.Stats{
+		{testKeyNS: testNSName, testRackKey: "1B"},
+		{testKeyNS: testNSBar, testRackKey: "2B"},
 	}}, result)
 }
 
 // TestGetAsConfigRacksCommunityEdition811 verifies that racks config fails for
 // community edition on build >= 8.1.1 (edition from release).
 func (s *AsParserTestSuite) TestGetAsConfigRacksCommunityEdition811() {
-	coreInfoResp := map[string]string{"build": "8.1.1.0"}
+	coreInfoResp := map[string]string{cmdMetaBuild: testBuild811}
 	communityRelease := map[string]string{
 		cmdMetaRelease: "edition=Aerospike Community Edition;version=8.1.1.0;os=ubuntu24.04",
 	}
@@ -283,7 +322,7 @@ func (s *AsParserTestSuite) TestGetAsConfigRacksCommunityEdition811() {
 	s.mockConn.EXPECT().RequestInfo(coreInfoCommandsAsAny()...).Return(coreInfoResp, nil)
 	s.mockConn.EXPECT().RequestInfo(cmdMetaRelease).Return(communityRelease, nil)
 
-	_, err := s.asinfo.GetAsConfig("racks")
+	_, err := s.asinfo.GetAsConfig(ConfigRacksContext)
 	s.Require().Error(err)
 	s.Contains(err.Error(), "community edition")
 }
@@ -291,11 +330,11 @@ func (s *AsParserTestSuite) TestGetAsConfigRacksCommunityEdition811() {
 // TestGetAsInfoMetadataBuildBelow811 ensures metadata uses version, edition, build_os from
 // the deprecated info commands when build < 8.1.1 (we request them, not release).
 func (s *AsParserTestSuite) TestGetAsInfoMetadataBuildBelow811() {
-	coreInfoResp := map[string]string{"build": "6.4.0.0"}
+	coreInfoResp := map[string]string{cmdMetaBuild: testBuild640}
 	// Metadata batch for build < 8.1.1 includes version, build_os, edition. execute() merges m into rawMap, so rawMap will have build + edition from getCoreInfo. The third call returns the metadata commands; we supply version, build_os, edition in that response (node_id, build come from m merge).
 	metadataRaw := map[string]string{
 		cmdMetaNodeID:      "NODE_123",
-		cmdMetaBuild:       "6.4.0.0",
+		cmdMetaBuild:       testBuild640,
 		cmdMetaVersion:     "Aerospike Enterprise Edition build 6.4.0.0",
 		cmdMetaEdition:     "Aerospike Enterprise Edition",
 		cmdMetaBuildOS:     "ubuntu20.04",
@@ -311,7 +350,7 @@ func (s *AsParserTestSuite) TestGetAsInfoMetadataBuildBelow811() {
 
 	s.mockConn.EXPECT().RequestInfo(coreInfoCommandsAsAny()...).Return(coreInfoResp, nil)
 	s.mockConn.EXPECT().RequestInfo(cmdMetaEdition).Return(editionRespForCore, nil)
-	s.mockConn.EXPECT().RequestInfo(metaCmdListAsAny("6.4.0.0")...).DoAndReturn(func(_ ...string) (map[string]string, aero.Error) {
+	s.mockConn.EXPECT().RequestInfo(metaCmdListAsAny(testBuild640)...).DoAndReturn(func(_ ...string) (map[string]string, aero.Error) {
 		return metadataRaw, nil
 	})
 
@@ -320,7 +359,7 @@ func (s *AsParserTestSuite) TestGetAsInfoMetadataBuildBelow811() {
 	s.Require().NotNil(result)
 	meta, ok := result[ConstMetadata].(lib.Stats)
 	s.Require().True(ok, "metadata key present")
-	s.Equal("6.4.0.0", meta["asd_build"])
+	s.Equal(testBuild640, meta["asd_build"])
 	s.Equal("NODE_123", meta["node_id"])
 	s.Equal("Aerospike Enterprise Edition", meta["edition"])
 	s.Equal("Aerospike Enterprise Edition build 6.4.0.0", meta["version"])
@@ -330,12 +369,12 @@ func (s *AsParserTestSuite) TestGetAsInfoMetadataBuildBelow811() {
 // TestGetAsInfoMetadataBuild811OrAboveUsesRelease ensures metadata derives edition, version,
 // build_os from the "release" response when build >= 8.1.1 (we request release, not version/edition/build_os).
 func (s *AsParserTestSuite) TestGetAsInfoMetadataBuild811OrAboveUsesRelease() {
-	coreInfoResp := map[string]string{"build": "8.1.1.0"}
+	coreInfoResp := map[string]string{cmdMetaBuild: testBuild811}
 	releaseStr := "edition=Aerospike Enterprise Edition;version=8.1.1.0;os=ubuntu24.04"
 
 	metadataRaw := map[string]string{
 		cmdMetaNodeID:      "NODE_456",
-		cmdMetaBuild:       "8.1.1.0",
+		cmdMetaBuild:       testBuild811,
 		cmdMetaRelease:     releaseStr,
 		cmdMetaClusterName: "prod-cluster",
 	}
@@ -345,7 +384,7 @@ func (s *AsParserTestSuite) TestGetAsInfoMetadataBuild811OrAboveUsesRelease() {
 
 	s.mockConn.EXPECT().RequestInfo(coreInfoCommandsAsAny()...).Return(coreInfoResp, nil)
 	s.mockConn.EXPECT().RequestInfo(cmdMetaRelease).Return(releaseRespForCore811, nil)
-	s.mockConn.EXPECT().RequestInfo(metaCmdListAsAny("8.1.1.0")...).DoAndReturn(func(_ ...string) (map[string]string, aero.Error) {
+	s.mockConn.EXPECT().RequestInfo(metaCmdListAsAny(testBuild811)...).DoAndReturn(func(_ ...string) (map[string]string, aero.Error) {
 		return metadataRaw, nil
 	})
 
@@ -354,7 +393,7 @@ func (s *AsParserTestSuite) TestGetAsInfoMetadataBuild811OrAboveUsesRelease() {
 	s.Require().NotNil(result)
 	meta, ok := result[ConstMetadata].(lib.Stats)
 	s.Require().True(ok)
-	s.Equal("8.1.1.0", meta["asd_build"])
+	s.Equal(testBuild811, meta["asd_build"])
 	s.Equal("NODE_456", meta["node_id"])
 	s.Equal("Aerospike Enterprise Edition", meta["edition"])
 	s.Equal("Aerospike Enterprise Edition build 8.1.1.0", meta["version"])
@@ -363,20 +402,20 @@ func (s *AsParserTestSuite) TestGetAsInfoMetadataBuild811OrAboveUsesRelease() {
 	rel, ok := meta["release"].(lib.Stats)
 	s.Require().True(ok)
 	s.Equal("Aerospike Enterprise Edition", rel.TryString("edition", ""))
-	s.Equal("8.1.1.0", rel.TryString("version", ""))
+	s.Equal(testBuild811, rel.TryString("version", ""))
 	s.Equal("ubuntu24.04", rel.TryString("os", ""))
 }
 
 // TestGetAsConfigBuild811OrAboveReleaseEmptyFailsFast ensures we fail fast when build >= 8.1.1
 // but release response does not include edition metadata.
 func (s *AsParserTestSuite) TestGetAsConfigBuild811OrAboveReleaseEmptyFailsFast() {
-	coreInfoResp := map[string]string{"build": "8.1.1.0"}
+	coreInfoResp := map[string]string{cmdMetaBuild: testBuild811}
 	releaseEmpty := map[string]string{cmdMetaRelease: ""}
 
 	s.mockConn.EXPECT().RequestInfo(coreInfoCommandsAsAny()...).Return(coreInfoResp, nil)
 	s.mockConn.EXPECT().RequestInfo(cmdMetaRelease).Return(releaseEmpty, nil)
 
-	_, err := s.asinfo.GetAsConfig("service")
+	_, err := s.asinfo.GetAsConfig(cmdMetaService)
 	s.Require().Error(err)
 	s.Contains(err.Error(), "missing edition in release metadata")
 }
@@ -384,12 +423,12 @@ func (s *AsParserTestSuite) TestGetAsConfigBuild811OrAboveReleaseEmptyFailsFast(
 // TestGetAsConfigBuild811OrAboveReleaseRequestErrorFailsFast ensures we fail fast when
 // release metadata request itself fails for build >= 8.1.1.
 func (s *AsParserTestSuite) TestGetAsConfigBuild811OrAboveReleaseRequestErrorFailsFast() {
-	coreInfoResp := map[string]string{"build": "8.1.1.0"}
+	coreInfoResp := map[string]string{cmdMetaBuild: testBuild811}
 
 	s.mockConn.EXPECT().RequestInfo(coreInfoCommandsAsAny()...).Return(coreInfoResp, nil)
 	s.mockConn.EXPECT().RequestInfo(cmdMetaRelease).Return(nil, aero.ErrTimeout).MinTimes(1)
 
-	_, err := s.asinfo.GetAsConfig("service")
+	_, err := s.asinfo.GetAsConfig(cmdMetaService)
 	s.Require().Error(err)
 	s.Contains(err.Error(), "failed to fetch release metadata")
 }
@@ -397,12 +436,12 @@ func (s *AsParserTestSuite) TestGetAsConfigBuild811OrAboveReleaseRequestErrorFai
 // TestGetAsConfigBuildBelow811EditionRequestErrorFailsFast ensures we fail fast when
 // edition metadata request fails for build < 8.1.1.
 func (s *AsParserTestSuite) TestGetAsConfigBuildBelow811EditionRequestErrorFailsFast() {
-	coreInfoResp := map[string]string{"build": "6.4.0.0"}
+	coreInfoResp := map[string]string{cmdMetaBuild: testBuild640}
 
 	s.mockConn.EXPECT().RequestInfo(coreInfoCommandsAsAny()...).Return(coreInfoResp, nil)
 	s.mockConn.EXPECT().RequestInfo(cmdMetaEdition).Return(nil, aero.ErrTimeout).MinTimes(1)
 
-	_, err := s.asinfo.GetAsConfig("service")
+	_, err := s.asinfo.GetAsConfig(cmdMetaService)
 	s.Require().Error(err)
 	s.Contains(err.Error(), "failed to fetch edition metadata")
 }
@@ -410,12 +449,12 @@ func (s *AsParserTestSuite) TestGetAsConfigBuildBelow811EditionRequestErrorFails
 // TestGetAsConfigBuildBelow811EditionEmptyFailsFast ensures we fail fast when
 // edition metadata is empty for build < 8.1.1.
 func (s *AsParserTestSuite) TestGetAsConfigBuildBelow811EditionEmptyFailsFast() {
-	coreInfoResp := map[string]string{"build": "6.4.0.0"}
+	coreInfoResp := map[string]string{cmdMetaBuild: testBuild640}
 
 	s.mockConn.EXPECT().RequestInfo(coreInfoCommandsAsAny()...).Return(coreInfoResp, nil)
 	s.mockConn.EXPECT().RequestInfo(cmdMetaEdition).Return(map[string]string{cmdMetaEdition: " "}, nil)
 
-	_, err := s.asinfo.GetAsConfig("service")
+	_, err := s.asinfo.GetAsConfig(cmdMetaService)
 	s.Require().Error(err)
 	s.Contains(err.Error(), "missing edition metadata")
 }
@@ -423,17 +462,17 @@ func (s *AsParserTestSuite) TestGetAsConfigBuildBelow811EditionEmptyFailsFast() 
 // TestGetAsConfigBuildInvalidRequestsEdition ensures that when build is invalid/empty,
 // we still request "edition" (else branch) and don't panic.
 func (s *AsParserTestSuite) TestGetAsConfigBuildInvalidRequestsEdition() {
-	coreInfoResp := map[string]string{"build": ""} // empty build
-	serviceResp := map[string]string{"get-config:context=service": "advertise-ipv6=false;auto-pin=none;batch-index-threads=8;batch-max-buffers-per-queue=255;batch-max-unused-buffers=256"}
+	coreInfoResp := map[string]string{cmdMetaBuild: ""} // empty build
+	serviceResp := map[string]string{cmdConfigService: respServiceConfig}
 
 	s.mockConn.EXPECT().RequestInfo(coreInfoCommandsAsAny()...).Return(coreInfoResp, nil)
 	s.mockConn.EXPECT().RequestInfo(cmdMetaEdition).Return(editionRespForCore, nil)
-	s.mockConn.EXPECT().RequestInfo("get-config:context=service").Return(serviceResp, nil)
+	s.mockConn.EXPECT().RequestInfo(cmdConfigService).Return(serviceResp, nil)
 
-	result, err := s.asinfo.GetAsConfig("service")
+	result, err := s.asinfo.GetAsConfig(cmdMetaService)
 	s.Require().NoError(err)
 	s.Require().NotNil(result)
-	s.Contains(result, "service")
+	s.Contains(result, cmdMetaService)
 }
 
 // TestCreateMetaCmdList verifies that createMetaCmdList returns the correct command list
@@ -447,13 +486,13 @@ func (s *AsParserTestSuite) TestCreateMetaCmdList() {
 	}{
 		{
 			name:        "build below 8.1.1 uses deprecated commands",
-			build:       "6.4.0.0",
+			build:       testBuild640,
 			wantPresent: []string{cmdMetaNodeID, cmdMetaBuild, cmdMetaVersion, cmdMetaBuildOS, cmdMetaEdition, cmdMetaClusterName},
 			wantAbsent:  []string{cmdMetaRelease},
 		},
 		{
 			name:        "build 8.1.1 uses release",
-			build:       "8.1.1.0",
+			build:       testBuild811,
 			wantPresent: []string{cmdMetaNodeID, cmdMetaBuild, cmdMetaRelease, cmdMetaClusterName},
 			wantAbsent:  []string{cmdMetaVersion, cmdMetaBuildOS, cmdMetaEdition},
 		},
@@ -502,23 +541,23 @@ func (s *AsParserTestSuite) TestBuildValidation() {
 	}{
 		{
 			name:    "valid build",
-			resp:    map[string]string{"build": "7.1.0.0"},
-			want:    "7.1.0.0",
+			resp:    map[string]string{cmdMetaBuild: testBuild710},
+			want:    testBuild710,
 			wantErr: false,
 		},
 		{
 			name:    "empty build",
-			resp:    map[string]string{"build": ""},
+			resp:    map[string]string{cmdMetaBuild: ""},
 			wantErr: true,
 		},
 		{
 			name:    "error prefix lower",
-			resp:    map[string]string{"build": "error: something bad"},
+			resp:    map[string]string{cmdMetaBuild: "error: something bad"},
 			wantErr: true,
 		},
 		{
 			name:    "error prefix upper",
-			resp:    map[string]string{"build": "ERROR: something bad"},
+			resp:    map[string]string{cmdMetaBuild: "ERROR: something bad"},
 			wantErr: true,
 		},
 	}
@@ -548,21 +587,21 @@ func (s *AsParserTestSuite) TestNamespaceConfigCmd() {
 	}{
 		{
 			name:  "pre-7.2 uses id",
-			build: "7.1.0.0",
-			ns:    "test",
-			want:  "get-config:context=namespace;id=test",
+			build: testBuild710,
+			ns:    testNSName,
+			want:  cmdConfigNamespaceTest,
 		},
 		{
 			name:  "7.2 and above uses namespace",
 			build: "7.2.0.0",
-			ns:    "test",
+			ns:    testNSName,
 			want:  "get-config:context=namespace;namespace=test",
 		},
 		{
 			name:  "invalid build falls back to id",
 			build: "not-a-version",
-			ns:    "test",
-			want:  "get-config:context=namespace;id=test",
+			ns:    testNSName,
+			want:  cmdConfigNamespaceTest,
 		},
 	}
 
@@ -672,15 +711,15 @@ func TestParseNodeList(t *testing.T) {
 			name:  "multiple peers",
 			input: "[[A1,,[10.128.0.71:31207]],[A2,,[10.128.0.98:30352]]]",
 			expected: []NodeEndpoint{
-				{NodeID: "A1", TLSName: "", Endpoints: []string{"10.128.0.71:31207"}},
-				{NodeID: "A2", TLSName: "", Endpoints: []string{"10.128.0.98:30352"}},
+				{NodeID: testNodeIDA1, TLSName: "", Endpoints: []string{testEndpointA1}},
+				{NodeID: "A2", TLSName: "", Endpoints: []string{testEndpointA2}},
 			},
 		},
 		{
 			name:  "single peer",
 			input: "[[A0,,[10.128.0.94:32354]]]",
 			expected: []NodeEndpoint{
-				{NodeID: "A0", TLSName: "", Endpoints: []string{"10.128.0.94:32354"}},
+				{NodeID: "A0", TLSName: "", Endpoints: []string{testEndpointA0}},
 			},
 		},
 		{
@@ -690,7 +729,7 @@ func TestParseNodeList(t *testing.T) {
 		},
 		{
 			name:     "invalid - no brackets",
-			input:    "invalid",
+			input:    testInvalidInput,
 			expected: nil,
 		},
 	}
@@ -743,16 +782,16 @@ func TestParseNodeEndpointList_Endpoints(t *testing.T) {
 		{
 			name:     "non-TLS cluster - peers-clear-std with multiple nodes",
 			input:    "20,3000,[[A1,,[10.128.0.71:31207]],[A2,,[10.128.0.98:30352]],[A3,,[10.128.0.97:30256]],[A4,,[10.128.0.64:32136]]]",
-			expected: []string{"10.128.0.71:31207", "10.128.0.98:30352", "10.128.0.97:30256", "10.128.0.64:32136"},
+			expected: []string{testEndpointA1, testEndpointA2, "10.128.0.97:30256", "10.128.0.64:32136"},
 		},
 		{
-			name:     "non-TLS cluster - peers-tls-std empty (TLS not enabled)",
-			input:    "20,3000,[]",
+			name:     testNameNonTLSStdEmpty,
+			input:    testPeersEmptyStd,
 			expected: []string{},
 		},
 		{
-			name:     "non-TLS cluster - peers-tls-alt empty (TLS not enabled)",
-			input:    "11,3000,[]",
+			name:     testNameNonTLSAltEmpty,
+			input:    testPeersEmptyAlt,
 			expected: []string{},
 		},
 		{
@@ -773,8 +812,8 @@ func TestParseNodeEndpointList_Endpoints(t *testing.T) {
 		// TLS cluster scenarios
 		{
 			name:     "TLS cluster - peers-tls-std with tls-name",
-			input:    "15,4333,[[BB9050011AC4202,clusternode,[172.17.0.5:4333]],[BB9050011AC4203,clusternode,[172.17.0.6:4333]]]",
-			expected: []string{"172.17.0.5:4333", "172.17.0.6:4333"},
+			input:    testPeersTwoNodes,
+			expected: []string{testEndpointTLS, "172.17.0.6:4333"},
 		},
 		{
 			name:     "TLS cluster - peers-tls-alt with tls-name",
@@ -784,7 +823,7 @@ func TestParseNodeEndpointList_Endpoints(t *testing.T) {
 		{
 			name:     "TLS cluster - alumni-tls-std with tls-name",
 			input:    "10,4333,[[BB9050011AC4202,clusternode,[172.17.0.5:4333]]]",
-			expected: []string{"172.17.0.5:4333"},
+			expected: []string{testEndpointTLS},
 		},
 		{
 			name:     "TLS cluster - single node with tls-name",
@@ -795,17 +834,17 @@ func TestParseNodeEndpointList_Endpoints(t *testing.T) {
 		{
 			name:     "single node without tls-name",
 			input:    "8,3000,[[A0,,[10.128.0.94:32354]]]",
-			expected: []string{"10.128.0.94:32354"},
+			expected: []string{testEndpointA0},
 		},
 		{
-			name:     "node with multiple addresses",
+			name:     testNameMultiAddr,
 			input:    "10,3000,[[A0,,[10.128.0.94:32354,192.168.1.1:3000]]]",
-			expected: []string{"10.128.0.94:32354", "192.168.1.1:3000"},
+			expected: []string{testEndpointA0, testEndpointExt},
 		},
 		{
 			name:     "TLS node with multiple addresses",
 			input:    "10,4333,[[BB9050011AC4202,clusternode,[172.17.0.5:4333,172.17.0.5:3000]]]",
-			expected: []string{"172.17.0.5:4333", "172.17.0.5:3000"},
+			expected: []string{testEndpointTLS, testEndpointStd},
 		},
 		{
 			name:     "empty string",
@@ -814,7 +853,7 @@ func TestParseNodeEndpointList_Endpoints(t *testing.T) {
 		},
 		{
 			name:     "invalid - no bracket found",
-			input:    "invalid",
+			input:    testInvalidInput,
 			expected: []string{},
 		},
 		{
@@ -855,22 +894,22 @@ func TestParseNodeEntry(t *testing.T) {
 		{
 			name:     "standard entry with empty tls-name",
 			input:    "[A1,,[10.128.0.71:31207]]",
-			expected: NodeEndpoint{NodeID: "A1", TLSName: "", Endpoints: []string{"10.128.0.71:31207"}},
+			expected: NodeEndpoint{NodeID: testNodeIDA1, TLSName: "", Endpoints: []string{testEndpointA1}},
 		},
 		{
 			name:     "entry with tls-name",
 			input:    "[A1,my-tls,[10.128.0.71:31207]]",
-			expected: NodeEndpoint{NodeID: "A1", TLSName: "my-tls", Endpoints: []string{"10.128.0.71:31207"}},
+			expected: NodeEndpoint{NodeID: testNodeIDA1, TLSName: "my-tls", Endpoints: []string{testEndpointA1}},
 		},
 		{
 			name:     "entry with multiple addresses",
 			input:    "[A1,,[10.128.0.71:31207,192.168.1.1:3000]]",
-			expected: NodeEndpoint{NodeID: "A1", TLSName: "", Endpoints: []string{"10.128.0.71:31207", "192.168.1.1:3000"}},
+			expected: NodeEndpoint{NodeID: testNodeIDA1, TLSName: "", Endpoints: []string{testEndpointA1, testEndpointExt}},
 		},
 		{
 			name:     "empty addresses with inner brackets",
 			input:    "[A1,,[]]",
-			expected: NodeEndpoint{NodeID: "A1", TLSName: "", Endpoints: []string{}},
+			expected: NodeEndpoint{NodeID: testNodeIDA1, TLSName: "", Endpoints: []string{}},
 		},
 		{
 			name:     "malformed - no inner brackets for addresses",
@@ -924,20 +963,20 @@ func TestParseNodeEndpointList(t *testing.T) {
 			expectedGeneration: 20,
 			expectedPort:       3000,
 			expectedNodes: []NodeEndpoint{
-				{NodeID: "A1", TLSName: "", Endpoints: []string{"10.128.0.71:31207"}},
-				{NodeID: "A2", TLSName: "", Endpoints: []string{"10.128.0.98:30352"}},
+				{NodeID: testNodeIDA1, TLSName: "", Endpoints: []string{testEndpointA1}},
+				{NodeID: "A2", TLSName: "", Endpoints: []string{testEndpointA2}},
 			},
 		},
 		{
-			name:               "non-TLS cluster - peers-tls-std empty (TLS not enabled)",
-			input:              "20,3000,[]",
+			name:               testNameNonTLSStdEmpty,
+			input:              testPeersEmptyStd,
 			expectedGeneration: 20,
 			expectedPort:       3000,
 			expectedNodes:      []NodeEndpoint{},
 		},
 		{
-			name:               "non-TLS cluster - peers-tls-alt empty (TLS not enabled)",
-			input:              "11,3000,[]",
+			name:               testNameNonTLSAltEmpty,
+			input:              testPeersEmptyAlt,
 			expectedGeneration: 11,
 			expectedPort:       3000,
 			expectedNodes:      []NodeEndpoint{},
@@ -948,7 +987,7 @@ func TestParseNodeEndpointList(t *testing.T) {
 			expectedGeneration: 10,
 			expectedPort:       3000,
 			expectedNodes: []NodeEndpoint{
-				{NodeID: "BB9050011AC4202", TLSName: "", Endpoints: []string{"172.17.0.5:3000"}},
+				{NodeID: testNodeIDTLS, TLSName: "", Endpoints: []string{testEndpointStd}},
 			},
 		},
 
@@ -959,17 +998,17 @@ func TestParseNodeEndpointList(t *testing.T) {
 			expectedGeneration: 15,
 			expectedPort:       4333,
 			expectedNodes: []NodeEndpoint{
-				{NodeID: "BB9050011AC4202", TLSName: "clusternode", Endpoints: []string{"172.17.0.5:4333"}},
+				{NodeID: testNodeIDTLS, TLSName: testTLSNameVal, Endpoints: []string{testEndpointTLS}},
 			},
 		},
 		{
 			name:               "TLS cluster - peers-tls-std with multiple nodes",
-			input:              "15,4333,[[BB9050011AC4202,clusternode,[172.17.0.5:4333]],[BB9050011AC4203,clusternode,[172.17.0.6:4333]]]",
+			input:              testPeersTwoNodes,
 			expectedGeneration: 15,
 			expectedPort:       4333,
 			expectedNodes: []NodeEndpoint{
-				{NodeID: "BB9050011AC4202", TLSName: "clusternode", Endpoints: []string{"172.17.0.5:4333"}},
-				{NodeID: "BB9050011AC4203", TLSName: "clusternode", Endpoints: []string{"172.17.0.6:4333"}},
+				{NodeID: testNodeIDTLS, TLSName: testTLSNameVal, Endpoints: []string{testEndpointTLS}},
+				{NodeID: "BB9050011AC4203", TLSName: testTLSNameVal, Endpoints: []string{"172.17.0.6:4333"}},
 			},
 		},
 		{
@@ -978,18 +1017,18 @@ func TestParseNodeEndpointList(t *testing.T) {
 			expectedGeneration: 10,
 			expectedPort:       4333,
 			expectedNodes: []NodeEndpoint{
-				{NodeID: "BB9050011AC4202", TLSName: "my-tls", Endpoints: []string{"172.17.0.5:4333"}},
+				{NodeID: testNodeIDTLS, TLSName: "my-tls", Endpoints: []string{testEndpointTLS}},
 			},
 		},
 
 		// Mixed/Edge cases
 		{
-			name:               "node with multiple addresses",
+			name:               testNameMultiAddr,
 			input:              "5,3000,[[A0,,[10.128.0.94:32354,192.168.1.1:3000]]]",
 			expectedGeneration: 5,
 			expectedPort:       3000,
 			expectedNodes: []NodeEndpoint{
-				{NodeID: "A0", TLSName: "", Endpoints: []string{"10.128.0.94:32354", "192.168.1.1:3000"}},
+				{NodeID: "A0", TLSName: "", Endpoints: []string{testEndpointA0, testEndpointExt}},
 			},
 		},
 		{
@@ -998,7 +1037,7 @@ func TestParseNodeEndpointList(t *testing.T) {
 			expectedGeneration: 10,
 			expectedPort:       4333,
 			expectedNodes: []NodeEndpoint{
-				{NodeID: "BB9050011AC4202", TLSName: "clusternode", Endpoints: []string{"172.17.0.5:4333", "172.17.0.5:3000"}},
+				{NodeID: testNodeIDTLS, TLSName: testTLSNameVal, Endpoints: []string{testEndpointTLS, testEndpointStd}},
 			},
 		},
 		{
@@ -1010,7 +1049,7 @@ func TestParseNodeEndpointList(t *testing.T) {
 		},
 		{
 			name:               "invalid - malformed",
-			input:              "invalid",
+			input:              testInvalidInput,
 			expectedGeneration: 0,
 			expectedPort:       0,
 			expectedNodes:      []NodeEndpoint{},
@@ -1068,16 +1107,16 @@ func TestNodeEndpointListEndpoints(t *testing.T) {
 		{
 			name:     "multiple nodes",
 			input:    "20,3000,[[A1,,[10.128.0.71:31207]],[A2,,[10.128.0.98:30352]]]",
-			expected: []string{"10.128.0.71:31207", "10.128.0.98:30352"},
+			expected: []string{testEndpointA1, testEndpointA2},
 		},
 		{
-			name:     "node with multiple addresses",
+			name:     testNameMultiAddr,
 			input:    "5,3000,[[A0,,[10.128.0.94:32354,192.168.1.1:3000]]]",
-			expected: []string{"10.128.0.94:32354", "192.168.1.1:3000"},
+			expected: []string{testEndpointA0, testEndpointExt},
 		},
 		{
 			name:     "empty nodes",
-			input:    "20,3000,[]",
+			input:    testPeersEmptyStd,
 			expected: nil,
 		},
 	}
@@ -1125,18 +1164,18 @@ func TestParseNodeEndpointListAsStats(t *testing.T) {
 			expectedNodesCount:     4,
 		},
 		{
-			name:                   "non-TLS cluster - peers-tls-std empty (TLS not enabled)",
+			name:                   testNameNonTLSStdEmpty,
 			cmd:                    cmdMetaPeerTLSStd,
-			input:                  "20,3000,[]",
+			input:                  testPeersEmptyStd,
 			expectedGeneration:     20,
 			expectedPort:           3000,
 			expectedEndpointsCount: 0,
 			expectedNodesCount:     0,
 		},
 		{
-			name:                   "non-TLS cluster - peers-tls-alt empty (TLS not enabled)",
+			name:                   testNameNonTLSAltEmpty,
 			cmd:                    cmdMetaPeerTLSAlt,
-			input:                  "11,3000,[]",
+			input:                  testPeersEmptyAlt,
 			expectedGeneration:     11,
 			expectedPort:           3000,
 			expectedEndpointsCount: 0,
@@ -1145,7 +1184,7 @@ func TestParseNodeEndpointListAsStats(t *testing.T) {
 		{
 			name:                   "TLS cluster - peers-tls-std with data",
 			cmd:                    cmdMetaPeerTLSStd,
-			input:                  "15,4333,[[BB9050011AC4202,clusternode,[172.17.0.5:4333]],[BB9050011AC4203,clusternode,[172.17.0.6:4333]]]",
+			input:                  testPeersTwoNodes,
 			expectedGeneration:     15,
 			expectedPort:           4333,
 			expectedEndpointsCount: 2,
@@ -1195,23 +1234,23 @@ func TestParseNodeEndpointListAsStats(t *testing.T) {
 			}
 
 			// Check generation
-			if gen, ok := result["generation"].(int64); !ok || gen != int64(tc.expectedGeneration) {
-				t.Errorf("Expected generation %d, got %v", tc.expectedGeneration, result["generation"])
+			if gen, ok := result[statKeyGeneration].(int64); !ok || gen != int64(tc.expectedGeneration) {
+				t.Errorf("Expected generation %d, got %v", tc.expectedGeneration, result[statKeyGeneration])
 			}
 
 			// Check default_port
-			if port, ok := result["default_port"].(int64); !ok || port != int64(tc.expectedPort) {
-				t.Errorf("Expected default_port %d, got %v", tc.expectedPort, result["default_port"])
+			if port, ok := result[statKeyDefaultPort].(int64); !ok || port != int64(tc.expectedPort) {
+				t.Errorf("Expected default_port %d, got %v", tc.expectedPort, result[statKeyDefaultPort])
 			}
 
 			// Check endpoints count
-			endpoints, _ := result["endpoints"].([]string)
+			endpoints, _ := result[statKeyEndpoints].([]string)
 			if len(endpoints) != tc.expectedEndpointsCount {
 				t.Errorf("Expected %d endpoints, got %d", tc.expectedEndpointsCount, len(endpoints))
 			}
 
 			// Check nodes count
-			nodes, _ := result["nodes"].([]lib.Stats)
+			nodes, _ := result[statKeyNodes].([]lib.Stats)
 			if len(nodes) != tc.expectedNodesCount {
 				t.Errorf("Expected %d nodes, got %d", tc.expectedNodesCount, len(nodes))
 			}
@@ -1228,20 +1267,20 @@ func TestGetEndpointsFromStats(t *testing.T) {
 		{
 			name: "valid stats with endpoints",
 			input: lib.Stats{
-				"generation":   int64(20),
-				"default_port": int64(3000),
-				"endpoints":    []string{"10.128.0.71:31207", "10.128.0.98:30352"},
-				"nodes":        []lib.Stats{},
+				statKeyGeneration:  int64(20),
+				statKeyDefaultPort: int64(3000),
+				statKeyEndpoints:   []string{testEndpointA1, testEndpointA2},
+				statKeyNodes:       []lib.Stats{},
 			},
-			expected: []string{"10.128.0.71:31207", "10.128.0.98:30352"},
+			expected: []string{testEndpointA1, testEndpointA2},
 		},
 		{
 			name: "stats with empty endpoints (non-TLS cluster querying TLS endpoint)",
 			input: lib.Stats{
-				"generation":   int64(20),
-				"default_port": int64(3000),
-				"endpoints":    []string{},
-				"nodes":        []lib.Stats{},
+				statKeyGeneration:  int64(20),
+				statKeyDefaultPort: int64(3000),
+				statKeyEndpoints:   []string{},
+				statKeyNodes:       []lib.Stats{},
 			},
 			expected: []string{},
 		},
@@ -1263,7 +1302,7 @@ func TestGetEndpointsFromStats(t *testing.T) {
 		{
 			name: "endpoints is wrong type",
 			input: lib.Stats{
-				"endpoints": "not a slice",
+				statKeyEndpoints: "not a slice",
 			},
 			expected: []string{},
 		},
@@ -1297,7 +1336,7 @@ func TestParseNodeEndpointListAsStats_NodeDetails(t *testing.T) {
 	rawMap := map[string]string{cmdMetaPeerTLSStd: input}
 	result := parseNodeEndpointListAsStats(rawMap, cmdMetaPeerTLSStd)
 
-	nodes, ok := result["nodes"].([]lib.Stats)
+	nodes, ok := result[statKeyNodes].([]lib.Stats)
 	if !ok {
 		t.Fatal("Expected nodes to be []lib.Stats")
 	}
@@ -1308,22 +1347,22 @@ func TestParseNodeEndpointListAsStats_NodeDetails(t *testing.T) {
 
 	// Check first node (TLS enabled)
 	node1 := nodes[0]
-	if node1["node_id"] != "BB9050011AC4202" {
+	if node1["node_id"] != testNodeIDTLS {
 		t.Errorf("Node 1: expected node_id 'BB9050011AC4202', got %q", node1["node_id"])
 	}
 
-	if node1["tls_name"] != "clusternode" {
+	if node1["tls_name"] != testTLSNameVal {
 		t.Errorf("Node 1: expected tls_name 'clusternode', got %q", node1["tls_name"])
 	}
 
-	endpoints1, _ := node1["endpoints"].([]string)
+	endpoints1, _ := node1[statKeyEndpoints].([]string)
 	if len(endpoints1) != 2 {
 		t.Errorf("Node 1: expected 2 endpoints, got %d", len(endpoints1))
 	}
 
 	// Check second node (no TLS)
 	node2 := nodes[1]
-	if node2["node_id"] != "A1" {
+	if node2["node_id"] != testNodeIDA1 {
 		t.Errorf("Node 2: expected node_id 'A1', got %q", node2["node_id"])
 	}
 
@@ -1331,7 +1370,7 @@ func TestParseNodeEndpointListAsStats_NodeDetails(t *testing.T) {
 		t.Errorf("Node 2: expected empty tls_name, got %q", node2["tls_name"])
 	}
 
-	endpoints2, _ := node2["endpoints"].([]string)
+	endpoints2, _ := node2[statKeyEndpoints].([]string)
 	if len(endpoints2) != 1 {
 		t.Errorf("Node 2: expected 1 endpoint, got %d", len(endpoints2))
 	}

@@ -1,6 +1,6 @@
 version: "2"
 run:
-  go: "1.25"
+  go: "1.26"
   issues-exit-code: 1
 linters:
   default: none
@@ -66,9 +66,11 @@ linters:
         path: info/as_parser_test\.go
       - linters:
           - dupl
+          - goconst
         path: asconfig/generate_test\.go
       - linters:
           - dupl
+          - goconst
         path: asconfig/asconfig_test\.go
       - linters:
           - govet

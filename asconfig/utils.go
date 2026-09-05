@@ -570,14 +570,14 @@ func isListField(key string) (exists bool, separator string) {
 	switch bKey {
 	// TODO: Device with shadow device is not reported by server
 	// yet in runtime making it colon separated for now.
-	case "mesh-seed-address-port", "tls-mesh-seed-address-port",
+	case keyMeshSeedAddressPort, keyTLSMeshSeedAddressPort,
 		keyDevice, keyReportDataOp, "node-address-port", keyFeatureKeyFile:
 		return true, colon
 
 	case keyFile, keyAddress, keyTLSAddress, keyAccessAddress, "mount",
 		keyTLSAccessAddress, keyAlternateAccessAddress, keyTLSAlternateAccessAddress,
 		"role-query-pattern", "multicast-group", keyTLSAuthenticateClient,
-		"report-data-op-user", "report-data-op-role":
+		keyReportDataOpUser, keyReportDataOpRole:
 		return true, ""
 
 	default:
@@ -621,7 +621,7 @@ func isListSection(section string) bool {
 	section = SingularOf(section)
 
 	switch section {
-	case keyNamespace, "dc", keySet, "tls", keyFile:
+	case keyNamespace, "dc", keySet, keyTLS, keyFile:
 		return true
 
 	default:
@@ -724,7 +724,7 @@ func isNodeSpecificField(key string) bool {
 		keyNodeID, keyAddress, "port", keyAccessAddress, "access-port",
 		keyAlternateAccessAddress, keyTLSAddress, "tls-port", keyTLSAccessAddress,
 		"tls-access-port", keyTLSAlternateAccessAddress, "tls-alternate-access-port",
-		"alternate-access-port", "mesh-seed-address-port", "tls-mesh-seed-address-port":
+		"alternate-access-port", keyMeshSeedAddressPort, keyTLSMeshSeedAddressPort:
 		return true
 	}
 

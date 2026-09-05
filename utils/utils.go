@@ -1,4 +1,4 @@
-package utils //nolint:revive // utils is an acceptable package name for utility functions
+package utils
 
 // TODO derive these from the schema file
 func IsStringField(key string) bool {

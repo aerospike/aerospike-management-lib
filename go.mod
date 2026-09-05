@@ -1,6 +1,6 @@
 module github.com/aerospike/aerospike-management-lib
 
-go 1.25.12
+go 1.26.8
 
 require (
 	github.com/aerospike/aerospike-client-go/v8 v8.7.0

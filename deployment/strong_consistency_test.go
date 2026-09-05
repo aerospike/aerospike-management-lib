@@ -17,6 +17,10 @@ const (
 	testBuild710 = "7.1.0.0"
 	nodeInfoCmd  = "node"
 	testNS       = "test"
+	testHostID   = "h1"
+
+	scEnabledResp  = "strong-consistency=true"
+	scDisabledResp = "strong-consistency=false"
 )
 
 type StrongConsistencyTestSuite struct {
@@ -50,7 +54,7 @@ func (s *StrongConsistencyTestSuite) SetupTest() {
 			aerospikePolicy: policy,
 			asInfo:          s.asinfo,
 		},
-		id: "h1",
+		id: testHostID,
 	}
 }
 
@@ -59,7 +63,7 @@ func (s *StrongConsistencyTestSuite) SetupTest() {
 func (s *StrongConsistencyTestSuite) newTestHost() *host {
 	return &host{
 		log: logr.Discard(),
-		id:  "h1",
+		id:  testHostID,
 		asConnInfo: &asConnInfo{
 			aerospikePolicy: &aero.ClientPolicy{},
 			asInfo:          s.asinfo,
@@ -72,7 +76,7 @@ func (s *StrongConsistencyTestSuite) TestIsNamespaceSCEnabledTrue() {
 	h := s.newTestHost()
 	cmd := info.NamespaceConfigCmd(testNS, testBuild710)
 
-	s.mockConn.EXPECT().RequestInfo(cmd).Return(map[string]string{cmd: "strong-consistency=true"}, nil)
+	s.mockConn.EXPECT().RequestInfo(cmd).Return(map[string]string{cmd: scEnabledResp}, nil)
 
 	isSC, err := isNamespaceSCEnabled(h, testNS)
 	s.NoError(err)
@@ -83,7 +87,7 @@ func (s *StrongConsistencyTestSuite) TestIsNamespaceSCEnabledFalse() {
 	h := s.newTestHost()
 	cmd := info.NamespaceConfigCmd(testNS, testBuild710)
 
-	s.mockConn.EXPECT().RequestInfo(cmd).Return(map[string]string{cmd: "strong-consistency=false"}, nil)
+	s.mockConn.EXPECT().RequestInfo(cmd).Return(map[string]string{cmd: scDisabledResp}, nil)
 
 	isSC, err := isNamespaceSCEnabled(h, testNS)
 	s.NoError(err)
@@ -119,8 +123,8 @@ func (s *StrongConsistencyTestSuite) TestGetSCNamespacesCachesBuild() {
 	// Build is cached via sync.OnceValues, so no "build" command expected here
 	gomock.InOrder(
 		s.mockConn.EXPECT().RequestInfo(nsCmd).Return(map[string]string{nsCmd: "test;bar"}, nil),
-		s.mockConn.EXPECT().RequestInfo(cmdTest).Return(map[string]string{cmdTest: "strong-consistency=true"}, nil),
-		s.mockConn.EXPECT().RequestInfo(cmdBar).Return(map[string]string{cmdBar: "strong-consistency=false"}, nil),
+		s.mockConn.EXPECT().RequestInfo(cmdTest).Return(map[string]string{cmdTest: scEnabledResp}, nil),
+		s.mockConn.EXPECT().RequestInfo(cmdBar).Return(map[string]string{cmdBar: scDisabledResp}, nil),
 	)
 
 	res, clusterSC, err := getSCNamespaces([]*host{h})
@@ -137,7 +141,7 @@ func (s *StrongConsistencyTestSuite) TestGetSCNamespacesBuildError() {
 			aerospikePolicy: &aero.ClientPolicy{},
 			asInfo:          s.asinfo,
 		},
-		id:    "h1",
+		id:    testHostID,
 		build: sync.OnceValues(func() (string, error) { return s.asinfo.Build() }),
 	}
 
@@ -166,7 +170,7 @@ func (s *StrongConsistencyTestSuite) TestSkipInfoQuiesceCheck_SCEnabledNotInRost
 	rosterCmd := "roster:namespace=test"
 
 	gomock.InOrder(
-		s.mockConn.EXPECT().RequestInfo(nsCmd).Return(map[string]string{nsCmd: "strong-consistency=true"}, nil),
+		s.mockConn.EXPECT().RequestInfo(nsCmd).Return(map[string]string{nsCmd: scEnabledResp}, nil),
 		s.mockConn.EXPECT().RequestInfo(nodeInfoCmd).Return(map[string]string{nodeInfoCmd: "N1"}, nil),
 		s.mockConn.EXPECT().RequestInfo(rosterCmd).Return(
 			map[string]string{rosterCmd: "roster=N2@1;observed_nodes=N1@1"},
@@ -185,7 +189,7 @@ func (s *StrongConsistencyTestSuite) TestSkipInfoQuiesceCheck_SCEnabledInRoster(
 	rosterCmd := "roster:namespace=test"
 
 	gomock.InOrder(
-		s.mockConn.EXPECT().RequestInfo(nsCmd).Return(map[string]string{nsCmd: "strong-consistency=true"}, nil),
+		s.mockConn.EXPECT().RequestInfo(nsCmd).Return(map[string]string{nsCmd: scEnabledResp}, nil),
 		s.mockConn.EXPECT().RequestInfo(nodeInfoCmd).Return(map[string]string{nodeInfoCmd: "N1"}, nil),
 		s.mockConn.EXPECT().RequestInfo(rosterCmd).Return(
 			map[string]string{rosterCmd: "roster=N1@1;observed_nodes=N1@1"},
@@ -202,7 +206,7 @@ func (s *StrongConsistencyTestSuite) TestSkipInfoQuiesceCheck_SCDisabled() {
 	h := s.newTestHost()
 	nsCmd := info.NamespaceConfigCmd(testNS, testBuild710)
 
-	s.mockConn.EXPECT().RequestInfo(nsCmd).Return(map[string]string{nsCmd: "strong-consistency=false"}, nil)
+	s.mockConn.EXPECT().RequestInfo(nsCmd).Return(map[string]string{nsCmd: scDisabledResp}, nil)
 
 	skip, err := (&cluster{log: logr.Discard()}).skipInfoQuiesceCheck(h, testNS, map[string]bool{})
 	s.NoError(err)
