@@ -33,7 +33,8 @@ func InfoQuiesce(log logr.Logger, policy *aero.ClientPolicy, allHosts, selectedH
 	return c.InfoQuiesce(getHostIDsFromHostConns(selectedHosts), getHostIDsFromHostConns(allHosts), removedNamespaces)
 }
 
-// InfoQuiesceUndo revert the effects of quiesce on the next recluster event
+// InfoQuiesceUndo reverts the effects of quiesce on the next recluster event
+// for all hosts in allHosts.
 func InfoQuiesceUndo(log logr.Logger, policy *aero.ClientPolicy, allHosts []*HostConn) error {
 	c, err := newCluster(log, policy, allHosts)
 	if err != nil {
@@ -43,6 +44,34 @@ func InfoQuiesceUndo(log logr.Logger, policy *aero.ClientPolicy, allHosts []*Hos
 	defer c.close()
 
 	return c.InfoQuiesceUndo(getHostIDsFromHostConns(allHosts))
+}
+
+// InfoQuiesceUndoSubset reverts the effects of quiesce only on undoHosts (a
+// subset of the cluster) while using allHosts to build the full cluster view.
+//
+// The distinction from InfoQuiesceUndo:
+//   - pending_quiesce is only checked and cleared on undoHosts — other nodes
+//     (e.g. scale-down targets that are intentionally quiesced) are not touched.
+//   - The internal InfoRecluster call uses all hosts in the cluster object
+//     (built from allHosts) so the principal node is always reachable, even
+//     when undoHosts is a subset that does not include it.
+//
+// Use this when you want selective quiesce-undo without disturbing nodes that
+// should remain quiesced.
+func InfoQuiesceUndoSubset(
+	log logr.Logger, policy *aero.ClientPolicy,
+	undoHosts, allHosts []*HostConn,
+) error {
+	c, err := newCluster(log, policy, allHosts)
+	if err != nil {
+		return fmt.Errorf("unable to create a cluster copy for running aeroinfo: %v", err)
+	}
+
+	defer c.close()
+
+	// Only scan and undo quiesce on undoHosts; InfoRecluster inside
+	// c.InfoQuiesceUndo will use c.allHostIDs() (= allHosts) automatically.
+	return c.InfoQuiesceUndo(getHostIDsFromHostConns(undoHosts))
 }
 
 // InfoRecluster recluster hosts.
