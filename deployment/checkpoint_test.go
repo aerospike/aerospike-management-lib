@@ -1,6 +1,9 @@
 package deployment
 
-import "testing"
+import (
+	"errors"
+	"testing"
+)
 
 // TestClassifyCheckpointSaveResponse covers every reply the server produces for
 // checkpoint-save, plus the no-response case.
@@ -40,9 +43,17 @@ func TestClassifyCheckpointSaveResponse(t *testing.T) {
 		{
 			// Retrying cannot change this, so it must not classify as a rejection —
 			// a caller that retries a rejection would spin forever.
-			name:     "no namespace on this node is checkpointing",
-			resp:     "ERROR:4:no namespace is checkpointing - the global 'index-checkpoint-path' is unset",
+			name:     "the feature is not configured on this node",
+			resp:     "ERROR:4:'index-checkpoint-path' is not configured",
 			expected: CheckpointSaveNothingToDo,
+		},
+		{
+			// A configured node whose namespaces have ALL opted out does not refuse: it
+			// accepts, parks, and copies nothing. Classifying it as NothingToDo would
+			// leave a node parked out of the cluster with nobody coming to reap it.
+			name:     "configured but every namespace opted out - accepts and parks",
+			resp:     "ok",
+			expected: CheckpointSaveTriggered,
 		},
 		{
 			name:     "malformed timeout parameter",
@@ -78,78 +89,138 @@ func TestClassifyCheckpointSaveResponse(t *testing.T) {
 
 func TestParseCheckpointStatus(t *testing.T) {
 	tests := []struct {
-		expected  map[string]CheckpointNamespaceStatus
-		name      string
-		resp      string
-		expectErr bool
+		expectedNSs         map[string]CheckpointNamespaceStatus
+		name                string
+		resp                string
+		expectedMS          int64
+		expectErr           bool
+		expectNotConfigured bool
+		expectedParked      bool
 	}{
 		{
-			name: "two namespaces, mixed states",
-			resp: "ns1:state=done:files=42/42;ns2:state=copying:files=20/42",
-			expected: map[string]CheckpointNamespaceStatus{
-				"ns1": {State: CheckpointStateDone, FilesDone: 42, FilesTotal: 42},
-				"ns2": {State: CheckpointStateCopying, FilesDone: 20, FilesTotal: 42},
+			name: "two namespaces, one saved and one still copying",
+			resp: "ns1:state=done:files_completed=42:files_total=42:is_parked=false:park_ms=0;" +
+				"ns2:state=copying:files_completed=20:files_total=42:is_parked=false:park_ms=0",
+			expectedNSs: map[string]CheckpointNamespaceStatus{
+				"ns1": {State: CheckpointStateDone, FilesCompleted: 42, FilesTotal: 42},
+				"ns2": {State: CheckpointStateCopying, FilesCompleted: 20, FilesTotal: 42},
 			},
+			expectedMS: 0,
+		},
+		{
+			name: "two namespaces, parked once both finished",
+			resp: "ns1:state=done:files_completed=42:files_total=42:is_parked=true:park_ms=1500;" +
+				"ns2:state=failed:files_completed=3:files_total=42:is_parked=true:park_ms=1500",
+			expectedNSs: map[string]CheckpointNamespaceStatus{
+				"ns1": {State: CheckpointStateDone, FilesCompleted: 42, FilesTotal: 42},
+				"ns2": {State: CheckpointStateFailed, FilesCompleted: 3, FilesTotal: 42},
+			},
+			expectedParked: true,
+			expectedMS:     1500,
+		},
+		{
+			// A configured node with NO checkpointing namespace still parks on a
+			// checkpoint-save, and reports only this. It must parse as a successful,
+			// parked, empty result — a caller that reads it as "nothing to do" leaves the
+			// node parked out of the cluster until its park times out.
+			name:           "every namespace opted out - parked, no namespace record",
+			resp:           "is_parked=true:park_ms=1500",
+			expectedNSs:    map[string]CheckpointNamespaceStatus{},
+			expectedParked: true,
+			expectedMS:     1500,
+		},
+		{
+			// The same node before any save. Empty AND not parked — the one shape that
+			// means "nothing to wait for and nothing to reap".
+			name:        "every namespace opted out - not parked",
+			resp:        "is_parked=false:park_ms=0",
+			expectedNSs: map[string]CheckpointNamespaceStatus{},
+			expectedMS:  0,
+		},
+		{
+			name: "copying, not yet parked",
+			resp: "test:state=copying:files_completed=7:files_total=42:is_parked=false:park_ms=0",
+			expectedNSs: map[string]CheckpointNamespaceStatus{
+				"test": {State: CheckpointStateCopying, FilesCompleted: 7, FilesTotal: 42},
+			},
+			expectedMS: 0,
+		},
+		{
+			name: "unparseable park_ms does not discard the state",
+			resp: "test:state=done:files_completed=1:files_total=1:is_parked=true:park_ms=soon",
+			expectedNSs: map[string]CheckpointNamespaceStatus{
+				"test": {State: CheckpointStateDone, FilesCompleted: 1, FilesTotal: 1},
+			},
+			expectedParked: true,
+			expectedMS:     -1,
 		},
 		{
 			name: "not yet triggered",
-			resp: "test:state=none:files=0/0",
-			expected: map[string]CheckpointNamespaceStatus{
-				"test": {State: CheckpointStateNone, FilesDone: 0, FilesTotal: 0},
+			resp: "test:state=none:files_completed=0:files_total=0",
+			expectedNSs: map[string]CheckpointNamespaceStatus{
+				"test": {State: CheckpointStateNone, FilesCompleted: 0, FilesTotal: 0},
 			},
+			expectedMS: -1,
 		},
 		{
 			name: "failed namespace",
-			resp: "test:state=failed:files=3/42",
-			expected: map[string]CheckpointNamespaceStatus{
-				"test": {State: CheckpointStateFailed, FilesDone: 3, FilesTotal: 42},
+			resp: "test:state=failed:files_completed=3:files_total=42",
+			expectedNSs: map[string]CheckpointNamespaceStatus{
+				"test": {State: CheckpointStateFailed, FilesCompleted: 3, FilesTotal: 42},
 			},
+			expectedMS: -1,
 		},
 		{
 			name: "trailing separator is tolerated",
-			resp: "test:state=done:files=1/1;",
-			expected: map[string]CheckpointNamespaceStatus{
-				"test": {State: CheckpointStateDone, FilesDone: 1, FilesTotal: 1},
+			resp: "test:state=done:files_completed=1:files_total=1;",
+			expectedNSs: map[string]CheckpointNamespaceStatus{
+				"test": {State: CheckpointStateDone, FilesCompleted: 1, FilesTotal: 1},
 			},
+			expectedMS: -1,
 		},
 		{
 			// A namespace legally named "errors" must not be mistaken for a rejection.
 			name: "namespace named like an error",
-			resp: "errors:state=done:files=1/1",
-			expected: map[string]CheckpointNamespaceStatus{
-				"errors": {State: CheckpointStateDone, FilesDone: 1, FilesTotal: 1},
+			resp: "errors:state=done:files_completed=1:files_total=1",
+			expectedNSs: map[string]CheckpointNamespaceStatus{
+				"errors": {State: CheckpointStateDone, FilesCompleted: 1, FilesTotal: 1},
 			},
+			expectedMS: -1,
 		},
 		{
-			// Reported verbatim rather than coerced, so the caller can decide. A newer
-			// server adding a state must not be silently read as one we know.
 			name: "unrecognised state is preserved",
-			resp: "test:state=verifying:files=10/42",
-			expected: map[string]CheckpointNamespaceStatus{
-				"test": {State: "verifying", FilesDone: 10, FilesTotal: 42},
+			resp: "test:state=verifying:files_completed=10:files_total=42",
+			expectedNSs: map[string]CheckpointNamespaceStatus{
+				"test": {State: "verifying", FilesCompleted: 10, FilesTotal: 42},
 			},
+			expectedMS: -1,
 		},
 		{
 			// One bad entry must not hide the good ones.
 			name: "malformed entry is skipped, not fatal",
-			resp: "garbage;ns2:state=done:files=1/1",
-			expected: map[string]CheckpointNamespaceStatus{
-				"ns2": {State: CheckpointStateDone, FilesDone: 1, FilesTotal: 1},
+			resp: "garbage;ns2:state=done:files_completed=1:files_total=1",
+			expectedNSs: map[string]CheckpointNamespaceStatus{
+				"ns2": {State: CheckpointStateDone, FilesCompleted: 1, FilesTotal: 1},
 			},
+			expectedMS: -1,
 		},
 		{
 			// Progress counters are advisory; a malformed one must not discard the
 			// state reported alongside it.
 			name: "unparseable counters do not discard the state",
-			resp: "test:state=copying:files=x/y",
-			expected: map[string]CheckpointNamespaceStatus{
-				"test": {State: CheckpointStateCopying, FilesDone: -1, FilesTotal: -1},
+			resp: "test:state=copying:files_completed=x:files_total=y",
+			expectedNSs: map[string]CheckpointNamespaceStatus{
+				"test": {State: CheckpointStateCopying, FilesCompleted: -1, FilesTotal: -1},
 			},
+			expectedMS: -1,
 		},
 		{
-			name:     "nothing configured is an empty map, not an error",
-			resp:     "ERROR:4:no namespace is checkpointing - the global 'index-checkpoint-path' is unset",
-			expected: map[string]CheckpointNamespaceStatus{},
+			// A settled answer, so it gets its own sentinel rather than a generic error:
+			// the caller must stop polling, not retry.
+			name:                "the feature is not configured on this node",
+			resp:                "ERROR:4:'index-checkpoint-path' is not configured",
+			expectErr:           true,
+			expectNotConfigured: true,
 		},
 		{
 			name:      "any other rejection is an error",
@@ -157,9 +228,9 @@ func TestParseCheckpointStatus(t *testing.T) {
 			expectErr: true,
 		},
 		{
-			// Not the same as "nothing is checkpointing" — the server answers that with
-			// an error. Empty means the reply was lost, so the caller must retry rather
-			// than conclude the node checkpoints nothing.
+			// Not the same as "nothing is checkpointing" — that node answers with its park
+			// state. Empty means the reply was lost, so the caller must retry rather than
+			// conclude the node checkpoints nothing.
 			name:      "empty response is an error, not an empty result",
 			resp:      "",
 			expectErr: true,
@@ -172,7 +243,12 @@ func TestParseCheckpointStatus(t *testing.T) {
 
 			if tt.expectErr {
 				if err == nil {
-					t.Fatalf("ParseCheckpointStatus(%q) expected an error, got %v", tt.resp, got)
+					t.Fatalf("ParseCheckpointStatus(%q) expected an error, got %+v", tt.resp, got)
+				}
+
+				if gotNC := errors.Is(err, ErrCheckpointNotConfigured); gotNC != tt.expectNotConfigured {
+					t.Errorf("ParseCheckpointStatus(%q) ErrCheckpointNotConfigured = %v, expected %v (err %v)",
+						tt.resp, gotNC, tt.expectNotConfigured, err)
 				}
 
 				return
@@ -182,14 +258,20 @@ func TestParseCheckpointStatus(t *testing.T) {
 				t.Fatalf("ParseCheckpointStatus(%q) unexpected error: %v", tt.resp, err)
 			}
 
-			if len(got) != len(tt.expected) {
-				t.Fatalf("ParseCheckpointStatus(%q) = %v, expected %v", tt.resp, got, tt.expected)
+			if got.IsParked != tt.expectedParked || got.ParkMS != tt.expectedMS {
+				t.Errorf("ParseCheckpointStatus(%q) park = {%v, %d}, expected {%v, %d}",
+					tt.resp, got.IsParked, got.ParkMS, tt.expectedParked, tt.expectedMS)
 			}
 
-			for ns, want := range tt.expected {
-				if got[ns] != want {
+			if len(got.Namespaces) != len(tt.expectedNSs) {
+				t.Fatalf("ParseCheckpointStatus(%q) namespaces = %v, expected %v",
+					tt.resp, got.Namespaces, tt.expectedNSs)
+			}
+
+			for ns, want := range tt.expectedNSs {
+				if got.Namespaces[ns] != want {
 					t.Errorf("ParseCheckpointStatus(%q)[%q] = %+v, expected %+v",
-						tt.resp, ns, got[ns], want)
+						tt.resp, ns, got.Namespaces[ns], want)
 				}
 			}
 		})

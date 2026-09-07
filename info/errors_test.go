@@ -10,7 +10,7 @@ func TestIsInfoErrorResponse(t *testing.T) {
 	}{
 		{
 			name:     "error with a numeric code",
-			resp:     "ERROR:4:no namespace is checkpointing",
+			resp:     "ERROR:4:'index-checkpoint-path' is not configured",
 			expected: true,
 		},
 		{
