@@ -62,6 +62,7 @@ linters:
       - std-error-handling
     rules:
       - linters:
+          - goconst
           - lll
         path: info/as_parser_test\.go
       - linters:
