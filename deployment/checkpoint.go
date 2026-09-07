@@ -1,6 +1,7 @@
 package deployment
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -38,9 +39,9 @@ const (
 	// parks, so checkpoint-status can be read for the per-namespace detail.
 	checkpointFailedResp = "checkpoint-save failed"
 
-	// Both commands answer with this when no namespace resolved a checkpoint path —
-	// the feature is off, or every namespace is fully durable or opted out.
-	checkpointNothingConfiguredResp = "no namespace is checkpointing"
+	// Response from server this when the feature is not configured at all — no
+	// cluster-wide checkpoint path.
+	checkpointNotConfiguredResp = "'index-checkpoint-path' is not configured"
 
 	// A signal handler won the shutdown claim before checkpoint-save could, so an
 	// ORDINARY shutdown is running and NO checkpoint will be taken. Its full text is
@@ -80,9 +81,13 @@ const (
 	// with "see checkpoint-status".
 	CheckpointSaveAccepted CheckpointSaveVerdict = "accepted"
 
-	// CheckpointSaveNothingToDo — no namespace on this node is checkpointing at all.
-	// Distinct from CheckpointSaveRejected because retrying cannot change it. Strictly a
-	// fast path: checkpoint-status answers with the same error.
+	// CheckpointSaveNothingToDo — the feature is not configured on this node, so no
+	// checkpoint is possible and none was started. Distinct from CheckpointSaveRejected
+	// because retrying cannot change it. Strictly a fast path: checkpoint-status answers
+	// with the same error (ErrCheckpointNotConfigured).
+	// A node that IS configured but whose namespaces have all opted out does NOT land
+	// here — it accepts the save and parks with nothing to copy, so it classifies as
+	// Triggered and must be polled and reaped like any other parked node.
 	CheckpointSaveNothingToDo CheckpointSaveVerdict = "nothing-to-do"
 
 	// CheckpointSaveRejected — the command was refused and nothing started (the server is
@@ -95,21 +100,45 @@ const (
 	CheckpointSaveRejected CheckpointSaveVerdict = "rejected"
 )
 
+// ErrCheckpointNotConfigured is returned by checkpoint-status when the feature is not
+// configured on this node. It is a settled answer, not a transient one — retrying cannot
+// change it — so callers should act on it rather than keep polling.
+var ErrCheckpointNotConfigured = errors.New("index-checkpoint is not configured on this node")
+
+// CheckpointResponse is one node's checkpoint-status response.
+type CheckpointResponse struct {
+	// Namespaces holds one entry per namespace this node is checkpointing.
+	// EMPTY IS NOT AN ERROR, and it does not mean "not parked": a node whose namespaces
+	// have all opted out still parks on a checkpoint-save, and then reports nothing but
+	// the park state below. Pair it with IsParked before concluding anything — an empty
+	// set with IsParked is a parked node with nothing left to wait for.
+	Namespaces map[string]CheckpointNamespaceStatus
+
+	// IsParked reports whether the node is holding its post-save park, waiting to be
+	// reaped. It is node-global — the process parks once, not once per namespace — so it
+	// is reported here rather than on each entry, however the server chooses to repeat it
+	// on the wire.
+	IsParked bool
+
+	// ParkMS is how long the node has been parked, or -1 when the server did not report a
+	// parseable value. Zero is legitimate (the park has just been entered), so it cannot
+	// double as "unknown". Read it against the park timeout to tell how much of that
+	// budget is left before the node exits and warm-restarts on its own.
+	ParkMS int64
+}
+
 // CheckpointNamespaceStatus is one namespace's entry in a checkpoint-status response.
 type CheckpointNamespaceStatus struct {
-	// State is one of the CheckpointState* constants. It is reported verbatim, so a
-	// state added by a newer server arrives unrecognised rather than being coerced —
-	// callers should treat an unknown state as non-terminal.
+	// State is one of the checkpoint state of namespace.
 	State string
 
-	// FilesDone/FilesTotal track copy progress, or are -1 when the server did not
+	// FilesCompleted/FilesTotal track copy progress, or are -1 when the server did not
 	// report a parseable counter. 0/0 is a legitimate value — a namespace with nothing
 	// to copy, or one whose save has not begun — so it cannot double as "unknown".
-	//
 	// Once checkpoint-save has fired this is the only progress signal the node offers,
 	// since the info gate refuses statistics.
-	FilesDone  int
-	FilesTotal int
+	FilesCompleted int
+	FilesTotal     int
 }
 
 // IsTerminal reports whether the save has finished for this namespace, successfully or not.
@@ -142,17 +171,17 @@ func (asc *ASConn) CheckpointSave(
 	return verdict, nil
 }
 
-// CheckpointStatus reports per-namespace checkpoint progress for one host.
-//
-// Only namespaces the node is actually checkpointing appear. A namespace absent from a
-// successful response is one this node is NOT checkpointing — see ParseCheckpointStatus.
-// It returns an empty map, and no error, when no namespace on the node is checkpointing.
+// CheckpointStatus reports one host's checkpoint progress and park state.
+// Only namespaces the node is actually checkpointing appear in Namespaces; one absent
+// from a successful response is one this node is NOT checkpointing. An empty set is a
+// valid answer and says nothing about the park. Returns ErrCheckpointNotConfigured when the feature is off on
+// this node.
 func (asc *ASConn) CheckpointStatus(
 	policy *aero.ClientPolicy,
-) (map[string]CheckpointNamespaceStatus, error) {
+) (CheckpointResponse, error) {
 	res, err := asc.RunInfo(policy, checkpointStatusCmd)
 	if err != nil {
-		return nil, err
+		return CheckpointResponse{}, err
 	}
 
 	return ParseCheckpointStatus(res[checkpointStatusCmd])
@@ -177,7 +206,7 @@ func ClassifyCheckpointSaveResponse(resp string) CheckpointSaveVerdict {
 			// A save ran and failed for at least one namespace. Non-fatal: the node
 			// still parks, so the caller polls and checkpoint-status names them.
 			return CheckpointSaveAccepted
-		case strings.Contains(resp, checkpointNothingConfiguredResp):
+		case strings.Contains(resp, checkpointNotConfiguredResp):
 			return CheckpointSaveNothingToDo
 		default:
 			// Includes the server's info-gate refusal, should a future server ever
@@ -202,31 +231,46 @@ func ClassifyCheckpointSaveResponse(resp string) CheckpointSaveVerdict {
 	return CheckpointSaveTriggered
 }
 
-// ParseCheckpointStatus parses a checkpoint-status payload:
+// ParseCheckpointStatus parses a checkpoint-status payload: semicolon-separated records,
+// each a colon-separated list of key=value fields, optionally led by a namespace name.
 //
-//	ns1:state=done:files=42/42;ns2:state=copying:files=20/42
+// A per-namespace record leads with the name; the park fields are node-global but the
+// server repeats them on every record so each carries its own label:
 //
-// A namespace missing from the returned map is one the node is NOT checkpointing.
-// An empty map with a nil error means no namespace on this node is checkpointing.
+//	<ns>:state=<none|copying|done|failed>:files_completed=<n>:files_total=<n>:is_parked=<true|false>:park_ms=<n>
+//
+//	ns1:state=done:files_completed=42:files_total=42:is_parked=true:park_ms=1500;
+//	ns2:state=copying:files_completed=20:files_total=42:is_parked=true:park_ms=1500
+//
+// A node that is configured but checkpointing NOTHING — every namespace opted out or
+// fully durable — still parks on a checkpoint-save, and reports the park alone, with no
+// namespace name and no state:
+//
+//	is_parked=true:park_ms=1500
+//
+// That is a success, not an error: the node has left the cluster and has to be reaped
+// like any other parked node. A leading field containing '=' is what distinguishes such
+// a record from a named one.
+//
 // Malformed entries are skipped rather than failing the whole parse, so one bad entry
-// cannot hide the rest; a payload that is a server rejection returns an error.
-func ParseCheckpointStatus(resp string) (map[string]CheckpointNamespaceStatus, error) {
-	statuses := make(map[string]CheckpointNamespaceStatus)
-
-	if strings.Contains(resp, checkpointNothingConfiguredResp) {
-		return statuses, nil
+// cannot hide the rest. A payload that is a server rejection returns an error —
+// ErrCheckpointNotConfigured when the feature is off on this node.
+func ParseCheckpointStatus(resp string) (CheckpointResponse, error) {
+	response := CheckpointResponse{
+		Namespaces: make(map[string]CheckpointNamespaceStatus),
+		ParkMS:     -1,
 	}
 
 	if info.IsInfoErrorResponse(resp) {
-		return nil, fmt.Errorf("checkpoint-status rejected: %s", resp)
+		if strings.Contains(resp, checkpointNotConfiguredResp) {
+			return response, ErrCheckpointNotConfigured
+		}
+
+		return response, fmt.Errorf("checkpoint-status rejected: %s", resp)
 	}
 
-	// An empty payload is not "no namespace is checkpointing" — the server answers that
-	// with the error handled above. Empty means the reply was lost or truncated, so it
-	// must not be reported as an authoritative empty result: callers read an empty map
-	// as "this node checkpoints nothing", which is a very different conclusion.
 	if strings.TrimSpace(resp) == "" {
-		return nil, fmt.Errorf("empty checkpoint-status response")
+		return response, fmt.Errorf("empty checkpoint-status response")
 	}
 
 	for _, entry := range strings.Split(resp, ";") {
@@ -236,13 +280,16 @@ func ParseCheckpointStatus(resp string) (map[string]CheckpointNamespaceStatus, e
 		}
 
 		fields := strings.Split(entry, ":")
-		if len(fields) < 2 || fields[0] == "" {
-			continue
+
+		// Only a namespace record leads with a bare name; the park-only record leads with a key=value.
+		name := ""
+		if !strings.Contains(fields[0], "=") {
+			name, fields = fields[0], fields[1:]
 		}
 
-		status := CheckpointNamespaceStatus{FilesDone: -1, FilesTotal: -1}
+		status := CheckpointNamespaceStatus{FilesCompleted: -1, FilesTotal: -1}
 
-		for _, field := range fields[1:] {
+		for _, field := range fields {
 			key, value, found := strings.Cut(field, "=")
 			if !found {
 				continue
@@ -251,25 +298,26 @@ func ParseCheckpointStatus(resp string) (map[string]CheckpointNamespaceStatus, e
 			switch key {
 			case "state":
 				status.State = value
-			case "files":
-				done, total, ok := strings.Cut(value, "/")
-				if !ok {
-					continue
-				}
-
-				status.FilesDone = atoiOrNegative(done)
-				status.FilesTotal = atoiOrNegative(total)
+			case "files_completed":
+				status.FilesCompleted = atoiOrNegative(value)
+			case "files_total":
+				status.FilesTotal = atoiOrNegative(value)
+			case "is_parked":
+				// Node-global, and identical on every record that carries it.
+				response.IsParked = value == "true"
+			case "park_ms":
+				response.ParkMS = int64(atoiOrNegative(value))
 			}
 		}
 
-		if status.State == "" {
-			continue // not a status entry
+		if name == "" || status.State == "" {
+			continue // the park-only record, or not a status entry
 		}
 
-		statuses[fields[0]] = status
+		response.Namespaces[name] = status
 	}
 
-	return statuses, nil
+	return response, nil
 }
 
 // atoiOrNegative returns -1 rather than an error for an unparseable counter: progress
