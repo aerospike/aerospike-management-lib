@@ -1,6 +1,6 @@
 version: "2"
 run:
-  go: "1.25"
+  go: "1.26"
   issues-exit-code: 1
 linters:
   default: none
@@ -62,6 +62,10 @@ linters:
       - std-error-handling
     rules:
       - linters:
+          - goconst
+          - govet
+        path: (.+)test\.go
+      - linters:
           - lll
         path: info/as_parser_test\.go
       - linters:
@@ -70,9 +74,6 @@ linters:
       - linters:
           - dupl
         path: asconfig/asconfig_test\.go
-      - linters:
-          - govet
-        path: (.+)test\.go
       - linters:
           - lll
         source: '// '

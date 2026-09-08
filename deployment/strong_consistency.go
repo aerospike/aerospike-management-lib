@@ -164,8 +164,8 @@ func ValidateSCClusterState(log logr.Logger, hostConns []*HostConn, policy *as.C
 func getSCNamespaces(clHosts []*host) (scNamespacesPerHost map[*host][]string, isClusterSCEnabled bool, err error) {
 	scNamespacesPerHost = map[*host][]string{}
 
-	for i := range clHosts {
-		namespaces, err := getNamespaces(clHosts[i])
+	for _, clHost := range clHosts {
+		namespaces, err := getNamespaces(clHost)
 		if err != nil {
 			return nil, isClusterSCEnabled, err
 		}
@@ -173,7 +173,7 @@ func getSCNamespaces(clHosts []*host) (scNamespacesPerHost map[*host][]string, i
 		var nsList []string
 
 		for _, ns := range namespaces {
-			isSC, err := isNamespaceSCEnabled(clHosts[i], ns)
+			isSC, err := isNamespaceSCEnabled(clHost, ns)
 			if err != nil {
 				return nil, isClusterSCEnabled, err
 			}
@@ -184,8 +184,8 @@ func getSCNamespaces(clHosts []*host) (scNamespacesPerHost map[*host][]string, i
 			}
 		}
 
-		scNamespacesPerHost[clHosts[i]] = nsList
-		clHosts[i].log.Info("Fetched SC namespaces for host", "namespace", nsList)
+		scNamespacesPerHost[clHost] = nsList
+		clHost.log.Info("Fetched SC namespaces for host", "namespace", nsList)
 	}
 
 	return scNamespacesPerHost, isClusterSCEnabled, nil
