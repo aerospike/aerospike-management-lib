@@ -9,8 +9,6 @@ import (
 	"github.com/go-logr/logr"
 )
 
-const testLogContextAny = "any"
-
 func TestProcessLoggingContext(t *testing.T) {
 	testCases := []struct {
 		name     string
@@ -21,7 +19,7 @@ func TestProcessLoggingContext(t *testing.T) {
 		{
 			name:     "context with level",
 			input:    "context any info",
-			expected: Conf{testLogContextAny: testLogInfo},
+			expected: Conf{"any": "info"},
 		},
 		{
 			name:    "context without level",

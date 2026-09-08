@@ -11,25 +11,6 @@ import (
 	"github.com/aerospike/aerospike-management-lib/deployment"
 )
 
-// Test fixture values shared across the DynamicConfigMap table-driven test cases below.
-const (
-	testDC1        = "DC1"
-	testDC3        = "DC3"
-	testNS1        = "ns1"
-	testNS2        = "ns2"
-	testSet1       = "set1"
-	testLogInfo    = "info"
-	testNoBins     = "no-bins"
-	testTLSNameVal = "tls-name"
-
-	keySecurityLogReportDataOp = "security.log.report-data-op"
-	keyDC1NodeAddressPorts     = "xdr.dcs.{DC1}.node-address-ports"
-	keyDC1NS1BinPolicy         = "xdr.dcs.{DC1}.namespaces.{ns1}.bin-policy"
-	keyDC3Name                 = "xdr.dcs.{DC3}.name"
-	keyDC1NS1Name              = "xdr.dcs.{DC1}.namespaces.{ns1}.name"
-	keyDC1Name                 = "xdr.dcs.{DC1}.name"
-)
-
 type AsSetConfigTestSuite struct {
 	suite.Suite
 	ctrl       *gomock.Controller
@@ -51,18 +32,18 @@ func (s *AsSetConfigTestSuite) TestCreateSetConfigCmdList() {
 		{
 			"commands",
 			DynamicConfigMap{
-				keyDC1NS1BinPolicy:         {Update: testNoBins},
-				keySecurityLogReportDataOp: {Add: []string{"ns3:set2"}, "remove": []string{"ns2:set2"}},
-				keyDC3Name:                 {Remove: testDC3},
-				keyDC1NodeAddressPorts: {
+				"xdr.dcs.{DC1}.namespaces.{ns1}.bin-policy": {Update: "no-bins"},
+				"security.log.report-data-op":               {Add: []string{"ns3:set2"}, "remove": []string{"ns2:set2"}},
+				"xdr.dcs.{DC3}.name":                        {Remove: "DC3"},
+				"xdr.dcs.{DC1}.node-address-ports": {
 					"remove": []string{"1.1.1.1:3000"},
 				},
-				keyDC1NS1Name:                       {Add: testNS1},
-				keyDC1Name:                          {Add: testDC1},
-				"security.privilege-refresh-period": {Update: "100"},
-				"xdr.src-id":                        {Update: "10"},
-				"logging.{console}.any":             {Update: testLogInfo},
-				"xdr.dcs.{DC1}.namespaces.{ns1}.ignore-sets": {Add: []string{testSet1}},
+				"xdr.dcs.{DC1}.namespaces.{ns1}.name":        {Add: "ns1"},
+				"xdr.dcs.{DC1}.name":                         {Add: "DC1"},
+				"security.privilege-refresh-period":          {Update: "100"},
+				"xdr.src-id":                                 {Update: "10"},
+				"logging.{console}.any":                      {Update: "info"},
+				"xdr.dcs.{DC1}.namespaces.{ns1}.ignore-sets": {Add: []string{"set1"}},
 			},
 			[]string{"set-config:context=xdr;dc=DC1;action=create",
 				"set-config:context=xdr;dc=DC1;node-address-port=1.1.1.1:3000;action=remove",
@@ -105,12 +86,12 @@ func (s *AsSetConfigTestSuite) TestCreateSetConfigCmdListOrdered() {
 		{
 			"commands",
 			DynamicConfigMap{
-				keyDC1NS1BinPolicy:                    {Update: testNoBins},
-				keyDC3Name:                            {Add: testDC3},
-				"xdr.dcs.{DC1}.namespaces.{ns2}.name": {Remove: testNS2},
-				keyDC1NodeAddressPorts:                {Add: []string{"1.1.1.1:3000:tls-name"}},
-				keyDC1NS1Name:                         {Add: testNS1},
-				"xdr.dcs.{DC1}.tls-name":              {Update: testTLSNameVal},
+				"xdr.dcs.{DC1}.namespaces.{ns1}.bin-policy": {Update: "no-bins"},
+				"xdr.dcs.{DC3}.name":                        {Add: "DC3"},
+				"xdr.dcs.{DC1}.namespaces.{ns2}.name":       {Remove: "ns2"},
+				"xdr.dcs.{DC1}.node-address-ports":          {Add: []string{"1.1.1.1:3000:tls-name"}},
+				"xdr.dcs.{DC1}.namespaces.{ns1}.name":       {Add: "ns1"},
+				"xdr.dcs.{DC1}.tls-name":                    {Update: "tls-name"},
 			},
 			[]string{"set-config:context=xdr;dc=DC1;namespace=ns2;action=remove",
 				"set-config:context=xdr;dc=DC3;action=create",
@@ -180,12 +161,12 @@ func (s *AsSetConfigTestSuite) TestNamespaceSetConfigCommandList() {
 		{
 			name:  "empty build returns legacy id prefix",
 			build: "",
-			want:  cmdSetConfigNamespaceID,
+			want:  "set-config:context=namespace;id=",
 		},
 		{
 			name:  "pre-7.2 uses id",
 			build: "7.0.0.0",
-			want:  cmdSetConfigNamespaceID,
+			want:  "set-config:context=namespace;id=",
 		},
 		{
 			name:  "7.2 uses namespace",
@@ -200,7 +181,7 @@ func (s *AsSetConfigTestSuite) TestNamespaceSetConfigCommandList() {
 		{
 			name:  "invalid build falls back to id",
 			build: "not-a-version",
-			want:  cmdSetConfigNamespaceID,
+			want:  "set-config:context=namespace;id=",
 		},
 	}
 

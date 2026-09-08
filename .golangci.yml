@@ -63,19 +63,17 @@ linters:
     rules:
       - linters:
           - goconst
+          - govet
+        path: (.+)test\.go
+      - linters:
           - lll
         path: info/as_parser_test\.go
       - linters:
           - dupl
-          - goconst
         path: asconfig/generate_test\.go
       - linters:
           - dupl
-          - goconst
         path: asconfig/asconfig_test\.go
-      - linters:
-          - govet
-        path: (.+)test\.go
       - linters:
           - lll
         source: '// '
