@@ -6,8 +6,8 @@ require (
 	github.com/aerospike/aerospike-client-go/v8 v8.7.0
 	github.com/deckarep/golang-set/v2 v2.9.0
 	github.com/go-logr/logr v1.4.3
-	github.com/moby/moby/api v1.54.2
-	github.com/moby/moby/client v0.4.1
+	github.com/moby/moby/api v1.56.0
+	github.com/moby/moby/client v0.6.0
 	github.com/stretchr/testify v1.11.1
 	github.com/xeipuuv/gojsonschema v1.2.0
 	go.uber.org/mock v0.6.0
