@@ -13,3 +13,7 @@ updates:
     directory: /
     schedule:
       interval: daily
+    groups:
+      go-modules-all:
+        patterns:
+          - "*"     # all go.mod deps in one PR
