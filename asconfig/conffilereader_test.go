@@ -9,6 +9,23 @@ import (
 	"github.com/go-logr/logr"
 )
 
+func TestProcessBenchmarkFlagWithoutValue(t *testing.T) {
+	for _, key := range BenchmarkConfigs {
+		t.Run(key, func(t *testing.T) {
+			scanner := bufio.NewScanner(strings.NewReader(key))
+
+			conf, err := process(logr.Discard(), scanner, Conf{})
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			if conf[key] != true {
+				t.Errorf("expected %s=true, got %v", key, conf[key])
+			}
+		})
+	}
+}
+
 func TestProcessLoggingContext(t *testing.T) {
 	testCases := []struct {
 		name     string

@@ -35,6 +35,8 @@ var BenchmarkConfigs = []string{
 	"enable-benchmarks-udf", "enable-benchmarks-write",
 	"enable-benchmarks-udf-sub", "enable-benchmarks-storage",
 	"enable-benchmarks-fabric", "enable-benchmarks-ops-sub",
+	"enable-benchmarks-migrate", "enable-benchmarks-repl",
+	"enable-benchmarks-wire-compression",
 }
 
 var portRegex = regexp.MustCompile("port")
@@ -502,7 +504,8 @@ func getSystemProperty(log logr.Logger, c Conf, key string) (
 	// feature-key-file <filename>
 	// work-directory <direname>
 	// FIXME FIXME add logging file ...
-	case keyFile, keyFeatureKeyFile, "work-directory", "system-path", "user-path":
+	case keyFile, keyFeatureKeyFile, "work-directory", "system-path", "user-path",
+		"index-checkpoint-path":
 		v := c[key]
 		switch v := v.(type) {
 		case string:
