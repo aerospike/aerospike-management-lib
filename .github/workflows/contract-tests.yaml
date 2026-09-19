@@ -1,0 +1,38 @@
+name: Contract Tests
+on:
+  push:
+    branches:
+      - "*"
+    tags:
+      - v*
+  workflow_call:
+
+jobs:
+  test-asconfig:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout aerospike-management-lib
+        uses: actions/checkout@v4
+
+      - name: Setup go version
+        uses: actions/setup-go@v4
+        with:
+          go-version-file: go.mod
+
+      - name: Create parent directory and clone asconfig (CLI)
+        run: |
+          mkdir -p ../asconfig-workspace
+          cd ../asconfig-workspace
+          git clone --recurse-submodules https://github.com/aerospike/asconfig.git
+
+      - name: Replace aerospike-management-lib in asconfig with PR branch
+        run: |
+          cd ../asconfig-workspace/asconfig
+          go mod edit -replace github.com/aerospike/aerospike-management-lib=$(pwd)/../../aerospike-management-lib
+          go mod tidy
+
+      - name: Run asconfig tests
+        run: |
+          cd ../asconfig-workspace/asconfig
+          make unit
+          
