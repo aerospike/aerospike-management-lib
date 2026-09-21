@@ -11,7 +11,22 @@ import (
 	"github.com/go-logr/logr"
 
 	aero "github.com/aerospike/aerospike-client-go/v8"
+	"github.com/aerospike/aerospike-management-lib/info"
 )
+
+// infoRejection returns the server's rejection text when result holds an error response for
+// cmd rather than a result, or "" otherwise.
+// A refused info command is not a Go error — the server answers "ERROR:<code>:<message>" with
+// err == nil — so parseInfo files that text under the command key and every subsequent field
+// lookup fails with a misleading "field <x> missing".
+func infoRejection(result InfoResult, cmd string) string {
+	resp, ok := result[cmd]
+	if !ok || !info.IsInfoErrorResponse(resp) {
+		return ""
+	}
+
+	return resp
+}
 
 const constTrue = "true"
 const CmdNamespaces = "namespaces"
@@ -116,6 +131,10 @@ func (c *cluster) IsClusterAndStable(hostIDs []string) (bool, error) {
 	clusterKeys := make(map[string]bool) // set of all cluster keys
 
 	for id, info := range stats {
+		if rejection := infoRejection(info, "statistics"); rejection != "" {
+			return false, fmt.Errorf("statistics rejected by node %s: %s", id, rejection)
+		}
+
 		key, err := info.toString("cluster_key")
 		if err != nil {
 			return false, fmt.Errorf(
@@ -266,14 +285,18 @@ func (c *cluster) InfoQuiesce(hostsToBeQuiesced, hostIDs, removedNamespaces []st
 
 				cmd := fmt.Sprintf("namespace/%s", namespaces[index])
 
-				info, err := c.infoCmd(hostID, cmd)
+				resp, err := c.infoCmd(hostID, cmd)
 				if err != nil {
 					return err
 				}
 
+				if rejection := infoRejection(resp, cmd); rejection != "" {
+					return fmt.Errorf("%s rejected by node %s: %s", cmd, hostID, rejection)
+				}
+
 				key := "pending_quiesce"
 
-				pendingQuiesce, ok := info[key]
+				pendingQuiesce, ok := resp[key]
 				if !ok {
 					return fmt.Errorf(
 						"field %s missing on node %s, "+
@@ -342,14 +365,18 @@ func (c *cluster) InfoQuiesce(hostsToBeQuiesced, hostIDs, removedNamespaces []st
 
 				cmd := fmt.Sprintf("namespace/%s", namespaces[index])
 
-				info, err := c.infoCmd(hostID, cmd)
+				resp, err := c.infoCmd(hostID, cmd)
 				if err != nil {
 					return err
 				}
 
+				if rejection := infoRejection(resp, cmd); rejection != "" {
+					return fmt.Errorf("%s rejected by node %s: %s", cmd, hostID, rejection)
+				}
+
 				key := "effective_is_quiesced"
 
-				effectiveIsQuiesced, ok := info[key]
+				effectiveIsQuiesced, ok := resp[key]
 				if !ok {
 					return fmt.Errorf(
 						"field %s missing on node %s, "+
@@ -371,7 +398,7 @@ func (c *cluster) InfoQuiesce(hostsToBeQuiesced, hostIDs, removedNamespaces []st
 
 				key = "nodes_quiesced"
 
-				nodesQuiescedStr, ok := info[key]
+				nodesQuiescedStr, ok := resp[key]
 				if !ok {
 					return fmt.Errorf(
 						"field %s missing on node %s, "+
@@ -765,14 +792,14 @@ func (c *cluster) infoCmd(hostID, cmd string) (map[string]string, error) {
 	}
 
 	n.log.V(1).Info("Running aerospike InfoCmd")
-	info, err := n.asConnInfo.asInfo.RequestInfo(cmd)
+	response, err := n.asConnInfo.asInfo.RequestInfo(cmd)
 	n.log.V(1).Info("Finished running InfoCmd", "err", err)
 
 	if err != nil {
 		return nil, err
 	}
 
-	return parseInfo(info), nil
+	return parseInfo(response), nil
 }
 
 // infoOnHosts returns the result of running the info command on the hosts.
@@ -792,11 +819,11 @@ func (c *cluster) infoOnHosts(
 		go func(hostID string, wg *sync.WaitGroup) {
 			defer wg.Done()
 
-			if info, err := c.infoCmd(hostID, cmd); err == nil {
+			if resp, err := c.infoCmd(hostID, cmd); err == nil {
 				mut.Lock()
 				defer mut.Unlock()
 
-				infos[hostID] = info
+				infos[hostID] = resp
 			}
 		}(id, &wg)
 	}
@@ -831,11 +858,11 @@ func (c *cluster) infoCmdsOnHosts(hostIDCmdMap map[string]string) (
 		go func(hostID string, cmd string, wg *sync.WaitGroup) {
 			defer wg.Done()
 
-			if info, err := c.infoCmd(hostID, cmd); err == nil {
+			if resp, err := c.infoCmd(hostID, cmd); err == nil {
 				mut.Lock()
 				defer mut.Unlock()
 
-				infos[hostID] = info
+				infos[hostID] = resp
 			}
 		}(hostID, cmd, &wg)
 	}
