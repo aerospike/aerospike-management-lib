@@ -50,7 +50,7 @@ func Init(log logr.Logger, schemaDir string) error {
 			continue
 		}
 
-		schema, err := os.ReadFile(filepath.Clean(filepath.Join(schemaDir, file.Name()))) //nolint:gosec // file names come from os.ReadDir, not user input
+		schema, err := os.ReadFile(filepath.Clean(filepath.Join(schemaDir, file.Name())))
 		if err != nil {
 			return fmt.Errorf("wrong config schema file %s: %v", file.Name(), err)
 		}
@@ -346,7 +346,7 @@ func flattenSchema(input map[string]interface{}, sep string) map[string]interfac
 			} else if val, err := v.Int64(); err == nil {
 				if val >= 0 {
 					// all configs are uint64, cast to uint64
-					res[k] = uint64(val) //nolint:gosec // val is verified non-negative above
+					res[k] = uint64(val)
 				} else {
 					// negative value, keep it as int64
 					res[k] = val

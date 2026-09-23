@@ -25,10 +25,15 @@ const (
 	keyNodeAddressPorts          = "node-address-ports"
 	keyNodeID                    = "node-id"
 
-	keyReportDataOp = "report-data-op"
-	keyNamespace    = "namespace"
-	keySet          = "set"
-	keyLogs         = "logs"
+	keyReportDataOp           = "report-data-op"
+	keyReportDataOpUser       = "report-data-op-user"
+	keyReportDataOpRole       = "report-data-op-role"
+	keyNamespace              = "namespace"
+	keySet                    = "set"
+	keyLogs                   = "logs"
+	keyTLS                    = "tls"
+	keyMeshSeedAddressPort    = "mesh-seed-address-port"
+	keyTLSMeshSeedAddressPort = "tls-mesh-seed-address-port"
 
 	sep                  = "."
 	SectionNameStartChar = '{'

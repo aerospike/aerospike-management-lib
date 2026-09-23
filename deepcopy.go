@@ -34,7 +34,7 @@ func copyRecursive(original, cpy reflect.Value) {
 	// handle according to original's Kind
 	//nolint:exhaustive // rest of cases are handled in default, so it's not exhaustive
 	switch original.Kind() {
-	case reflect.Ptr:
+	case reflect.Pointer:
 		// Get the actual value being pointed to.
 		originalValue := original.Elem()
 

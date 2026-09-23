@@ -141,7 +141,7 @@ func createSetConfigSecurityCmdList(tokens []string, operationValueMap map[OpTyp
 		}
 
 	// example of a command: set-config:context=security;log.report-data-op=false;role=billing
-	case "report-data-op-role":
+	case keyReportDataOpRole:
 		addedValues := operationValueMap[Add]
 		for _, v := range addedValues {
 			finalCMD := cmd + keyReportDataOp + equal + "true" + semicolon + "role" + equal + v
@@ -155,7 +155,7 @@ func createSetConfigSecurityCmdList(tokens []string, operationValueMap map[OpTyp
 		}
 
 	// example of a command: set-config:context=security;log.report-data-op=true;user=fred
-	case "report-data-op-user":
+	case keyReportDataOpUser:
 		addedValues := operationValueMap[Add]
 		for _, v := range addedValues {
 			finalCMD := cmd + keyReportDataOp + equal + "true" + semicolon + "user" + equal + v

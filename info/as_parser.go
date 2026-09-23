@@ -165,6 +165,14 @@ const (
 	ConfigLogIDs         = "log_ids"
 )
 
+// Keys of the lib.Stats map returned by parseNodeEndpointListAsStats.
+const (
+	statKeyGeneration  = "generation"
+	statKeyDefaultPort = "default_port"
+	statKeyEndpoints   = "endpoints"
+	statKeyNodes       = "nodes"
+)
+
 var asCmds = []string{
 	ConstStat, ConstConfigs, ConstMetadata, ConstLatency,
 }
@@ -1433,7 +1441,7 @@ func ParseNodeEndpointList(str string) NodeEndpointList {
 // Endpoints returns a flat list of all endpoint addresses from the NodeEndpointList.
 // This provides backward compatibility with the deprecated services command format.
 func (n NodeEndpointList) Endpoints() []string {
-	var addresses []string //nolint:prealloc // two-pass preallocation would cost more than occasional growth for small endpoint lists
+	var addresses []string
 
 	for _, node := range n.Nodes {
 		addresses = append(addresses, node.Endpoints...)
@@ -1454,7 +1462,7 @@ func getEndpointsFromStats(stats interface{}) []string {
 		return []string{}
 	}
 
-	endpoints, ok := statsMap["endpoints"].([]string)
+	endpoints, ok := statsMap[statKeyEndpoints].([]string)
 	if !ok {
 		return []string{}
 	}
@@ -1478,18 +1486,18 @@ func parseNodeEndpointListAsStats(rawMap map[string]string, cmd string) lib.Stat
 	nodes := make([]lib.Stats, 0, len(parsed.Nodes))
 	for _, node := range parsed.Nodes {
 		nodeStats := lib.Stats{
-			"node_id":   node.NodeID,
-			"tls_name":  node.TLSName,
-			"endpoints": node.Endpoints,
+			"node_id":        node.NodeID,
+			"tls_name":       node.TLSName,
+			statKeyEndpoints: node.Endpoints,
 		}
 		nodes = append(nodes, nodeStats)
 	}
 
 	return lib.Stats{
-		"generation":   int64(parsed.Generation),
-		"default_port": int64(parsed.DefaultPort),
-		"endpoints":    parsed.Endpoints(), // flat list for convenience
-		"nodes":        nodes,              // full node details
+		statKeyGeneration:  int64(parsed.Generation),
+		statKeyDefaultPort: int64(parsed.DefaultPort),
+		statKeyEndpoints:   parsed.Endpoints(), // flat list for convenience
+		statKeyNodes:       nodes,              // full node details
 	}
 }
 

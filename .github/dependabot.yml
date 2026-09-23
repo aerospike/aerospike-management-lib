@@ -4,8 +4,16 @@ updates:
     directory: /
     schedule:
       interval: daily
+    groups:
+      github-actions-all:
+        patterns:
+          - "*"     # all github-actions deps in one PR
 
   - package-ecosystem: gomod
     directory: /
     schedule:
       interval: daily
+    groups:
+      go-modules-all:
+        patterns:
+          - "*"     # all go.mod deps in one PR
