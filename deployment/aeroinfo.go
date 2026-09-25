@@ -60,7 +60,7 @@ func InfoQuiesceUndo(log logr.Logger, policy *aero.ClientPolicy, allHosts []*Hos
 // should remain quiesced.
 func InfoQuiesceUndoSubset(
 	log logr.Logger, policy *aero.ClientPolicy,
-	undoHosts, allHosts []*HostConn,
+	allHosts, undoHosts []*HostConn,
 ) error {
 	c, err := newCluster(log, policy, allHosts)
 	if err != nil {
