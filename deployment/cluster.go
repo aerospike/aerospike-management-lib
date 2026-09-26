@@ -673,7 +673,24 @@ func (c *cluster) getClusterNamespaces(hostIDs []string) (
 	return namespaces, nil
 }
 
+// allHostIDs returns the IDs of every host known to the cluster object.
+// Used internally to ensure InfoRecluster always reaches the principal node
+// regardless of which subset of hosts was passed to a specific operation.
+func (c *cluster) allHostIDs() []string {
+	ids := make([]string, 0, len(c.allHosts))
+	for id := range c.allHosts {
+		ids = append(ids, id)
+	}
+
+	return ids
+}
+
 // InfoQuiesceUndo revert the effects of the quiesce command on the next recluster event.
+//
+// hostIDs controls which nodes are scanned for pending_quiesce and receive the
+// quiesce-undo: command.  The subsequent InfoRecluster call always uses ALL
+// hosts known to the cluster object (c.allHosts) so that the principal node is
+// always reachable — even when hostIDs is a subset that does not contain it.
 func (c *cluster) InfoQuiesceUndo(hostIDs []string) error {
 	lg := c.log.WithValues("nodes", hostIDs)
 
@@ -723,7 +740,10 @@ func (c *cluster) InfoQuiesceUndo(hostIDs []string) error {
 		}
 	}
 
-	return c.InfoRecluster(hostIDs)
+	// Recluster with ALL cluster hosts so the principal is always reachable.
+	// Using only hostIDs (the scanned subset) would fail if the principal
+	// happens to be outside that subset.
+	return c.InfoRecluster(c.allHostIDs())
 }
 
 func (c *cluster) InfoRecluster(hostIDs []string) error {
