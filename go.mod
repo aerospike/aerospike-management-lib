@@ -5,14 +5,14 @@ go 1.26.8
 require (
 	github.com/aerospike/aerospike-client-go/v8 v8.9.0
 	github.com/deckarep/golang-set/v2 v2.9.0
-	github.com/go-logr/logr v1.4.3
-	github.com/moby/moby/api v1.56.0
-	github.com/moby/moby/client v0.6.0
+	github.com/go-logr/logr v1.4.4
+	github.com/moby/moby/api v1.56.1
+	github.com/moby/moby/client v0.6.1
 	github.com/stretchr/testify v1.12.1
 	github.com/xeipuuv/gojsonschema v1.2.0
 	go.uber.org/mock v0.6.0
 	gopkg.in/yaml.v3 v3.0.1
-	k8s.io/apimachinery v0.36.4
+	k8s.io/apimachinery v0.37.1
 )
 
 require (
@@ -21,10 +21,10 @@ require (
 	github.com/containerd/errdefs v1.0.0 // indirect
 	github.com/containerd/errdefs/pkg v0.3.0 // indirect
 	github.com/distribution/reference v0.6.0 // indirect
-	github.com/docker/go-connections v0.7.0 // indirect
+	github.com/docker/go-connections v0.8.1 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
-	github.com/fxamacker/cbor/v2 v2.9.0 // indirect
+	github.com/fxamacker/cbor/v2 v2.9.1 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/moby/docker-image-spec v1.3.1 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
