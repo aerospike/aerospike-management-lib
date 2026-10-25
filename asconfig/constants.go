@@ -24,6 +24,7 @@ const (
 	keyTLSAuthenticateClient     = "tls-authenticate-client"
 	keyNodeAddressPorts          = "node-address-ports"
 	keyNodeID                    = "node-id"
+	keyAdvertiseIPv6             = "advertise-ipv6"
 
 	keyReportDataOp           = "report-data-op"
 	keyReportDataOpUser       = "report-data-op-user"

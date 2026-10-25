@@ -208,6 +208,12 @@ func IsDynamicConfig(log logr.Logger, dynamic sets.Set[string], conf string,
 		return true
 	}
 
+	// The server applies advertise-ipv6 to heartbeat and fabric at runtime, but builds the
+	// client-facing service lists only at startup, so clients see the change only after a restart.
+	if context == info.ConfigServiceContext && baseKey == keyAdvertiseIPv6 {
+		return false
+	}
+
 	// Marking these fields as static as corresponding set-config commands are not straight forward.
 	staticFieldSet := sets.NewSet("rack-id")
 	if staticFieldSet.Contains(baseKey) {

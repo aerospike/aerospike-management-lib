@@ -451,6 +451,14 @@ func (s *AsConfigTestSuite) TestAsConfigIsDynamic() {
 
 			true,
 		},
+		{
+			"advertise-ipv6 is considered static",
+			DynamicConfigMap{
+				"service.advertise-ipv6": {Update: true},
+			},
+
+			false,
+		},
 	}
 
 	for _, tc := range testCases {
