@@ -235,6 +235,86 @@ func TestParseCheckpointStatus(t *testing.T) {
 			resp:      "",
 			expectErr: true,
 		},
+
+		// Server 8.2.1 layout: a leading node record carries the park fields, and the
+		// namespace records no longer repeat them. The cases above are the 8.2.0 layout.
+		{
+			name: "node record, two namespaces, one saved and one still copying",
+			resp: "node:is_parked=false:park_ms=0;" +
+				"ns1:state=done:files_completed=42:files_total=42;" +
+				"ns2:state=copying:files_completed=20:files_total=42",
+			expectedNSs: map[string]CheckpointNamespaceStatus{
+				"ns1": {State: CheckpointStateDone, FilesCompleted: 42, FilesTotal: 42},
+				"ns2": {State: CheckpointStateCopying, FilesCompleted: 20, FilesTotal: 42},
+			},
+			expectedMS: 0,
+		},
+		{
+			name: "node record, two namespaces, parked once both finished",
+			resp: "node:is_parked=true:park_ms=1500;" +
+				"ns1:state=done:files_completed=42:files_total=42;" +
+				"ns2:state=failed:files_completed=3:files_total=42",
+			expectedNSs: map[string]CheckpointNamespaceStatus{
+				"ns1": {State: CheckpointStateDone, FilesCompleted: 42, FilesTotal: 42},
+				"ns2": {State: CheckpointStateFailed, FilesCompleted: 3, FilesTotal: 42},
+			},
+			expectedParked: true,
+			expectedMS:     1500,
+		},
+		{
+			// The node record must not surface as a namespace called "node": a caller
+			// waiting for every entry to turn terminal would wait on it forever.
+			name:           "node record alone - every namespace opted out, parked",
+			resp:           "node:is_parked=true:park_ms=1500",
+			expectedNSs:    map[string]CheckpointNamespaceStatus{},
+			expectedParked: true,
+			expectedMS:     1500,
+		},
+		{
+			name:        "node record alone - every namespace opted out, not parked",
+			resp:        "node:is_parked=false:park_ms=0",
+			expectedNSs: map[string]CheckpointNamespaceStatus{},
+			expectedMS:  0,
+		},
+		{
+			// "node" is a legal namespace name, so the label cannot be what identifies the
+			// node record. Dropping this namespace would make a node that is mid-copy read
+			// as one that checkpoints nothing: no namespaces, not parked.
+			name: "node record followed by a namespace named node",
+			resp: "node:is_parked=false:park_ms=0;" +
+				"node:state=copying:files_completed=20:files_total=42",
+			expectedNSs: map[string]CheckpointNamespaceStatus{
+				"node": {State: CheckpointStateCopying, FilesCompleted: 20, FilesTotal: 42},
+			},
+			expectedMS: 0,
+		},
+		{
+			// The same namespace on the 8.2.0 layout, where no node record exists at all.
+			name: "namespace named node without a node record",
+			resp: "node:state=copying:files_completed=20:files_total=42:is_parked=false:park_ms=0",
+			expectedNSs: map[string]CheckpointNamespaceStatus{
+				"node": {State: CheckpointStateCopying, FilesCompleted: 20, FilesTotal: 42},
+			},
+			expectedMS: 0,
+		},
+		{
+			name: "node record with unparseable park_ms does not discard the namespaces",
+			resp: "node:is_parked=true:park_ms=soon;" +
+				"test:state=done:files_completed=1:files_total=1",
+			expectedNSs: map[string]CheckpointNamespaceStatus{
+				"test": {State: CheckpointStateDone, FilesCompleted: 1, FilesTotal: 1},
+			},
+			expectedParked: true,
+			expectedMS:     -1,
+		},
+		{
+			name: "node record with a trailing separator is tolerated",
+			resp: "node:is_parked=false:park_ms=0;test:state=none:files_completed=0:files_total=0;",
+			expectedNSs: map[string]CheckpointNamespaceStatus{
+				"test": {State: CheckpointStateNone, FilesCompleted: 0, FilesTotal: 0},
+			},
+			expectedMS: 0,
+		},
 	}
 
 	for _, tt := range tests {
