@@ -116,8 +116,8 @@ type CheckpointResponse struct {
 
 	// IsParked reports whether the node is holding its post-save park, waiting to be
 	// reaped. It is node-global — the process parks once, not once per namespace — so it
-	// is reported here rather than on each entry, however the server chooses to repeat it
-	// on the wire.
+	// is reported here rather than on each entry, wherever the server puts it on the wire
+	// (repeated on every namespace record in 8.2.0, on a leading node record from 8.2.1).
 	IsParked bool
 
 	// ParkMS is how long the node has been parked, or -1 when the server did not report a
@@ -232,10 +232,19 @@ func ClassifyCheckpointSaveResponse(resp string) CheckpointSaveVerdict {
 }
 
 // ParseCheckpointStatus parses a checkpoint-status payload: semicolon-separated records,
-// each a colon-separated list of key=value fields, optionally led by a namespace name.
+// each a colon-separated list of key=value fields, optionally led by a bare label.
+// The server has two layouts for it. Both are parsed here without being told which server
+// version answered, because during a rolling upgrade one caller polls nodes of both kinds.
 //
-// A per-namespace record leads with the name; the park fields are node-global but the
-// server repeats them on every record so each carries its own label:
+// Server 8.2.1 and later lead with a node record carrying the node-global park fields,
+// followed by one record per namespace the node is checkpointing:
+//
+//	node:is_parked=<true|false>:park_ms=<n>;<ns>:state=<none|copying|done|failed>:files_completed=<n>:files_total=<n>
+//
+//	node:is_parked=true:park_ms=1500;ns1:state=done:files_completed=42:files_total=42;
+//	ns2:state=copying:files_completed=20:files_total=42
+//
+// Server 8.2.0 has no node record. It repeats the park fields on every namespace record:
 //
 //	<ns>:state=<none|copying|done|failed>:files_completed=<n>:files_total=<n>:is_parked=<true|false>:park_ms=<n>
 //
@@ -243,15 +252,11 @@ func ClassifyCheckpointSaveResponse(resp string) CheckpointSaveVerdict {
 //	ns2:state=copying:files_completed=20:files_total=42:is_parked=true:park_ms=1500
 //
 // A node that is configured but checkpointing NOTHING — every namespace opted out or
-// fully durable — still parks on a checkpoint-save, and reports the park alone, with no
-// namespace name and no state:
+// fully durable — still parks on a checkpoint-save, and reports the park alone, with no namespace name and no state.
+// Server 8.2.1 record outputs: node:is_parked=true:park_ms=1500
+// Server 8.2.1 outputs bare park fields: is_parked=true:park_ms=1500
 //
-//	is_parked=true:park_ms=1500
-//
-// That is a success, not an error: the node has left the cluster and has to be reaped
-// like any other parked node. A leading field containing '=' is what distinguishes such
-// a record from a named one.
-//
+// That is a success, not an error: the node has left the cluster and has to be reaped like any other parked node.
 // Malformed entries are skipped rather than failing the whole parse, so one bad entry
 // cannot hide the rest. A payload that is a server rejection returns an error —
 // ErrCheckpointNotConfigured when the feature is off on this node.
@@ -281,7 +286,8 @@ func ParseCheckpointStatus(resp string) (CheckpointResponse, error) {
 
 		fields := strings.Split(entry, ":")
 
-		// Only a namespace record leads with a bare name; the park-only record leads with a key=value.
+		// A leading field without '=' is a label: a namespace name, or the 8.2.1 node
+		// record's "node". The 8.2.0 park-only record has none and leads with a key=value.
 		name := ""
 		if !strings.Contains(fields[0], "=") {
 			name, fields = fields[0], fields[1:]
@@ -310,8 +316,10 @@ func ParseCheckpointStatus(resp string) (CheckpointResponse, error) {
 			}
 		}
 
+		// No state means this is not a namespace entry: it is the node record (8.2.1), the
+		// park-only record (8.2.0), or malformed. Its park fields were already taken above.
 		if name == "" || status.State == "" {
-			continue // the park-only record, or not a status entry
+			continue
 		}
 
 		response.Namespaces[name] = status
